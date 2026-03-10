@@ -2,7 +2,7 @@
 # WHAT'S CHANGED
 * AI agents now generate working software from plain English.
 * Hundreds of millions of domain experts can finally build solutions to problems only they understand.
-* The tool doing the building is probabilistic:—confident, inconsistent, and frequently wrong.
+* The tool doing the building is probabilistic: confident, inconsistent, and frequently wrong.
 
 # THE PROBLEM
 * Nontechnical creators are shipping software they cannot evaluate, secure, or maintain.
