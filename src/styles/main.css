@@ -1,0 +1,204 @@
+/* === Layout === */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100vh;
+}
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+/* === Hero === */
+
+.hero {
+  padding: var(--space-8) 0;
+  padding-top: 6rem;
+  text-align: center;
+}
+
+.hero-emblem {
+  display: block;
+  margin: 0 auto var(--space-6);
+  width: clamp(12rem, 30vw, 20rem);
+  height: auto;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 5vw, var(--text-2xl));
+  font-weight: var(--font-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4);
+}
+
+.hero-subtitle {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: var(--line-height-relaxed);
+}
+
+/* === Manifesto Sections === */
+
+.manifesto-section {
+  padding: var(--space-8) 0;
+}
+
+.manifesto-section--dark {
+  background-color: var(--pilot-950);
+  color: var(--text-on-dark);
+}
+
+.section-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--pilot-blue);
+  margin-bottom: var(--space-5);
+}
+
+.section-label--light {
+  color: var(--pilot-cyan);
+}
+
+.manifesto-points {
+  list-style: none;
+  counter-reset: manifesto;
+  padding: 0;
+  margin: 0;
+}
+
+.manifesto-points li {
+  counter-increment: manifesto;
+  position: relative;
+  padding-left: 3rem;
+  margin-bottom: var(--space-5);
+  font-size: var(--text-lg);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-primary);
+}
+
+.manifesto-points--light li {
+  color: var(--pilot-100);
+}
+
+.manifesto-points li::before {
+  content: counter(manifesto);
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--pilot-blue);
+  width: 2rem;
+  text-align: right;
+}
+
+.manifesto-points--light li::before {
+  color: var(--pilot-cyan);
+}
+
+.manifesto-points li strong {
+  color: var(--pilot-blue);
+}
+
+.manifesto-points--light li strong {
+  color: var(--pilot-cyan);
+}
+
+/* === CTA === */
+
+.cta-section {
+  padding: var(--space-8) 0;
+  text-align: center;
+  border-top: 1px solid var(--border-light);
+}
+
+.cta-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+}
+
+.cta-text {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  max-width: 32rem;
+  margin: 0 auto var(--space-5);
+  line-height: var(--line-height-relaxed);
+}
+
+.cta-button {
+  display: inline-block;
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background-color var(--duration-normal) var(--easing-default);
+}
+
+.cta-origin {
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* === Footer === */
+
+.footer {
+  margin-top: auto;
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border-light);
+  text-align: center;
+}
+
+.footer p {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* === Responsive === */
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: var(--space-8);
+  }
+
+  .manifesto-points li {
+    font-size: var(--text-base);
+    padding-left: 2.5rem;
+  }
+
+  .manifesto-points li::before {
+    font-size: var(--text-base);
+    width: 1.5rem;
+  }
+}

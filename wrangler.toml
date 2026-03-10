@@ -1,0 +1,9 @@
+# Software Pilots — Cloudflare Pages
+# Marketing site: manifesto + course landing page
+# Single environment: direct publish to production
+
+name = "softwarepilots"
+compatibility_date = "2026-03-09"
+
+[pages]
+build_output_dir = "dist"

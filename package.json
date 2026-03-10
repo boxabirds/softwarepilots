@@ -1,0 +1,21 @@
+{
+  "name": "softwarepilots",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "bun@1.2.17",
+  "scripts": {
+    "preinstall": "node -e \"var a=process.env.npm_config_user_agent||'';if(!a.startsWith('bun')){console.error('\\x1b[31mERROR: Use bun, not npm/yarn/pnpm.\\x1b[0m');process.exit(1)}\"",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pages:dev": "wrangler pages dev dist",
+    "deploy": "bun run build && wrangler pages deploy dist --project-name=softwarepilots --branch=main"
+  },
+  "author": "Julian Harris, Great Creations London Ltd",
+  "license": "ISC",
+  "description": "Software Pilots — the manifesto and foundation course",
+  "devDependencies": {
+    "vite": "^7.3.1",
+    "wrangler": "^4.71.0"
+  }
+}

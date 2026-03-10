@@ -1,0 +1,301 @@
+/*
+ * Software Pilots Brand Palette
+ *
+ * Derived from logo: deep blue code brackets (#1A4FD1) + cyan wings (#00AAFF → #33CCFF).
+ * Primary brand: deep blue. Secondary accent: cyan.
+ * All neutrals carry a subtle blue tint for cohesive brand feeling.
+ *
+ * Structure follows W3C Design Tokens pattern:
+ *   1. Raw scale (pilot-25 → pilot-950) — fixed, never auto-adapt
+ *   2. Semantic aliases (text, bg, border, interactive) — auto-adapt for dark mode
+ *   3. Status colours — chosen for clarity against blue brand
+ */
+
+:root {
+  /* === Typography === */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* === Core Brand Colours === */
+  --pilot-blue: #1A4FD1;           /* Deep blue — code brackets */
+  --pilot-blue-rgb: 26, 79, 209;
+  --pilot-cyan: #00AAFF;           /* Cyan — wings */
+  --pilot-cyan-rgb: 0, 170, 255;
+
+  /* === Blue-Tinted Light Scale === */
+  --pilot-25:  #FAFBFE;   /* Near white — barely perceptible blue tint */
+  --pilot-50:  #F4F6FD;   /* Very light — subtle blue tint */
+  --pilot-100: #E8EDFA;   /* Light blue-white */
+  --pilot-200: #D1DBF5;   /* Soft blue */
+  --pilot-300: #A8BBEB;   /* Medium-light blue */
+  --pilot-400: #7A98E0;   /* Medium blue */
+  --pilot-500: #1A4FD1;   /* Core brand blue */
+
+  /* === Blue-Tinted Dark Scale === */
+  --pilot-600: #1744B8;   /* Slightly darker */
+  --pilot-700: #13389E;   /* Dark blue */
+  --pilot-800: #0F2C7E;   /* Deeper */
+  --pilot-900: #0B205E;   /* Very dark blue */
+  --pilot-950: #07143D;   /* Near black — deep navy */
+
+  /* === Cyan Accent Scale (secondary) === */
+  --pilot-cyan-100: #E0F4FF;
+  --pilot-cyan-200: #B3E5FF;
+  --pilot-cyan-300: #66CCFF;
+  --pilot-cyan-400: #33BBFF;
+  --pilot-cyan-500: #00AAFF;   /* Core cyan */
+  --pilot-cyan-600: #0088CC;
+  --pilot-cyan-700: #006699;
+
+  /* === Semantic Aliases — Light Mode (default) === */
+
+  /* Text colours (blue-tinted neutrals) */
+  --text-primary:    #0D1526;   /* Near-black with blue undertone */
+  --text-secondary:  #2A3654;   /* Dark blue-grey */
+  --text-tertiary:   #4A5A7A;   /* Medium blue-grey */
+  --text-muted:      #7A8BA8;   /* Muted blue-grey */
+  --text-on-dark:    #E8EDFA;   /* Light text for dark backgrounds */
+  --text-on-brand:   #FFFFFF;   /* White text on brand blue */
+
+  /* Background colours (blue-tinted) */
+  --bg-base:         #FAFBFE;   /* Main background — cool white */
+  --bg-subtle:       #F4F6FD;   /* Elevated surfaces */
+  --bg-muted:        #E8EDFA;   /* Section backgrounds */
+  --bg-dark:         #0A0F1E;   /* Dark mode base */
+  --bg-dark-subtle:  #0F1630;   /* Dark mode elevated */
+  --bg-dark-muted:   #162040;   /* Dark mode sections */
+
+  /* Border colours (blue-tinted) */
+  --border-light:    #D1DBF5;   /* Subtle dividers */
+  --border-default:  #A8BBEB;   /* Standard borders */
+  --border-strong:   #1744B8;   /* Emphasized borders */
+  --border-dark:     #162040;   /* Dark mode borders */
+
+  /* Interactive states */
+  --interactive:         #1A4FD1;
+  --interactive-hover:   #00AAFF;   /* Cyan on hover — logo's secondary colour */
+  --interactive-active:  #1744B8;
+  --interactive-focus:   rgba(26, 79, 209, 0.4);
+
+  /* Status colours (chosen for contrast against blue brand) */
+  --status-success:     #22C55E;   /* Green */
+  --status-success-bg:  rgba(34, 197, 94, 0.15);
+  --status-warning:     #EAB308;   /* Amber */
+  --status-warning-bg:  rgba(234, 179, 8, 0.15);
+  --status-error:       #EF4444;   /* Red */
+  --status-error-bg:    rgba(239, 68, 68, 0.15);
+  --status-info:        #00AAFF;   /* Cyan — brand-aligned */
+  --status-info-bg:     rgba(0, 170, 255, 0.15);
+
+  /* RGB values for transparency calculations */
+  --status-success-rgb: 34, 197, 94;
+  --status-warning-rgb: 234, 179, 8;
+  --status-error-rgb:   239, 68, 68;
+
+  /* === Spacing Scale === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  /* === Border Radius Scale === */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* === Shadow Scale === */
+  --shadow-sm: 0 1px 2px rgba(10, 15, 30, 0.06);
+  --shadow-md: 0 2px 8px rgba(10, 15, 30, 0.10);
+  --shadow-lg: 0 8px 24px rgba(10, 15, 30, 0.14);
+  --shadow-xl: 0 16px 48px rgba(10, 15, 30, 0.18);
+
+  /* === Typography Scale === */
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  /* === Z-Index Scale === */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-modal-backdrop: 200;
+  --z-modal: 210;
+  --z-toast: 300;
+
+  /* === Transition Scale === */
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 200ms;
+  --easing-default: ease;
+  --easing-out: ease-out;
+  --easing-in-out: ease-in-out;
+}
+
+/* === Base Styles === */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* === Dark Mode (auto-detect) === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary:    #E8EDFA;
+    --text-secondary:  #A8BBEB;
+    --text-tertiary:   #7A98E0;
+    --text-muted:      #4A5A7A;
+
+    --bg-base:         #0A0F1E;
+    --bg-subtle:       #0F1630;
+    --bg-muted:        #162040;
+
+    --border-light:    #162040;
+    --border-default:  #2A3654;
+    --border-strong:   #4A5A7A;
+
+    --interactive-hover: #33BBFF;
+  }
+}
+
+/* === Manual Theme Classes === */
+
+.light {
+  --text-primary:    #0D1526;
+  --text-secondary:  #2A3654;
+  --text-tertiary:   #4A5A7A;
+  --text-muted:      #7A8BA8;
+
+  --bg-base:         #FAFBFE;
+  --bg-subtle:       #F4F6FD;
+  --bg-muted:        #E8EDFA;
+
+  --border-light:    #D1DBF5;
+  --border-default:  #A8BBEB;
+  --border-strong:   #1744B8;
+}
+
+.dark {
+  --text-primary:    #E8EDFA;
+  --text-secondary:  #A8BBEB;
+  --text-tertiary:   #7A98E0;
+  --text-muted:      #4A5A7A;
+
+  --bg-base:         #0A0F1E;
+  --bg-subtle:       #0F1630;
+  --bg-muted:        #162040;
+
+  --border-light:    #162040;
+  --border-default:  #2A3654;
+  --border-strong:   #4A5A7A;
+
+  --interactive-hover: #33BBFF;
+}
+
+/* === Utility Classes === */
+
+/* Backgrounds */
+.bg-base    { background-color: var(--bg-base); }
+.bg-subtle  { background-color: var(--bg-subtle); }
+.bg-muted   { background-color: var(--bg-muted); }
+.bg-brand   { background-color: var(--pilot-blue); }
+.bg-accent  { background-color: var(--pilot-cyan); }
+
+/* Text */
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary  { color: var(--text-tertiary); }
+.text-muted     { color: var(--text-muted); }
+.text-brand     { color: var(--pilot-blue); }
+.text-accent    { color: var(--pilot-cyan); }
+.text-on-dark   { color: var(--text-on-dark); }
+
+/* Borders */
+.border-light   { border-color: var(--border-light); }
+.border-default { border-color: var(--border-default); }
+.border-strong  { border-color: var(--border-strong); }
+
+/* Brand scale */
+.bg-pilot-25  { background-color: var(--pilot-25); }
+.bg-pilot-50  { background-color: var(--pilot-50); }
+.bg-pilot-100 { background-color: var(--pilot-100); }
+.bg-pilot-200 { background-color: var(--pilot-200); }
+.bg-pilot-300 { background-color: var(--pilot-300); }
+.bg-pilot-400 { background-color: var(--pilot-400); }
+.bg-pilot-500 { background-color: var(--pilot-500); }
+.bg-pilot-600 { background-color: var(--pilot-600); }
+.bg-pilot-700 { background-color: var(--pilot-700); }
+.bg-pilot-800 { background-color: var(--pilot-800); }
+.bg-pilot-900 { background-color: var(--pilot-900); }
+.bg-pilot-950 { background-color: var(--pilot-950); }
+
+/* === Component Patterns === */
+
+.btn-brand {
+  background-color: var(--pilot-blue);
+  color: var(--text-on-brand);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-normal) var(--easing-default);
+}
+
+.btn-brand:hover {
+  background-color: var(--interactive-hover);
+}
+
+.btn-brand:active {
+  background-color: var(--interactive-active);
+}
+
+.focus-brand:focus {
+  outline: 2px solid var(--interactive-focus);
+  outline-offset: 2px;
+}
+
+.card-brand {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.dark .card-brand {
+  background-color: var(--bg-dark-subtle);
+  border-color: var(--border-dark);
+}
+
+/* === Highlight Animation === */
+.highlighted {
+  animation: highlight-pulse 2s ease-out;
+}
+
+@keyframes highlight-pulse {
+  0% { background-color: var(--pilot-cyan); }
+  100% { background-color: transparent; }
+}
