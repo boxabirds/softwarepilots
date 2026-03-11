@@ -45,6 +45,8 @@ const EXERCISE_TITLES: Record<string, string> = {
 };
 
 const EDITOR_MIN_HEIGHT = 300;
+const SCROLL_BOTTOM_THRESHOLD = 50;
+const SUBMIT_BUTTON_SIZE = 32;
 
 type Phase = "steps" | "self-assessment" | "submitting" | "results";
 
@@ -69,10 +71,18 @@ export function Exercise() {
   const [snapshots, setSnapshots] = useState<RunSnapshot[]>([]);
   const [viewingSnapshot, setViewingSnapshot] = useState<number | null>(null);
   const [readyMessage, setReadyMessage] = useState(false);
+  const [predictionSubmitted, setPredictionSubmitted] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const activeStep = Math.min(snapshots.length, steps.length - 1);
   const currentStep = steps[activeStep];
-  const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null;
+
+  // Run is disabled if: not ready, not in steps phase, viewing snapshot,
+  // or step requires prediction input that hasn't been submitted yet
+  const needsPrediction = activeStep === 0 && currentStep?.input === "prediction" && !predictionSubmitted;
+  const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null || needsPrediction;
+
+  /* ---- Scrolling ---- */
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -80,10 +90,26 @@ export function Exercise() {
     });
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, scrollToBottom]);
+  const handleChatScroll = useCallback(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_BOTTOM_THRESHOLD);
+  }, []);
+
+  useEffect(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleChatScroll);
+    return () => el.removeEventListener("scroll", handleChatScroll);
+  }, [handleChatScroll]);
+
+  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, predictionSubmitted, scrollToBottom]);
+
+  /* ---- Handlers ---- */
 
   const handleRun = (output: string) => {
     setSnapshots((prev) => [...prev, { code, output }]);
+    setReadyMessage(false);
   };
 
   const handleRunClick = () => {
@@ -100,7 +126,13 @@ export function Exercise() {
     scrollToBottom();
   };
 
-  const handleSubmitClick = () => {
+  const handlePredictionSubmit = () => {
+    if (!prediction.trim()) return;
+    setPredictionSubmitted(true);
+  };
+
+  const handleReflectionSubmit = () => {
+    if (!reflection.trim()) return;
     setPhase("self-assessment");
   };
 
@@ -146,7 +178,7 @@ export function Exercise() {
     submitToApi();
   };
 
-  /* ---- Chat content (derived from state) ---- */
+  /* ---- Chat content ---- */
 
   function renderChat() {
     const elements: React.ReactNode[] = [];
@@ -163,14 +195,24 @@ export function Exercise() {
         </ChatCard>
       );
 
-      // Frozen prediction (shown after first run, stays in history)
-      if (i === 0 && prediction.trim() && snapshots.length > 0) {
+      // Frozen prediction (shown once submitted)
+      if (i === 0 && prediction.trim() && predictionSubmitted) {
         elements.push(
-          <ChatCard key="prediction" muted>
-            <FieldLabel>Your prediction</FieldLabel>
-            <QuotedBlock>{prediction}</QuotedBlock>
+          <ChatCard key="prediction" align="right">
+            <div style={quotedBlockStyle}>{prediction}</div>
           </ChatCard>
         );
+
+        // If prediction submitted but not yet run, show hint
+        if (snapshots.length === 0) {
+          elements.push(
+            <ChatCard key="run-hint" muted>
+              <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+                Click <strong>Run</strong> to see if you were right.
+              </span>
+            </ChatCard>
+          );
+        }
       }
 
       // Output cell (clickable to view code snapshot)
@@ -188,7 +230,16 @@ export function Exercise() {
       }
     }
 
-    // "Ready to test" message after resuming editing
+    // Reflection shown in chat after submission
+    if (reflection.trim() && phase !== "steps") {
+      elements.push(
+        <ChatCard key="reflection" align="right">
+          <div style={quotedBlockStyle}>{reflection}</div>
+        </ChatCard>
+      );
+    }
+
+    // "Ready to test" message
     if (readyMessage && phase === "steps") {
       elements.push(
         <ChatCard key="ready" muted>
@@ -228,63 +279,99 @@ export function Exercise() {
     return elements;
   }
 
-  /* ---- Input bar content (fixed at bottom of RHS) ---- */
+  /* ---- Input bar ---- */
 
   function renderInputBar() {
+    // Non-interactive states: just show status text inside the pill
     if (phase === "submitting") {
-      return <InputHint>Waiting for evaluation...</InputHint>;
+      return (
+        <InputPill>
+          <span style={hintTextStyle}>Waiting for evaluation...</span>
+        </InputPill>
+      );
     }
     if (phase === "results") {
-      return <InputHint>Exercise complete.</InputHint>;
+      return (
+        <InputPill>
+          <span style={hintTextStyle}>Exercise complete.</span>
+        </InputPill>
+      );
     }
     if (phase === "self-assessment") {
-      return <InputHint>Complete self-assessment above...</InputHint>;
+      return (
+        <InputPill>
+          <span style={hintTextStyle}>Complete self-assessment above...</span>
+        </InputPill>
+      );
     }
 
     if (!currentStep) return null;
 
-    if (currentStep.input === "prediction") {
+    // Step 0: prediction input (before submitted)
+    if (currentStep.input === "prediction" && !predictionSubmitted) {
       return (
-        <textarea
-          value={prediction}
-          onChange={(e) => setPrediction(e.target.value)}
-          placeholder="Type your prediction..."
-          rows={2}
-          style={textareaStyle}
-          autoFocus
-        />
+        <InputPill>
+          <textarea
+            value={prediction}
+            onChange={(e) => setPrediction(e.target.value)}
+            placeholder="Type your prediction..."
+            rows={2}
+            style={pillTextareaStyle}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && prediction.trim()) {
+                e.preventDefault();
+                handlePredictionSubmit();
+              }
+            }}
+          />
+          <SubmitArrow active={!!prediction.trim()} onClick={handlePredictionSubmit} />
+        </InputPill>
       );
     }
 
+    // Step 0 after prediction submitted: hint to run
+    if (currentStep.input === "prediction" && predictionSubmitted) {
+      return (
+        <InputPill>
+          <span style={hintTextStyle}>
+            Click <strong>Run</strong> to test your prediction.
+          </span>
+        </InputPill>
+      );
+    }
+
+    // Reflection input
     if (currentStep.input === "reflection") {
       return (
-        <div>
+        <InputPill>
           <textarea
             value={reflection}
             onChange={(e) => setReflection(e.target.value)}
-            placeholder="e.g. I removed str() and got a TypeError..."
-            rows={3}
-            style={textareaStyle}
+            placeholder="What did you change and what did you learn?"
+            rows={2}
+            style={pillTextareaStyle}
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && reflection.trim()) {
+                e.preventDefault();
+                handleReflectionSubmit();
+              }
+            }}
           />
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-            <button
-              onClick={handleSubmitClick}
-              disabled={!reflection.trim()}
-              style={reflection.trim() ? btnPrimary : btnDisabled}
-            >
-              Submit for Evaluation
-            </button>
-          </div>
-        </div>
+          <SubmitArrow active={!!reflection.trim()} onClick={handleReflectionSubmit} />
+        </InputPill>
       );
     }
 
+    // Run-only steps: hint
     if (currentStep.showRun) {
       return (
-        <InputHint>
-          Make your change in the editor, then click <strong>Run</strong>.
-        </InputHint>
+        <InputPill>
+          <span style={hintTextStyle}>
+            Make your change in the editor, then click <strong>Run</strong>.
+          </span>
+        </InputPill>
       );
     }
 
@@ -314,7 +401,6 @@ export function Exercise() {
 
         {/* Editor area */}
         <div style={{ flex: 1, position: "relative", minHeight: EDITOR_MIN_HEIGHT }}>
-          {/* CodeEditor always mounted for state preservation */}
           <div style={{
             position: "absolute",
             inset: 0,
@@ -330,7 +416,6 @@ export function Exercise() {
             />
           </div>
 
-          {/* Snapshot viewer (read-only) */}
           {viewingSnapshot !== null && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
               <div style={{
@@ -350,7 +435,7 @@ export function Exercise() {
           )}
         </div>
 
-        {/* Bottom bar: Run or Resume editing */}
+        {/* Bottom bar: Run or Resume */}
         <div style={{
           padding: "12px 20px",
           borderTop: "1px solid var(--border)",
@@ -367,8 +452,8 @@ export function Exercise() {
               disabled={runDisabled}
               style={runDisabled ? btnDisabled : btnPrimary}
             >
-              {editorReady && <span style={{ fontSize: 11 }}>&#9654;</span>}
-              {" "}{!editorReady ? "Loading Python..." : "Run"}
+              {editorReady && !needsPrediction && <span style={{ fontSize: 11 }}>&#9654;</span>}
+              {" "}{!editorReady ? "Loading Python..." : needsPrediction ? "Submit prediction first" : "Run"}
             </button>
           )}
         </div>
@@ -389,6 +474,17 @@ export function Exercise() {
           {renderChat()}
         </div>
 
+        {/* Scroll-to-bottom arrow */}
+        {!isAtBottom && (
+          <button
+            onClick={scrollToBottom}
+            style={scrollToBottomBtnStyle}
+            aria-label="Scroll to bottom"
+          >
+            &#8595;
+          </button>
+        )}
+
         {/* Self-assessment popup (above input bar) */}
         {phase === "self-assessment" && (
           <div style={{
@@ -407,11 +503,7 @@ export function Exercise() {
         )}
 
         {/* Fixed input bar */}
-        <div style={{
-          borderTop: "1px solid var(--border)",
-          padding: "16px 20px",
-          background: "var(--background)",
-        }}>
+        <div style={{ padding: "12px 20px 16px", background: "var(--muted)" }}>
           {renderInputBar()}
         </div>
       </div>
@@ -419,9 +511,57 @@ export function Exercise() {
   );
 }
 
-/* ---- Small components ---- */
+/* ---- Shared sub-components ---- */
 
-function ChatCard({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+function InputPill({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "flex-end",
+      gap: 8,
+      padding: "12px 16px",
+      background: "var(--background)",
+      border: "1px solid var(--border)",
+      borderRadius: 20,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SubmitArrow({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!active}
+      style={{
+        width: SUBMIT_BUTTON_SIZE,
+        height: SUBMIT_BUTTON_SIZE,
+        borderRadius: "50%",
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: active ? "pointer" : "default",
+        background: active ? "var(--primary)" : "var(--muted)",
+        color: active ? "var(--primary-foreground)" : "var(--muted-foreground)",
+        flexShrink: 0,
+        fontSize: 16,
+        transition: "background 0.15s, color 0.15s",
+      }}
+      aria-label="Submit"
+    >
+      &#8593;
+    </button>
+  );
+}
+
+function ChatCard({ children, muted, align }: {
+  children: React.ReactNode;
+  muted?: boolean;
+  align?: "right";
+}) {
   return (
     <div style={{
       marginTop: 12,
@@ -429,6 +569,7 @@ function ChatCard({ children, muted }: { children: React.ReactNode; muted?: bool
       background: muted ? "var(--muted)" : "var(--background)",
       borderRadius: 10,
       border: "1px solid var(--border)",
+      ...(align === "right" ? { marginLeft: 40 } : {}),
     }}>
       {children}
     </div>
@@ -457,7 +598,7 @@ function OutputCard({ index, output, selected, onClick }: {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <FieldLabel>Output (run #{index + 1})</FieldLabel>
         <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-          {selected ? "viewing code ←" : "click to view code"}
+          {selected ? "viewing code \u2190" : "click to view code"}
         </span>
       </div>
       <pre style={consoleStyle}>{output}</pre>
@@ -490,31 +631,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function QuotedBlock({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      padding: "8px 12px",
-      fontSize: 13,
-      fontFamily: "monospace",
-      lineHeight: 1.5,
-      borderLeft: "3px solid var(--border)",
-      background: "var(--muted)",
-      borderRadius: "0 4px 4px 0",
-      color: "var(--foreground)",
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function InputHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-      {children}
-    </div>
-  );
-}
-
 /* ---- Styles ---- */
 
 const metaLabelStyle: React.CSSProperties = {
@@ -525,19 +641,24 @@ const metaLabelStyle: React.CSSProperties = {
   color: "var(--muted-foreground)",
 };
 
-const textareaStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 12px",
-  fontSize: 13,
-  fontFamily: "monospace",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--background)",
-  color: "var(--foreground)",
-  resize: "none",
+const pillTextareaStyle: React.CSSProperties = {
+  flex: 1,
+  border: "none",
   outline: "none",
+  resize: "none",
+  fontSize: 14,
+  lineHeight: 1.5,
+  background: "transparent",
+  color: "var(--foreground)",
+  fontFamily: "inherit",
+  minHeight: 24,
+};
+
+const hintTextStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: "var(--muted-foreground)",
+  lineHeight: 1.5,
+  flex: 1,
 };
 
 const consoleStyle: React.CSSProperties = {
@@ -564,6 +685,17 @@ const snapshotCodeStyle: React.CSSProperties = {
   color: "#d4d4d4",
   overflowY: "auto",
   whiteSpace: "pre-wrap",
+};
+
+const quotedBlockStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  fontSize: 13,
+  fontFamily: "monospace",
+  lineHeight: 1.5,
+  borderLeft: "3px solid var(--border)",
+  background: "var(--muted)",
+  borderRadius: "0 4px 4px 0",
+  color: "var(--foreground)",
 };
 
 const inlineCodeStyle: React.CSSProperties = {
@@ -606,4 +738,24 @@ const spinnerStyle: React.CSSProperties = {
   borderTopColor: "transparent",
   borderRadius: "50%",
   animation: "spin 1s linear infinite",
+};
+
+const scrollToBottomBtnStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 100,
+  left: "50%",
+  transform: "translateX(-50%)",
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  border: "1px solid var(--border)",
+  background: "var(--background)",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 18,
+  color: "var(--muted-foreground)",
+  zIndex: 10,
 };
