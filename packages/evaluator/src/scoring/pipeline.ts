@@ -37,7 +37,7 @@ export async function evaluateSubmission(
   const content = JSON.parse(submission.content_json);
   const selfAssessment = submission.self_assessment_json
     ? JSON.parse(submission.self_assessment_json)
-    : { predictions: {} };
+    : null;
 
   // 3. Build prompt and call Gemini
   const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
@@ -48,13 +48,18 @@ export async function evaluateSubmission(
   const dimensions = parseEvaluatorResponse(modelResponse, rubric.dimensions);
 
   // 5. Compute scores and calibration gaps
+  const predictions = selfAssessment?.predictions ?? {};
   const result = buildScoringResult(
     dimensions,
-    selfAssessment.predictions,
+    predictions,
     rubric.pass_threshold
   );
 
-  // 6. Persist results
+  // 6. Persist results (omit calibration gaps if no self-assessment)
+  const calibrationJson = selfAssessment
+    ? JSON.stringify(result.calibration_gaps)
+    : null;
+
   await env.DB.prepare(
     `UPDATE submissions
      SET score_json = ?, calibration_gap_json = ?, evaluator_model = ?, scored_at = datetime('now')
@@ -62,7 +67,7 @@ export async function evaluateSubmission(
   )
     .bind(
       JSON.stringify(result.dimension_scores),
-      JSON.stringify(result.calibration_gaps),
+      calibrationJson,
       model,
       submissionId
     )

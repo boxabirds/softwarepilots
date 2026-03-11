@@ -15,7 +15,7 @@ interface SubmissionPayload {
     prediction?: string;
     modifications: string[];
   };
-  self_assessment: {
+  self_assessment?: {
     predictions: Record<string, number>;
     weakest_dimension: string;
   };
@@ -50,7 +50,7 @@ submissions.post("/", async (c) => {
       body.module_id,
       body.exercise_id,
       JSON.stringify(body.content),
-      JSON.stringify(body.self_assessment),
+      body.self_assessment ? JSON.stringify(body.self_assessment) : null,
       "v1"
     )
     .first<{ id: string }>();
@@ -121,17 +121,19 @@ function validateSubmission(body: SubmissionPayload): string | null {
     return "content.code is required";
   }
 
-  if (!body.self_assessment?.predictions) {
-    return "self_assessment.predictions is required";
-  }
+  if (body.self_assessment) {
+    if (!body.self_assessment.predictions) {
+      return "self_assessment.predictions is required when self_assessment is provided";
+    }
 
-  if (!body.self_assessment.weakest_dimension) {
-    return "self_assessment.weakest_dimension is required";
-  }
+    if (!body.self_assessment.weakest_dimension) {
+      return "self_assessment.weakest_dimension is required when self_assessment is provided";
+    }
 
-  for (const [key, value] of Object.entries(body.self_assessment.predictions)) {
-    if (typeof value !== "number" || value < MIN_SCORE || value > MAX_SCORE) {
-      return `self_assessment.predictions.${key} must be a number between ${MIN_SCORE} and ${MAX_SCORE}`;
+    for (const [key, value] of Object.entries(body.self_assessment.predictions)) {
+      if (typeof value !== "number" || value < MIN_SCORE || value > MAX_SCORE) {
+        return `self_assessment.predictions.${key} must be a number between ${MIN_SCORE} and ${MAX_SCORE}`;
+      }
     }
   }
 

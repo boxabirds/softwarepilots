@@ -48,15 +48,21 @@ describe("validateSubmission", () => {
     expect(validateSubmission(p)).toContain("content.code");
   });
 
-  it("rejects missing self_assessment.predictions", () => {
+  it("accepts missing self_assessment (optional)", () => {
+    const p = validPayload();
+    delete (p as Record<string, unknown>).self_assessment;
+    expect(validateSubmission(p)).toBeNull();
+  });
+
+  it("rejects missing self_assessment.predictions when self_assessment is provided", () => {
     const p = validPayload();
     (p.self_assessment as Record<string, unknown>).predictions = undefined;
     expect(validateSubmission(p)).toContain("predictions");
   });
 
-  it("rejects missing weakest_dimension", () => {
+  it("rejects missing weakest_dimension when self_assessment is provided", () => {
     const p = validPayload();
-    p.self_assessment.weakest_dimension = "";
+    p.self_assessment!.weakest_dimension = "";
     expect(validateSubmission(p)).toContain("weakest_dimension");
   });
 

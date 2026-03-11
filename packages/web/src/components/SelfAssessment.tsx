@@ -12,9 +12,10 @@ const DEFAULT_SCORE = 5;
 
 interface SelfAssessmentProps {
   onSubmit: (predictions: Record<string, number>, weakestDimension: string) => void;
+  onSkip?: () => void;
 }
 
-export function SelfAssessment({ onSubmit }: SelfAssessmentProps) {
+export function SelfAssessment({ onSubmit, onSkip }: SelfAssessmentProps) {
   const [predictions, setPredictions] = useState<Record<string, number>>(
     () => Object.fromEntries(DIMENSIONS.map((d) => [d.key, DEFAULT_SCORE]))
   );
@@ -84,23 +85,43 @@ export function SelfAssessment({ onSubmit }: SelfAssessmentProps) {
         </select>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={!isComplete}
-        style={{
-          width: "100%",
-          padding: "8px 16px",
-          fontSize: 13,
-          fontWeight: 500,
-          border: "none",
-          borderRadius: 6,
-          cursor: isComplete ? "pointer" : "default",
-          background: isComplete ? "var(--primary)" : "var(--muted)",
-          color: isComplete ? "var(--primary-foreground)" : "var(--muted-foreground)",
-        }}
-      >
-        Submit with Self-Assessment
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 500,
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              cursor: "pointer",
+              background: "var(--secondary)",
+              color: "var(--secondary-foreground)",
+            }}
+          >
+            Skip
+          </button>
+        )}
+        <button
+          onClick={handleSubmit}
+          disabled={!isComplete}
+          style={{
+            flex: 2,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 500,
+            border: "none",
+            borderRadius: 6,
+            cursor: isComplete ? "pointer" : "default",
+            background: isComplete ? "var(--primary)" : "var(--muted)",
+            color: isComplete ? "var(--primary-foreground)" : "var(--muted-foreground)",
+          }}
+        >
+          Submit with Self-Assessment
+        </button>
+      </div>
     </div>
   );
 }
