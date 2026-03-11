@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { CodeEditor, type CodeEditorHandle } from "../components/CodeEditor";
+import { CodeSkeleton } from "../components/CodeSkeleton";
 import { SelfAssessment } from "../components/SelfAssessment";
 import { ScoreDisplay } from "../components/ScoreDisplay";
 import { apiClient } from "../lib/api-client";
@@ -36,7 +37,6 @@ interface ChatMessage {
 const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const MAX_TUTOR_QUESTIONS = 30;
-const EDITOR_INTRO_OPACITY = 0.3;
 const INTRO_STEP_INDEX = -1;
 
 type Phase = "intro" | "steps" | "self-assessment" | "submitting" | "results";
@@ -94,6 +94,11 @@ export function Exercise() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Intro message sequencing
+  const introMessages = intro?.welcome ?? [];
+  const [introMessageIndex, setIntroMessageIndex] = useState(0);
+  const allIntroMessagesShown = introMessageIndex >= introMessages.length - 1;
+
   // Mobile layout
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<MobileTab>("exercise");
@@ -135,7 +140,7 @@ export function Exercise() {
     return () => el.removeEventListener("scroll", handleChatScroll);
   }, [handleChatScroll]);
 
-  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, chatMessages.length, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, chatMessages.length, introMessageIndex, scrollToBottom]);
 
   /* ---- Step-driven focus management ---- */
 
@@ -166,10 +171,30 @@ export function Exercise() {
     return () => window.removeEventListener("keydown", handler);
   }, [runDisabled]);
 
+  /* ---- Spacebar / Enter to advance intro ---- */
+
+  useEffect(() => {
+    if (phase !== "intro") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === " " || e.key === "Enter") {
+        // Don't hijack if user is typing in the chat input
+        if (document.activeElement?.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        handleIntroAdvance();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   /* ---- Handlers ---- */
 
-  const handleReady = () => {
-    setPhase("steps");
+  const handleIntroAdvance = () => {
+    if (!allIntroMessagesShown) {
+      setIntroMessageIndex((prev) => prev + 1);
+    } else {
+      setPhase("steps");
+    }
   };
 
   const handleRun = (output: string) => {
@@ -295,9 +320,11 @@ export function Exercise() {
     const elements: React.ReactNode[] = [];
 
     if (intro) {
-      elements.push(
-        <TutorCard key="intro-welcome" content={intro.welcome} />
-      );
+      for (let i = 0; i <= introMessageIndex && i < introMessages.length; i++) {
+        elements.push(
+          <TutorCard key={`intro-${i}`} content={introMessages[i]} />
+        );
+      }
 
       chatMessages
         .filter((msg) => msg.atStep === INTRO_STEP_INDEX)
@@ -460,10 +487,10 @@ export function Exercise() {
             <SubmitArrow active={!!inputText.trim() && !chatLoading} onClick={handleChatSubmit} />
           </InputPill>
           <button
-            onClick={handleReady}
+            onClick={handleIntroAdvance}
             className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[15px] font-semibold text-primary-foreground transition-transform duration-100"
           >
-            I'm ready — let's start
+            {allIntroMessagesShown ? "I\u2019m ready \u2014 let\u2019s start" : "Next"}
           </button>
         </div>
       );
@@ -567,24 +594,25 @@ export function Exercise() {
 
         {/* Editor area */}
         <div className="relative flex-1" style={{ minHeight: isMobile ? undefined : EDITOR_MIN_HEIGHT }}>
-          <div
-            className={`absolute inset-0 transition-opacity duration-300 ${
-              phase === "intro" ? "pointer-events-none" : ""
-            }`}
-            style={{
-              display: viewingSnapshot !== null ? "none" : "block",
-              opacity: phase === "intro" ? EDITOR_INTRO_OPACITY : 1,
-            }}
-          >
-            <CodeEditor
-              ref={editorRef}
-              exerciseId={fullExerciseId}
-              onCodeChange={setCode}
-              onRun={handleRun}
-              disabled={phase !== "steps"}
-              onReadyChange={setEditorReady}
-            />
-          </div>
+          {phase === "intro" ? (
+            <div className="absolute inset-0">
+              <CodeSkeleton />
+            </div>
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ display: viewingSnapshot !== null ? "none" : "block" }}
+            >
+              <CodeEditor
+                ref={editorRef}
+                exerciseId={fullExerciseId}
+                onCodeChange={setCode}
+                onRun={handleRun}
+                disabled={phase !== "steps"}
+                onReadyChange={setEditorReady}
+              />
+            </div>
+          )}
 
           {viewingSnapshot !== null && (
             <div

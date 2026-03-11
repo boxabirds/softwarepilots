@@ -23,8 +23,11 @@ print(label, "| Cheap?", cheap)`,
   },
   content: {
     intro: {
-      welcome:
-        "You're about to look at 5 lines of Python. You don't need to know Python \u2014 just read each line carefully and try to figure out what it does.\n\nThis exercise is about feeling how precise a computer is. It does exactly what it's told, nothing more, nothing less. You'll predict what the code will do, run it, and see if you were right.\n\nWhen you're ready, hit the button below.",
+      welcome: [
+        "You're about to look at 5 lines of Python. You don't need to know Python \u2014 just read each line carefully and try to figure out what it does.",
+        "This exercise is about feeling how precise a computer is. It does exactly what it's told, nothing more, nothing less.",
+        "You'll predict what the code will do, run it, and see if you were right. When you're ready, hit the button below.",
+      ],
     },
     steps: [
       {

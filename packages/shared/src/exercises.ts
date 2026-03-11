@@ -41,7 +41,7 @@ export interface PyodideExercise {
   sandbox: "pyodide";
   meta: ExerciseMeta;
   content: {
-    intro: { welcome: string };
+    intro: { welcome: string[] };
     steps: PyodideStep[];
   };
   rubric: ExerciseRubric;

@@ -46,7 +46,8 @@ describe("getExerciseContent", () => {
     const content = getExerciseContent("2.1");
     expect(content.title).toBe("The Compiler Moment");
     expect(content.sandbox).toBe("pyodide");
-    expect(content.intro.welcome).toContain("5 lines of Python");
+    expect(Array.isArray(content.intro.welcome)).toBe(true);
+    expect(content.intro.welcome[0]).toContain("5 lines of Python");
     expect(content.steps).toHaveLength(4);
   });
 
@@ -141,9 +142,11 @@ describe("Exercise 2.1 definition", () => {
   });
 
   describe("intro", () => {
-    it("has a welcome message", () => {
-      expect(ex.content.intro.welcome).toContain("5 lines of Python");
-      expect(ex.content.intro.welcome).toContain("predict what the code will do");
+    it("has welcome messages as array", () => {
+      expect(Array.isArray(ex.content.intro.welcome)).toBe(true);
+      expect(ex.content.intro.welcome.length).toBeGreaterThan(0);
+      expect(ex.content.intro.welcome[0]).toContain("5 lines of Python");
+      expect(ex.content.intro.welcome[2]).toContain("predict what the code will do");
     });
   });
 
