@@ -73,6 +73,7 @@ export function Exercise() {
   const [readyMessage, setReadyMessage] = useState(false);
   const [predictionSubmitted, setPredictionSubmitted] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showSnapshotPopup, setShowSnapshotPopup] = useState(false);
 
   const activeStep = Math.min(snapshots.length, steps.length - 1);
   const currentStep = steps[activeStep];
@@ -122,8 +123,10 @@ export function Exercise() {
 
   const handleResumeEditing = () => {
     setViewingSnapshot(null);
+    setShowSnapshotPopup(false);
     setReadyMessage(true);
     scrollToBottom();
+    requestAnimationFrame(() => editorRef.current?.focus());
   };
 
   const handlePredictionSubmit = () => {
@@ -429,7 +432,10 @@ export function Exercise() {
           </div>
 
           {viewingSnapshot !== null && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+            <div
+              style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
+              onDoubleClick={() => setShowSnapshotPopup(true)}
+            >
               <div style={{
                 padding: "8px 16px",
                 background: "var(--muted)",
@@ -443,6 +449,32 @@ export function Exercise() {
               <pre style={snapshotCodeStyle}>
                 {snapshots[viewingSnapshot].code}
               </pre>
+
+              {/* Double-click popup */}
+              {showSnapshotPopup && (
+                <div
+                  style={popupOverlayStyle}
+                  onClick={() => setShowSnapshotPopup(false)}
+                >
+                  <div
+                    style={popupCardStyle}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--foreground)" }}>
+                      This is from a previous run.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setShowSnapshotPopup(false);
+                        handleResumeEditing();
+                      }}
+                      style={btnPrimary}
+                    >
+                      Make another edit
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -818,6 +850,25 @@ const spinnerStyle: React.CSSProperties = {
   borderTopColor: "transparent",
   borderRadius: "50%",
   animation: "spin 1s linear infinite",
+};
+
+const popupOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(0,0,0,0.4)",
+  zIndex: 20,
+};
+
+const popupCardStyle: React.CSSProperties = {
+  padding: "20px 24px",
+  background: "var(--background)",
+  borderRadius: 12,
+  border: "1px solid var(--border)",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+  textAlign: "center",
 };
 
 const kbdStyle: React.CSSProperties = {

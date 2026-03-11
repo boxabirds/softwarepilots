@@ -11,6 +11,7 @@ print(label, "| Cheap?", cheap)`,
 
 export interface CodeEditorHandle {
   run: () => void;
+  focus: () => void;
 }
 
 interface CodeEditorProps {
@@ -70,7 +71,10 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
       }
     };
 
-    useImperativeHandle(ref, () => ({ run: handleRun }));
+    useImperativeHandle(ref, () => ({
+      run: handleRun,
+      focus: () => textareaRef.current?.focus(),
+    }));
 
     if (loadError) {
       return (
