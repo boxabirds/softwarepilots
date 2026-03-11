@@ -6,40 +6,56 @@
 
 ---
 
-## 1. Point Namecheap nameservers to Cloudflare
+## Automated setup
 
-Namecheap > Domain List > `softwarepilots.com` > Manage > Nameservers > change from "Namecheap BasicDNS" to **Custom DNS**. Enter the two nameservers Cloudflare assigns when you add the site (e.g. `ada.ns.cloudflare.com`, `will.ns.cloudflare.com` — assigned per-zone).
+The entire flow is scripted: [`scripts/namecheap-cloudflare-dns-setup.sh`](../scripts/namecheap-cloudflare-dns-setup.sh)
 
-This is the only Namecheap change. Namecheap remains the registrar; Cloudflare manages DNS from here.
+### Prerequisites
 
-Propagation: minutes to hours.
+| Credential | Where to get it | Required access |
+|-----------|----------------|----------------|
+| `CLOUDFLARE_API_TOKEN` | [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) | Zone: Edit, DNS: Edit, Account: Pages: Edit |
+| `CLOUDFLARE_ACCOUNT_ID` | Dashboard → any zone → Overview → right sidebar, or `wrangler whoami` | — |
+| `NAMECHEAP_API_USER` | Your Namecheap login username | — |
+| `NAMECHEAP_API_KEY` | [ap.www.namecheap.com/settings/tools/apiaccess](https://ap.www.namecheap.com/settings/tools/apiaccess/) | Account balance ≥ $50, or ≥ 20 domains, or ≥ $50 spent. Current IP must be whitelisted. |
+| `NAMECHEAP_CLIENT_IP` | `dig +short myip.opendns.com @resolver1.opendns.com` | Must match the whitelisted IP in Namecheap API settings |
 
-## 2. Add site to Cloudflare
-
-Cloudflare dashboard > **Add a Site** > enter `softwarepilots.com` > select plan. Cloudflare provides the nameservers for step 1.
-
-## 3. Create Pages project and deploy
+### Run
 
 ```bash
-bun run build
-wrangler pages project create softwarepilots
-wrangler pages deploy dist --project-name=softwarepilots --branch=main
+export CLOUDFLARE_API_TOKEN="..."
+export CLOUDFLARE_ACCOUNT_ID="..."
+export NAMECHEAP_API_USER="..."
+export NAMECHEAP_API_KEY="..."
+export NAMECHEAP_CLIENT_IP="$(dig +short myip.opendns.com @resolver1.opendns.com)"
+
+./scripts/namecheap-cloudflare-dns-setup.sh softwarepilots.com softwarepilots
 ```
 
-Gives a working `softwarepilots.pages.dev` URL immediately.
+### What the script does
 
-## 4. Connect custom domain
+1. Creates a Cloudflare zone for the domain (or finds existing)
+2. Updates Namecheap nameservers to Cloudflare's assigned pair via API
+3. Polls Cloudflare until the zone status is `active` (up to 30 min)
+4. Creates the Pages project (idempotent)
+5. Builds and deploys the site
+6. Attaches `softwarepilots.com` and `www.softwarepilots.com` as custom domains
 
-Cloudflare dashboard > **Workers & Pages** > `softwarepilots` > **Custom domains** > Add:
-- `softwarepilots.com`
-- `www.softwarepilots.com` (optional)
-
-Cloudflare auto-creates DNS records and provisions SSL.
-
-## 5. Verify
+### Verify
 
 ```bash
 curl -I https://softwarepilots.com
 ```
 
 Should return 200 with `server: cloudflare` header.
+
+---
+
+## Manual fallback
+
+If the script fails or you prefer the dashboard:
+
+1. **Cloudflare:** Add a Site → enter `softwarepilots.com` → note the assigned nameservers
+2. **Namecheap:** Domain List → `softwarepilots.com` → Manage → Nameservers → Custom DNS → paste Cloudflare nameservers
+3. **Deploy:** `bun run build && wrangler pages deploy dist --project-name=softwarepilots --branch=main`
+4. **Custom domain:** Dashboard → Workers & Pages → `softwarepilots` → Custom domains → Add `softwarepilots.com`

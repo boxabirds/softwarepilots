@@ -3,18 +3,26 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "bun@1.2.17",
+  "workspaces": ["packages/*"],
   "scripts": {
     "preinstall": "node -e \"var a=process.env.npm_config_user_agent||'';if(!a.startsWith('bun')){console.error('\\x1b[31mERROR: Use bun, not npm/yarn/pnpm.\\x1b[0m');process.exit(1)}\"",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "pages:dev": "wrangler pages dev dist",
-    "deploy": "bun run build && wrangler pages deploy dist --project-name=softwarepilots --branch=main"
+    "site:dev": "vite",
+    "site:build": "vite build",
+    "site:preview": "vite preview",
+    "site:deploy": "bun run site:build && wrangler pages deploy dist --project-name=softwarepilots --branch=main",
+    "api:dev": "bun run --filter @softwarepilots/api dev",
+    "evaluator:dev": "bun run --filter @softwarepilots/evaluator dev",
+    "web:dev": "bun run --filter @softwarepilots/web dev",
+    "setup": "bash scripts/setup-local.sh",
+    "dev:platform": "bash scripts/kill-dev-ports.sh && bun run --filter '@softwarepilots/*' dev",
+    "test": "bun run --filter '@softwarepilots/*' test",
+    "typecheck": "bun run --filter '@softwarepilots/*' typecheck"
   },
   "author": "Julian Harris, Great Creations London Ltd",
   "license": "ISC",
   "description": "Software Pilots — the manifesto and foundation course",
   "devDependencies": {
+    "typescript": "^5.8.3",
     "vite": "^7.3.1",
     "wrangler": "^4.71.0"
   }

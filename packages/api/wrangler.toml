@@ -1,0 +1,47 @@
+# Course API Worker — auth, submissions, progress
+name = "softwarepilots-api"
+main = "src/index.ts"
+compatibility_date = "2026-03-09"
+
+[dev]
+port = 8787
+
+[vars]
+ENVIRONMENT = "local"
+EVALUATOR_URL = "http://localhost:8788"
+WEB_APP_URL = "http://localhost:3000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db"
+database_id = "local"
+migrations_dir = "src/db/migrations"
+
+# Service binding to the Evaluator Worker
+[[services]]
+binding = "EVALUATOR"
+service = "softwarepilots-evaluator"
+
+[env.staging]
+name = "softwarepilots-api-staging"
+[env.staging.vars]
+ENVIRONMENT = "staging"
+WEB_APP_URL = "https://staging.softwarepilots.dev"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db-staging"
+database_id = "TBD"
+migrations_dir = "src/db/migrations"
+
+[env.production]
+name = "softwarepilots-api"
+[env.production.vars]
+ENVIRONMENT = "production"
+WEB_APP_URL = "https://app.softwarepilots.dev"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db"
+database_id = "TBD"
+migrations_dir = "src/db/migrations"

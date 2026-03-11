@@ -1,0 +1,20 @@
+{
+  "name": "@softwarepilots/evaluator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --persist-to ../../.wrangler/state --inspector-port 9230",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260301.0",
+    "vitest": "^3.2.1",
+    "wrangler": "^4.71.0"
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  }
+}

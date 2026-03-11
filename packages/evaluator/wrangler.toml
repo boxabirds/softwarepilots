@@ -1,0 +1,38 @@
+# Evaluator Worker — rubric engine, AI scoring, calibration
+name = "softwarepilots-evaluator"
+main = "src/index.ts"
+compatibility_date = "2026-03-09"
+
+[dev]
+port = 8788
+
+[vars]
+ENVIRONMENT = "local"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db"
+database_id = "local"
+migrations_dir = "../api/src/db/migrations"
+
+[env.staging]
+name = "softwarepilots-evaluator-staging"
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db-staging"
+database_id = "TBD"
+migrations_dir = "../api/src/db/migrations"
+
+[env.production]
+name = "softwarepilots-evaluator"
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "softwarepilots-db"
+database_id = "TBD"
+migrations_dir = "../api/src/db/migrations"
