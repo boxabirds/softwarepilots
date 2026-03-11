@@ -47,10 +47,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
     useEffect(() => {
       const ready = !loading && !loadError;
       onReadyChange?.(ready);
-      if (ready && !disabled) {
-        textareaRef.current?.focus();
-      }
-    }, [loading, loadError, onReadyChange, disabled]);
+    }, [loading, loadError, onReadyChange]);
 
     const updateCode = (newCode: string) => {
       setCode(newCode);

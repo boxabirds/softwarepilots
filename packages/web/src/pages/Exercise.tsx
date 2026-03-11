@@ -138,7 +138,7 @@ export function Exercise() {
       }
     }, 50);
     return () => clearTimeout(timer);
-  }, [activeStep, currentInputSubmitted, phase, viewingSnapshot, currentStep?.focus]);
+  }, [activeStep, currentInputSubmitted, phase, viewingSnapshot, currentStep?.focus, editorReady]);
 
   /* ---- Ctrl+Enter for Run ---- */
 
