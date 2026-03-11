@@ -14,6 +14,7 @@ interface ExerciseStep {
     placeholder: string;
   };
   showRun?: boolean;
+  focus?: "editor" | "input";
 }
 
 interface RunSnapshot {
@@ -27,19 +28,23 @@ const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
       prompt: "Read the code. **What do you think it will print?**",
       input: { type: "prediction", placeholder: "Type your prediction..." },
       showRun: true,
+      focus: "input",
     },
     {
       prompt: "Now try removing `str()` from line 3 and run again. What happens?",
       showRun: true,
+      focus: "editor",
     },
     {
       prompt: "Make one more change of your own. **What do you think will happen?**",
       input: { type: "prediction", placeholder: "Type your prediction..." },
       showRun: true,
+      focus: "input",
     },
     {
       prompt: "**What did you change, and what did you learn?**",
       input: { type: "reflection", placeholder: "What did you change and what did you learn?" },
+      focus: "input",
     },
   ],
 };
@@ -66,6 +71,7 @@ export function Exercise() {
 
   const editorRef = useRef<CodeEditorHandle>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [phase, setPhase] = useState<Phase>("steps");
   const [code, setCode] = useState("");
@@ -119,6 +125,21 @@ export function Exercise() {
 
   useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, scrollToBottom]);
 
+  /* ---- Step-driven focus management ---- */
+
+  useEffect(() => {
+    // Small delay to let the DOM settle after step transitions
+    const timer = setTimeout(() => {
+      if (phase !== "steps" || viewingSnapshot !== null) return;
+      if (currentStep?.focus === "editor") {
+        editorRef.current?.focus();
+      } else if (currentStep?.focus === "input") {
+        inputRef.current?.focus();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [activeStep, currentInputSubmitted, phase, viewingSnapshot, currentStep?.focus]);
+
   /* ---- Ctrl+Enter for Run ---- */
 
   useEffect(() => {
@@ -164,6 +185,9 @@ export function Exercise() {
     // If this step has no Run (e.g. reflection), trigger evaluation
     if (!currentStep?.showRun) {
       setPhase("self-assessment");
+    } else {
+      // Input submitted, user now needs to Run — focus editor
+      requestAnimationFrame(() => editorRef.current?.focus());
     }
   };
 
@@ -334,12 +358,12 @@ export function Exercise() {
       return (
         <InputPill>
           <textarea
+            ref={inputRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={currentStep.input.placeholder}
             rows={2}
             style={pillTextareaStyle}
-            autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
                 e.preventDefault();
