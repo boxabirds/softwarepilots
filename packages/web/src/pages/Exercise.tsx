@@ -195,16 +195,27 @@ export function Exercise() {
         </ChatCard>
       );
 
-      // Frozen prediction (shown once submitted)
+      // Step 0: prediction + output comparison card
       if (i === 0 && prediction.trim() && predictionSubmitted) {
-        elements.push(
-          <ChatCard key="prediction" align="right">
-            <div style={quotedBlockStyle}>{prediction}</div>
-          </ChatCard>
-        );
-
-        // If prediction submitted but not yet run, show hint
-        if (snapshots.length === 0) {
+        if (snapshots[0]) {
+          // After run: show prediction vs output side-by-side
+          const isSelected = viewingSnapshot === 0;
+          elements.push(
+            <ComparisonCard
+              key="comparison"
+              prediction={prediction}
+              output={snapshots[0].output}
+              selected={isSelected}
+              onClick={() => handleSnapshotClick(0)}
+            />
+          );
+        } else {
+          // Prediction submitted but not yet run
+          elements.push(
+            <ChatCard key="prediction" align="right">
+              <div style={quotedBlockStyle}>{prediction}</div>
+            </ChatCard>
+          );
           elements.push(
             <ChatCard key="run-hint" muted>
               <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
@@ -213,9 +224,10 @@ export function Exercise() {
             </ChatCard>
           );
         }
+        continue; // skip the generic output card for step 0
       }
 
-      // Output cell (clickable to view code snapshot)
+      // Output cell (clickable to view code snapshot) — steps 1+
       if (snapshots[i]) {
         const isSelected = viewingSnapshot === i;
         elements.push(
@@ -576,6 +588,52 @@ function ChatCard({ children, muted, align }: {
   );
 }
 
+function ComparisonCard({ prediction, output, selected, onClick }: {
+  prediction: string;
+  output: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const match = prediction.trim() === output.trim();
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        marginTop: 12,
+        padding: 16,
+        background: "var(--background)",
+        borderRadius: 10,
+        border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+        cursor: "pointer",
+        transition: "border-color 0.15s",
+      }}
+    >
+      <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+        <div style={{ flex: 1 }}>
+          <FieldLabel>Your prediction</FieldLabel>
+          <pre style={comparisonPreStyle}>{prediction}</pre>
+        </div>
+        <div style={{ flex: 1 }}>
+          <FieldLabel>Actual output</FieldLabel>
+          <pre style={comparisonPreStyle}>{output}</pre>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: match ? "var(--success)" : "var(--warning)",
+        }}>
+          {match ? "Exact match!" : "Not quite \u2014 spot the difference"}
+        </span>
+        <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+          {selected ? "viewing code \u2190" : "click to view code"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function OutputCard({ index, output, selected, onClick }: {
   index: number;
   output: string;
@@ -672,6 +730,18 @@ const consoleStyle: React.CSSProperties = {
   borderRadius: 6,
   whiteSpace: "pre-wrap",
   overflowX: "auto",
+};
+
+const comparisonPreStyle: React.CSSProperties = {
+  margin: 0,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontFamily: "monospace",
+  lineHeight: 1.5,
+  background: "#0d1117",
+  color: "#c9d1d9",
+  borderRadius: 6,
+  whiteSpace: "pre-wrap",
 };
 
 const snapshotCodeStyle: React.CSSProperties = {
