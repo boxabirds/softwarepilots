@@ -272,10 +272,10 @@ export function Exercise() {
         );
       }
 
-      // Output: comparison card for first prediction step, regular output for others
+      // Output: comparison card for any step with a prediction, regular output for others
       if (snapshots[i]) {
         const isSelected = viewingSnapshot === i;
-        if (i === FIRST_PREDICTION_STEP && submitted) {
+        if (submitted && steps[i].input?.type === "prediction") {
           elements.push(
             <ComparisonCard
               key={`comparison-${i}`}
