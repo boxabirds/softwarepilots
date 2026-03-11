@@ -447,10 +447,20 @@ export function Exercise() {
           )}
         </div>
 
+        {/* Undo hint */}
+        <div style={{
+          padding: "4px 20px",
+          borderTop: "1px solid var(--border)",
+          fontSize: 11,
+          color: "var(--muted-foreground)",
+          textAlign: "center",
+        }}>
+          <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Z</kbd> to undo edits
+        </div>
+
         {/* Bottom bar: Run or Resume */}
         <div style={{
-          padding: "12px 20px",
-          borderTop: "1px solid var(--border)",
+          padding: "8px 20px 12px",
           display: "flex",
           justifyContent: "flex-end",
         }}>
@@ -808,6 +818,16 @@ const spinnerStyle: React.CSSProperties = {
   borderTopColor: "transparent",
   borderRadius: "50%",
   animation: "spin 1s linear infinite",
+};
+
+const kbdStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "1px 4px",
+  fontSize: 10,
+  fontFamily: "inherit",
+  background: "var(--muted)",
+  border: "1px solid var(--border)",
+  borderRadius: 3,
 };
 
 const scrollToBottomBtnStyle: React.CSSProperties = {
