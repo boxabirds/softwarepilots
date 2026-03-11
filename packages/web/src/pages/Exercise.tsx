@@ -22,6 +22,13 @@ interface RunSnapshot {
   output: string;
 }
 
+interface ChatMessage {
+  role: "user" | "tutor";
+  content: string;
+  atStep: number;
+  onTopic?: boolean;
+}
+
 const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
   "2.1": [
     {
@@ -57,6 +64,7 @@ const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const SUBMIT_BUTTON_SIZE = 32;
 const FIRST_PREDICTION_STEP = 0;
+const MAX_TUTOR_QUESTIONS = 30;
 
 type Phase = "steps" | "self-assessment" | "submitting" | "results";
 
@@ -87,6 +95,9 @@ export function Exercise() {
   const [inputText, setInputText] = useState("");
   // Submitted inputs indexed by step number
   const [submittedInputs, setSubmittedInputs] = useState<Record<number, string>>({});
+  // Tutor conversation
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const activeStep = Math.min(snapshots.length, steps.length - 1);
   const currentStep = steps[activeStep];
@@ -96,6 +107,9 @@ export function Exercise() {
   // Run is gated if the step has input that must be submitted first
   const inputGatesRun = currentStep?.input && currentStep?.showRun && !currentInputSubmitted;
   const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null || !!inputGatesRun;
+
+  const tutorQuestionsUsed = chatMessages.filter((m) => m.role === "user").length;
+  const tutorLimitReached = tutorQuestionsUsed >= MAX_TUTOR_QUESTIONS;
 
   // Convenience accessors for the API
   const firstPrediction = submittedInputs[FIRST_PREDICTION_STEP] || "";
@@ -123,7 +137,7 @@ export function Exercise() {
     return () => el.removeEventListener("scroll", handleChatScroll);
   }, [handleChatScroll]);
 
-  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, chatMessages.length, scrollToBottom]);
 
   /* ---- Step-driven focus management ---- */
 
@@ -188,6 +202,45 @@ export function Exercise() {
     } else {
       // Input submitted, user now needs to Run — focus editor
       requestAnimationFrame(() => editorRef.current?.focus());
+    }
+  };
+
+  const handleChatSubmit = async () => {
+    const question = inputText.trim();
+    if (!question || chatLoading || tutorLimitReached) return;
+
+    const userMsg: ChatMessage = { role: "user", content: question, atStep: activeStep };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setInputText("");
+    setChatLoading(true);
+
+    try {
+      const response = await apiClient.post<{ reply: string; on_topic: boolean; topic?: string }>(
+        "/api/chat",
+        {
+          exercise_id: fullExerciseId,
+          message: question,
+          context: {
+            current_step: activeStep,
+            code,
+            snapshots,
+            submitted_inputs: submittedInputs,
+            conversation: [...chatMessages, userMsg].map(({ role, content }) => ({ role, content })),
+          },
+        }
+      );
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "tutor", content: response.reply, atStep: activeStep, onTopic: response.on_topic },
+      ]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "tutor", content: "Couldn't reach the tutor. Try again.", atStep: activeStep, onTopic: true },
+      ]);
+    } finally {
+      setChatLoading(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   };
 
@@ -297,6 +350,30 @@ export function Exercise() {
           );
         }
       }
+
+      // Tutor conversation for this step
+      chatMessages
+        .filter((msg) => msg.atStep === i)
+        .forEach((msg, j) => {
+          if (msg.role === "user") {
+            elements.push(
+              <ChatCard key={`chat-user-${i}-${j}`} align="right">
+                <div style={quotedBlockStyle}>{msg.content}</div>
+              </ChatCard>
+            );
+          } else {
+            elements.push(
+              <TutorCard key={`chat-tutor-${i}-${j}`} content={msg.content} />
+            );
+          }
+        });
+    }
+
+    // Tutor typing indicator
+    if (chatLoading) {
+      elements.push(
+        <TutorCard key="tutor-loading" content="" loading />
+      );
     }
 
     // "Ready to test" message
@@ -376,31 +453,49 @@ export function Exercise() {
       );
     }
 
-    // Input submitted but step has Run: hint to run
-    if (currentStep.input && currentInputSubmitted && currentStep.showRun) {
+    // Tutor question mode: available when step input is already submitted or step has no input
+    if (tutorLimitReached) {
       return (
         <InputPill>
-          <span style={hintTextStyle}>
-            Click <strong>Run</strong> to test your prediction.
-            {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
-          </span>
+          <span style={hintTextStyle}>You've used your tutor questions for this exercise.</span>
         </InputPill>
       );
     }
 
-    // Run-only step (no input): hint
-    if (currentStep.showRun && !currentStep.input) {
-      return (
-        <InputPill>
-          <span style={hintTextStyle}>
-            Make your change in the editor, then click <strong>Run</strong>.
-            {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
-          </span>
-        </InputPill>
-      );
-    }
+    // Show question textarea with contextual hint above
+    const runHint = currentStep.showRun ? (
+      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, paddingLeft: 2 }}>
+        {currentStep.input && currentInputSubmitted
+          ? <>Click <strong>Run</strong> to test your prediction. <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd></>
+          : !currentStep.input
+            ? <>Make your change, then <strong>Run</strong>. <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd></>
+            : null}
+      </div>
+    ) : null;
 
-    return null;
+    return (
+      <div>
+        {runHint}
+        <InputPill>
+          <textarea
+            ref={inputRef}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Ask about what you see..."
+            rows={1}
+            style={pillTextareaStyle}
+            disabled={chatLoading}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
+                e.preventDefault();
+                handleChatSubmit();
+              }
+            }}
+          />
+          <SubmitArrow active={!!inputText.trim() && !chatLoading} onClick={handleChatSubmit} />
+        </InputPill>
+      </div>
+    );
   }
 
   /* ---- Layout ---- */
@@ -715,6 +810,26 @@ function OutputCard({ index, output, selected, onClick }: {
   );
 }
 
+function TutorCard({ content, loading }: { content: string; loading?: boolean }) {
+  return (
+    <div style={tutorCardStyle}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: loading ? 0 : 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          Tutor
+        </span>
+      </div>
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+          <div style={spinnerStyle} />
+          <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Thinking...</span>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--foreground)" }}>{content}</div>
+      )}
+    </div>
+  );
+}
+
 function StepPrompt({ text }: { text: string }) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return (
@@ -888,6 +1003,16 @@ const kbdStyle: React.CSSProperties = {
   background: "var(--muted)",
   border: "1px solid var(--border)",
   borderRadius: 3,
+};
+
+const tutorCardStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: 16,
+  background: "var(--muted)",
+  borderRadius: 10,
+  border: "1px solid var(--border)",
+  borderLeft: "3px solid var(--primary)",
+  marginRight: 40,
 };
 
 const scrollToBottomBtnStyle: React.CSSProperties = {

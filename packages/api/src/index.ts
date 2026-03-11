@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./env";
 import { auth } from "./routes/auth";
 import { submissions } from "./routes/submissions";
+import { chat } from "./routes/chat";
 import { sessionValidation } from "./middleware/session-validation";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -35,5 +36,6 @@ app.get("/api/auth/me", async (c) => {
 });
 
 app.route("/api/submissions", submissions);
+app.route("/api/chat", chat);
 
 export default app;
