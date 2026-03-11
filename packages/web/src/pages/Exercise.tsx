@@ -9,7 +9,10 @@ import { apiClient } from "../lib/api-client";
 
 interface ExerciseStep {
   prompt: string;
-  input?: "prediction" | "reflection";
+  input?: {
+    type: "prediction" | "reflection";
+    placeholder: string;
+  };
   showRun?: boolean;
 }
 
@@ -22,7 +25,7 @@ const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
   "2.1": [
     {
       prompt: "Read the code. **What do you think it will print?**",
-      input: "prediction",
+      input: { type: "prediction", placeholder: "Type your prediction..." },
       showRun: true,
     },
     {
@@ -30,12 +33,13 @@ const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
       showRun: true,
     },
     {
-      prompt: "Make one more change of your own. Predict what will happen before you run it.",
+      prompt: "Make one more change of your own. **What do you think will happen?**",
+      input: { type: "prediction", placeholder: "Type your prediction..." },
       showRun: true,
     },
     {
       prompt: "**What did you change, and what did you learn?**",
-      input: "reflection",
+      input: { type: "reflection", placeholder: "What did you change and what did you learn?" },
     },
   ],
 };
@@ -47,6 +51,7 @@ const EXERCISE_TITLES: Record<string, string> = {
 const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const SUBMIT_BUTTON_SIZE = 32;
+const FIRST_PREDICTION_STEP = 0;
 
 type Phase = "steps" | "self-assessment" | "submitting" | "results";
 
@@ -64,24 +69,32 @@ export function Exercise() {
 
   const [phase, setPhase] = useState<Phase>("steps");
   const [code, setCode] = useState("");
-  const [prediction, setPrediction] = useState("");
-  const [reflection, setReflection] = useState("");
   const [editorReady, setEditorReady] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<RunSnapshot[]>([]);
   const [viewingSnapshot, setViewingSnapshot] = useState<number | null>(null);
   const [readyMessage, setReadyMessage] = useState(false);
-  const [predictionSubmitted, setPredictionSubmitted] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showSnapshotPopup, setShowSnapshotPopup] = useState(false);
+
+  // Per-step input: text the user types in the input bar
+  const [inputText, setInputText] = useState("");
+  // Submitted inputs indexed by step number
+  const [submittedInputs, setSubmittedInputs] = useState<Record<number, string>>({});
 
   const activeStep = Math.min(snapshots.length, steps.length - 1);
   const currentStep = steps[activeStep];
 
-  // Run is disabled if: not ready, not in steps phase, viewing snapshot,
-  // or step requires prediction input that hasn't been submitted yet
-  const needsPrediction = activeStep === 0 && currentStep?.input === "prediction" && !predictionSubmitted;
-  const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null || needsPrediction;
+  // Has the current step's required input been submitted?
+  const currentInputSubmitted = submittedInputs[activeStep] !== undefined;
+  // Run is gated if the step has input that must be submitted first
+  const inputGatesRun = currentStep?.input && currentStep?.showRun && !currentInputSubmitted;
+  const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null || !!inputGatesRun;
+
+  // Convenience accessors for the API
+  const firstPrediction = submittedInputs[FIRST_PREDICTION_STEP] || "";
+  const reflectionStep = steps.findIndex((s) => s.input?.type === "reflection");
+  const reflection = submittedInputs[reflectionStep] || "";
 
   /* ---- Scrolling ---- */
 
@@ -104,13 +117,27 @@ export function Exercise() {
     return () => el.removeEventListener("scroll", handleChatScroll);
   }, [handleChatScroll]);
 
-  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, predictionSubmitted, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [snapshots.length, phase, submittedInputs, scrollToBottom]);
+
+  /* ---- Ctrl+Enter for Run ---- */
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !runDisabled) {
+        e.preventDefault();
+        editorRef.current?.run();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [runDisabled]);
 
   /* ---- Handlers ---- */
 
   const handleRun = (output: string) => {
     setSnapshots((prev) => [...prev, { code, output }]);
     setReadyMessage(false);
+    setInputText(""); // clear for next step
   };
 
   const handleRunClick = () => {
@@ -129,14 +156,15 @@ export function Exercise() {
     requestAnimationFrame(() => editorRef.current?.focus());
   };
 
-  const handlePredictionSubmit = () => {
-    if (!prediction.trim()) return;
-    setPredictionSubmitted(true);
-  };
+  const handleInputSubmit = () => {
+    if (!inputText.trim()) return;
+    setSubmittedInputs((prev) => ({ ...prev, [activeStep]: inputText.trim() }));
+    setInputText("");
 
-  const handleReflectionSubmit = () => {
-    if (!reflection.trim()) return;
-    setPhase("self-assessment");
+    // If this step has no Run (e.g. reflection), trigger evaluation
+    if (!currentStep?.showRun) {
+      setPhase("self-assessment");
+    }
   };
 
   const submitToApi = async (
@@ -145,7 +173,7 @@ export function Exercise() {
     setPhase("submitting");
 
     const modifications: string[] = [];
-    if (reflection.trim()) modifications.push(reflection.trim());
+    if (reflection) modifications.push(reflection);
 
     try {
       const payload: Record<string, unknown> = {
@@ -154,7 +182,7 @@ export function Exercise() {
         content: {
           code,
           console_output: snapshots[snapshots.length - 1]?.output || "",
-          prediction: prediction.trim(),
+          prediction: firstPrediction,
           modifications,
         },
       };
@@ -198,60 +226,53 @@ export function Exercise() {
         </ChatCard>
       );
 
-      // Step 0: prediction + output comparison card
-      if (i === 0 && prediction.trim() && predictionSubmitted) {
-        if (snapshots[0]) {
-          // After run: show prediction vs output side-by-side
-          const isSelected = viewingSnapshot === 0;
+      // Submitted input for this step
+      const submitted = submittedInputs[i];
+      if (submitted) {
+        elements.push(
+          <ChatCard key={`input-${i}`} align="right">
+            <div style={quotedBlockStyle}>{submitted}</div>
+          </ChatCard>
+        );
+      }
+
+      // Waiting-for-run hint (input submitted but not yet run)
+      if (submitted && step.showRun && !snapshots[i]) {
+        elements.push(
+          <ChatCard key={`run-hint-${i}`} muted>
+            <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+              Click <strong>Run</strong> to see if you were right.
+              {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
+            </span>
+          </ChatCard>
+        );
+      }
+
+      // Output: comparison card for first prediction step, regular output for others
+      if (snapshots[i]) {
+        const isSelected = viewingSnapshot === i;
+        if (i === FIRST_PREDICTION_STEP && submitted) {
           elements.push(
             <ComparisonCard
-              key="comparison"
-              prediction={prediction}
-              output={snapshots[0].output}
+              key={`comparison-${i}`}
+              prediction={submitted}
+              output={snapshots[i].output}
               selected={isSelected}
-              onClick={() => handleSnapshotClick(0)}
+              onClick={() => handleSnapshotClick(i)}
             />
           );
         } else {
-          // Prediction submitted but not yet run
           elements.push(
-            <ChatCard key="prediction" align="right">
-              <div style={quotedBlockStyle}>{prediction}</div>
-            </ChatCard>
-          );
-          elements.push(
-            <ChatCard key="run-hint" muted>
-              <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                Click <strong>Run</strong> to see if you were right.
-              </span>
-            </ChatCard>
+            <OutputCard
+              key={`output-${i}`}
+              index={i}
+              output={snapshots[i].output}
+              selected={isSelected}
+              onClick={() => handleSnapshotClick(i)}
+            />
           );
         }
-        continue; // skip the generic output card for step 0
       }
-
-      // Output cell (clickable to view code snapshot) — steps 1+
-      if (snapshots[i]) {
-        const isSelected = viewingSnapshot === i;
-        elements.push(
-          <OutputCard
-            key={`output-${i}`}
-            index={i}
-            output={snapshots[i].output}
-            selected={isSelected}
-            onClick={() => handleSnapshotClick(i)}
-          />
-        );
-      }
-    }
-
-    // Reflection shown in chat after submission
-    if (reflection.trim() && phase !== "steps") {
-      elements.push(
-        <ChatCard key="reflection" align="right">
-          <div style={quotedBlockStyle}>{reflection}</div>
-        </ChatCard>
-      );
     }
 
     // "Ready to test" message
@@ -297,94 +318,59 @@ export function Exercise() {
   /* ---- Input bar ---- */
 
   function renderInputBar() {
-    // Non-interactive states: just show status text inside the pill
     if (phase === "submitting") {
-      return (
-        <InputPill>
-          <span style={hintTextStyle}>Waiting for evaluation...</span>
-        </InputPill>
-      );
+      return <InputPill><span style={hintTextStyle}>Waiting for evaluation...</span></InputPill>;
     }
     if (phase === "results") {
-      return (
-        <InputPill>
-          <span style={hintTextStyle}>Exercise complete.</span>
-        </InputPill>
-      );
+      return <InputPill><span style={hintTextStyle}>Exercise complete.</span></InputPill>;
     }
     if (phase === "self-assessment") {
-      return (
-        <InputPill>
-          <span style={hintTextStyle}>Complete self-assessment above...</span>
-        </InputPill>
-      );
+      return <InputPill><span style={hintTextStyle}>Complete self-assessment above...</span></InputPill>;
     }
-
     if (!currentStep) return null;
 
-    // Step 0: prediction input (before submitted)
-    if (currentStep.input === "prediction" && !predictionSubmitted) {
+    // Step has input and it hasn't been submitted yet: show textarea
+    if (currentStep.input && !currentInputSubmitted) {
       return (
         <InputPill>
           <textarea
-            value={prediction}
-            onChange={(e) => setPrediction(e.target.value)}
-            placeholder="Type your prediction..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder={currentStep.input.placeholder}
             rows={2}
             style={pillTextareaStyle}
             autoFocus
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && prediction.trim()) {
+              if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
                 e.preventDefault();
-                handlePredictionSubmit();
+                handleInputSubmit();
               }
             }}
           />
-          <SubmitArrow active={!!prediction.trim()} onClick={handlePredictionSubmit} />
+          <SubmitArrow active={!!inputText.trim()} onClick={handleInputSubmit} />
         </InputPill>
       );
     }
 
-    // Step 0 after prediction submitted: hint to run
-    if (currentStep.input === "prediction" && predictionSubmitted) {
+    // Input submitted but step has Run: hint to run
+    if (currentStep.input && currentInputSubmitted && currentStep.showRun) {
       return (
         <InputPill>
           <span style={hintTextStyle}>
             Click <strong>Run</strong> to test your prediction.
+            {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
           </span>
         </InputPill>
       );
     }
 
-    // Reflection input
-    if (currentStep.input === "reflection") {
-      return (
-        <InputPill>
-          <textarea
-            value={reflection}
-            onChange={(e) => setReflection(e.target.value)}
-            placeholder="What did you change and what did you learn?"
-            rows={2}
-            style={pillTextareaStyle}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && reflection.trim()) {
-                e.preventDefault();
-                handleReflectionSubmit();
-              }
-            }}
-          />
-          <SubmitArrow active={!!reflection.trim()} onClick={handleReflectionSubmit} />
-        </InputPill>
-      );
-    }
-
-    // Run-only steps: hint
-    if (currentStep.showRun) {
+    // Run-only step (no input): hint
+    if (currentStep.showRun && !currentStep.input) {
       return (
         <InputPill>
           <span style={hintTextStyle}>
             Make your change in the editor, then click <strong>Run</strong>.
+            {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
           </span>
         </InputPill>
       );
@@ -450,7 +436,6 @@ export function Exercise() {
                 {snapshots[viewingSnapshot].code}
               </pre>
 
-              {/* Double-click popup */}
               {showSnapshotPopup && (
                 <div
                   style={popupOverlayStyle}
@@ -506,8 +491,8 @@ export function Exercise() {
               disabled={runDisabled}
               style={runDisabled ? btnDisabled : btnPrimary}
             >
-              {editorReady && !needsPrediction && <span style={{ fontSize: 11 }}>&#9654;</span>}
-              {" "}{!editorReady ? "Loading Python..." : needsPrediction ? "Submit prediction first" : "Run"}
+              {editorReady && !inputGatesRun && <span style={{ fontSize: 11 }}>&#9654;</span>}
+              {" "}{!editorReady ? "Loading Python..." : inputGatesRun ? "Submit your answer first" : "Run"}
             </button>
           )}
         </div>
