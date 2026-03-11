@@ -60,13 +60,23 @@ const EXERCISE_TITLES: Record<string, string> = {
   "2.1": "The Compiler Moment",
 };
 
+const EXERCISE_INTROS: Record<string, { welcome: string }> = {
+  "2.1": {
+    welcome:
+      "You're about to look at 5 lines of Python. You don't need to know Python \u2014 just read each line carefully and try to figure out what it does.\n\nThis exercise is about feeling how precise a computer is. It does exactly what it's told, nothing more, nothing less. You'll predict what the code will do, run it, and see if you were right.\n\nWhen you're ready, hit the button below.",
+  },
+};
+
 const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const SUBMIT_BUTTON_SIZE = 32;
 const FIRST_PREDICTION_STEP = 0;
 const MAX_TUTOR_QUESTIONS = 30;
 
-type Phase = "steps" | "self-assessment" | "submitting" | "results";
+type Phase = "intro" | "steps" | "self-assessment" | "submitting" | "results";
+
+const INTRO_STEP_INDEX = -1;
+const EDITOR_INTRO_OPACITY = 0.3;
 
 /* ---- Component ---- */
 
@@ -81,7 +91,8 @@ export function Exercise() {
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const [phase, setPhase] = useState<Phase>("steps");
+  const intro = EXERCISE_INTROS[fullExerciseId];
+  const [phase, setPhase] = useState<Phase>(intro ? "intro" : "steps");
   const [code, setCode] = useState("");
   const [editorReady, setEditorReady] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -106,7 +117,7 @@ export function Exercise() {
   const currentInputSubmitted = submittedInputs[activeStep] !== undefined;
   // Run is gated if the step has input that must be submitted first
   const inputGatesRun = currentStep?.input && currentStep?.showRun && !currentInputSubmitted;
-  const runDisabled = !editorReady || phase !== "steps" || viewingSnapshot !== null || !!inputGatesRun;
+  const runDisabled = !editorReady || (phase !== "steps") || viewingSnapshot !== null || !!inputGatesRun;
 
   const tutorQuestionsUsed = chatMessages.filter((m) => m.role === "user").length;
   const tutorLimitReached = tutorQuestionsUsed >= MAX_TUTOR_QUESTIONS;
@@ -169,6 +180,11 @@ export function Exercise() {
 
   /* ---- Handlers ---- */
 
+  const handleReady = () => {
+    setPhase("steps");
+    // Focus will be handled by the step-driven focus effect
+  };
+
   const handleRun = (output: string) => {
     setSnapshots((prev) => [...prev, { code, output }]);
     setReadyMessage(false);
@@ -209,7 +225,8 @@ export function Exercise() {
     const question = inputText.trim();
     if (!question || chatLoading || tutorLimitReached) return;
 
-    const userMsg: ChatMessage = { role: "user", content: question, atStep: activeStep };
+    const chatStep = phase === "intro" ? INTRO_STEP_INDEX : activeStep;
+    const userMsg: ChatMessage = { role: "user", content: question, atStep: chatStep };
     setChatMessages((prev) => [...prev, userMsg]);
     setInputText("");
     setChatLoading(true);
@@ -231,12 +248,12 @@ export function Exercise() {
       );
       setChatMessages((prev) => [
         ...prev,
-        { role: "tutor", content: response.reply, atStep: activeStep, onTopic: response.on_topic },
+        { role: "tutor", content: response.reply, atStep: chatStep, onTopic: response.on_topic },
       ]);
     } catch {
       setChatMessages((prev) => [
         ...prev,
-        { role: "tutor", content: "Couldn't reach the tutor. Try again.", atStep: activeStep, onTopic: true },
+        { role: "tutor", content: "Couldn't reach the tutor. Try again.", atStep: chatStep, onTopic: true },
       ]);
     } finally {
       setChatLoading(false);
@@ -290,6 +307,37 @@ export function Exercise() {
 
   function renderChat() {
     const elements: React.ReactNode[] = [];
+
+    // Intro welcome message + intro chat messages
+    if (intro) {
+      elements.push(
+        <TutorCard key="intro-welcome" content={intro.welcome} />
+      );
+
+      chatMessages
+        .filter((msg) => msg.atStep === INTRO_STEP_INDEX)
+        .forEach((msg, j) => {
+          if (msg.role === "user") {
+            elements.push(
+              <ChatCard key={`intro-user-${j}`} align="right">
+                <div style={quotedBlockStyle}>{msg.content}</div>
+              </ChatCard>
+            );
+          } else {
+            elements.push(
+              <TutorCard key={`intro-tutor-${j}`} content={msg.content} />
+            );
+          }
+        });
+    }
+
+    // Don't render step content during intro
+    if (phase === "intro") {
+      if (chatLoading) {
+        elements.push(<TutorCard key="intro-loading" content="" loading />);
+      }
+      return elements;
+    }
 
     for (let i = 0; i < steps.length; i++) {
       if (i > activeStep) break;
@@ -419,6 +467,33 @@ export function Exercise() {
   /* ---- Input bar ---- */
 
   function renderInputBar() {
+    if (phase === "intro") {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <InputPill>
+            <textarea
+              ref={inputRef}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Ask a question..."
+              rows={1}
+              style={pillTextareaStyle}
+              disabled={chatLoading}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
+                  e.preventDefault();
+                  handleChatSubmit();
+                }
+              }}
+            />
+            <SubmitArrow active={!!inputText.trim() && !chatLoading} onClick={handleChatSubmit} />
+          </InputPill>
+          <button onClick={handleReady} style={readyBtnStyle}>
+            I'm ready — let's start
+          </button>
+        </div>
+      );
+    }
     if (phase === "submitting") {
       return <InputPill><span style={hintTextStyle}>Waiting for evaluation...</span></InputPill>;
     }
@@ -525,6 +600,9 @@ export function Exercise() {
             position: "absolute",
             inset: 0,
             display: viewingSnapshot !== null ? "none" : "block",
+            opacity: phase === "intro" ? EDITOR_INTRO_OPACITY : 1,
+            pointerEvents: phase === "intro" ? "none" : "auto",
+            transition: "opacity 0.3s ease",
           }}>
             <CodeEditor
               ref={editorRef}
@@ -583,21 +661,23 @@ export function Exercise() {
           )}
         </div>
 
-        {/* Undo hint */}
-        <div style={{
-          padding: "4px 20px",
-          borderTop: "1px solid var(--border)",
-          fontSize: 11,
-          color: "var(--muted-foreground)",
-          textAlign: "center",
-        }}>
-          <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Z</kbd> to undo edits
-        </div>
+        {/* Undo hint (hidden during intro) */}
+        {phase !== "intro" && (
+          <div style={{
+            padding: "4px 20px",
+            borderTop: "1px solid var(--border)",
+            fontSize: 11,
+            color: "var(--muted-foreground)",
+            textAlign: "center",
+          }}>
+            <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Z</kbd> to undo edits
+          </div>
+        )}
 
-        {/* Bottom bar: Run or Resume */}
+        {/* Bottom bar: Run or Resume (hidden during intro) */}
         <div style={{
           padding: "8px 20px 12px",
-          display: "flex",
+          display: phase === "intro" ? "none" : "flex",
           justifyContent: "flex-end",
         }}>
           {viewingSnapshot !== null ? (
@@ -1013,6 +1093,19 @@ const tutorCardStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   borderLeft: "3px solid var(--primary)",
   marginRight: 40,
+};
+
+const readyBtnStyle: React.CSSProperties = {
+  padding: "12px 24px",
+  fontSize: 15,
+  fontWeight: 600,
+  border: "none",
+  borderRadius: 10,
+  cursor: "pointer",
+  background: "var(--primary)",
+  color: "var(--primary-foreground)",
+  textAlign: "center",
+  transition: "transform 0.1s ease",
 };
 
 const scrollToBottomBtnStyle: React.CSSProperties = {
