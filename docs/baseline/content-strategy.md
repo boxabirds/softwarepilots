@@ -1,8 +1,8 @@
-# Content Strategy — Software Pilotry Foundation Course
+# Content Strategy — Software Pilotry Foundation Course (MVP)
 
-**Baseline v0.1 — March 2026**
+**Baseline v0.2 — March 2026**
 
-This document maps every module and exercise in the curriculum to the content types defined in [tech-architecture.md](./tech-architecture.md). Content types are referenced as CT-1 through CT-11.
+This document maps every module and exercise in the MVP curriculum to the content types defined in [tech-architecture.md](./tech-architecture.md). Content types are CT-1, CT-2, CT-6, and CT-7.
 
 ---
 
@@ -11,27 +11,36 @@ This document maps every module and exercise in the curriculum to the content ty
 | Code | Name | Execution | Cost |
 |------|------|-----------|------|
 | CT-1 | Narrative | Static (Pages CDN) | ~$0 |
-| CT-2 | Constrained code sandbox | Sandpack (client-side) | ~$0 |
-| CT-3 | Database sandbox | sql.js WASM (client-side) | ~$0 |
-| CT-4 | Diagnostic exercise | Broken page + DevTools | ~$0 |
-| CT-5 | Multi-output comparison | AI Gateway × N | Moderate |
-| CT-6 | Structured authoring | Editor + AI evaluator | Low |
-| CT-7 | Agent-assisted build | Containers / learner tools | High |
-| CT-8 | App review | Shared pre-built app | ~$0 |
-| CT-9 | Simulation exercise | AI personas × scenarios | Moderate-high |
-| CT-10 | Dashboard interpretation | Static synthetic dashboard | ~$0 |
-| CT-11 | Case study analysis | Narrative + structured response | Low |
+| CT-2 | Interactive sandbox | Client-side (Pyodide / Sandpack / sql.js / AI Gateway) | ~$0 (multi-output variant: moderate) |
+| CT-6 | Structured authoring | Editor + inline tutor (cheaper model) + AI evaluator (frontier model) | Low-moderate |
+| CT-7 | Agent-assisted build | Learner's own tools + AI evaluator | Low |
+
+**All scored exercises include:**
+- **Inline tutor** — active during the exercise, providing real-time paragraph-level or step-level feedback via cheaper model
+- **Self-assessment checkpoint** — before seeing scores, learner predicts their performance and identifies weakest dimension
+
+---
+
+## MVP Module Sequence
+
+Mastery gates enforce linear progression. Retrieval sprints at module boundaries revisit earlier concepts.
+
+```
+Module 1 → Module 2 → [retrieval sprint: M1] → Module 3 → [retrieval sprint: M2] →
+Module 4 → [retrieval sprint: M2, M3] → Module 6 → [retrieval sprint: M3, M4] →
+Module 8 → Final Project
+```
 
 ---
 
 ## Module 1: The New Landscape (2 hours)
 
-**Primary content types:** CT-1, CT-11, CT-6
+**Primary content types:** CT-1, CT-6
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
 | 1.0 | The barrier collapsed / Three roles / Accountability / Vibe coding / Stopping | CT-1 | Narrative with embedded diagrams. Three-role model visual. Vibe coding spectrum illustration. |
-| Ex 1.1 | Three AI-generated software failure case studies | CT-11 | Pre-written case studies (composite from real incidents). Learner answers: who had the problem, who generated the code, who was accountable, what went wrong. AI evaluator scores against rubric for role identification and causal analysis. |
+| Ex 1.1 | Three AI-generated software failure case studies | CT-1 + CT-6 | Pre-written case studies (composite from real incidents). Learner answers structured questions: who had the problem, who generated the code, who was accountable, what went wrong. AI evaluator scores against rubric for role identification and causal analysis. |
 | Ex 1.2 | Write a 200-word problem description in your own domain | CT-6 | Template: problem statement only, no solution. Evaluator rubric dimensions: problem clarity (is the problem distinct from any solution?), stakeholder identification, absence of solution bias. |
 
 **Content authoring notes:**
@@ -42,171 +51,163 @@ This document maps every module and exercise in the curriculum to the content ty
 
 ## Module 2: The Machine Beneath (4 hours)
 
-**Primary content types:** CT-1, CT-2, CT-3, CT-4
+**Primary content types:** CT-1, CT-2
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
-| 2.1 | The Compiler Moment (centrepiece) | CT-2 | **Sandpack instance.** Single editable `main.js` with 5 lines: variable assignment, arithmetic, string concatenation, conditional, `console.log`. Console panel visible. All other files locked/hidden. Template: `vanilla`. Exercise flow: (a) run the code, read the output; (b) modify one line, predict the output before running; (c) get it wrong; (d) learn. Evaluator asks for prediction before revealing result — the prediction/reality gap is the learning moment. |
-| 2.2 | The Request Lifecycle | CT-1 + CT-4 | Narrative: DNS → TCP → TLS → HTTP → response → render as a continuous story. Then a **diagnostic exercise**: open Chrome DevTools Network tab on a provided page. Platform serves a page with one broken resource (404). Learner must identify: which request failed, what status code, what the likely cause is. Submit structured report. |
-| 2.3 | Data Has Structure | CT-3 | **sql.js sandbox.** Pre-loaded SQLite database (e.g. a `patients` table with name, date_of_birth, appointment_date). Three guided queries: (a) SELECT to retrieve records; (b) INSERT a valid row; (c) INSERT violating a NOT NULL or type constraint. The constraint fails. Learner sees the error. They write: what happened, why, and what rule was violated. |
-| 2.4 | The Diagnostic Cockpit: Chrome DevTools | CT-4 | **Broken web page exercise.** Sandpack preview of an agent-generated page with three deliberate errors: (a) JavaScript error visible in Console (e.g. `undefined is not a function`); (b) failed network request visible in Network tab (404 for an image); (c) CSS issue visible in Elements (e.g. `display: none` hiding a required element). Learner submits a structured report identifying all three. AI evaluator scores against the error manifest: 3 errors, must find ≥2 to pass. |
+| 2.1 | The Compiler Moment (centrepiece) | CT-2 (Python/Pyodide) | **Pyodide instance.** Single editable Python file with 5 lines: variable assignment, arithmetic, string building, conditional, `print`. Console panel visible. Exercise flow: (a) run the code, read the output; (b) modify one line, predict the output before running; (c) get it wrong; (d) learn. The tutor asks for prediction before revealing result — the prediction/reality gap is the learning moment. |
+| 2.2 | The Request Lifecycle | CT-1 + CT-2 (diagnostic) | Narrative: DNS → TCP → TLS → HTTP → response → render as a continuous story. Then a **diagnostic exercise**: open Chrome DevTools Network tab on a provided page. Platform serves a page with one broken resource (404). Learner must identify: which request failed, what status code, what the likely cause is. Submit structured report. |
+| 2.3 | Data Has Structure | CT-2 (sql.js) | **sql.js sandbox.** Pre-loaded SQLite database (e.g. a `patients` table with name, date_of_birth, appointment_date). Three guided queries: (a) SELECT to retrieve records; (b) INSERT a valid row; (c) INSERT violating a NOT NULL or type constraint. The constraint fails. Learner sees the error. They write: what happened, why, and what rule was violated. |
+| 2.4 | The Diagnostic Cockpit: Chrome DevTools | CT-2 (diagnostic) | **Broken web page exercise.** Sandpack preview of an agent-generated page with three deliberate errors: (a) JavaScript error visible in Console (e.g. `undefined is not a function`); (b) failed network request visible in Network tab (404 for an image); (c) CSS issue visible in Elements (e.g. `display: none` hiding a required element). Learner submits structured report identifying all three. AI evaluator scores against the error manifest. Note: learners *inspect* JavaScript here — they don't write it. The diagnostic skill is reading error messages regardless of language. |
 
 **Content authoring notes:**
-- The compiler moment Sandpack config is the single most important piece of content in the entire course. The five lines must be carefully chosen: simple enough for a non-programmer, surprising enough that the prediction step produces genuine "aha" moments. Candidate lines:
-  ```js
-  let price = 10;
-  let tax = price * 0.2;
-  let label = "Total: " + (price + tax);
-  let cheap = price < 5;
-  console.log(label, "| Cheap?", cheap);
+- The compiler moment Pyodide config is the single most important piece of content in the entire course. The five lines must be carefully chosen: simple enough for a non-programmer, surprising enough that the prediction step produces genuine "aha" moments. Candidate lines:
+  ```python
+  price = 10
+  tax = price * 0.2
+  label = "Total: " + str(price + tax)
+  cheap = price < 5
+  print(label, "| Cheap?", cheap)
   ```
+  The `str()` call is a better teaching moment than JavaScript's silent coercion — removing it produces a TypeError, which is the compiler moment landing exactly as intended: the machine is precise and literal.
 - The broken page for Ex 2.4 should look like a plausible agent-generated app (e.g. a simple dashboard). Errors should be discoverable but not obvious without DevTools.
 - sql.js database file (~10KB) stored in R2, fetched on exercise load.
 
 ---
 
+## Retrieval Sprint: Module 1
+
+**Gate:** Must complete before entering Module 3.
+**Format:** 3–5 quick-recall questions, self-checked, no AI evaluation. ~10 minutes.
+**Sample questions:**
+- Name the three roles in the software pilotry model and describe each in one sentence.
+- A user reports that an AI-generated app leaked patient data. Who is accountable and why?
+- What distinguishes vibe coding from pilotry? When is vibe coding appropriate?
+
+---
+
 ## Module 3: The Probabilistic Machine (4 hours)
 
-**Primary content types:** CT-1, CT-5, CT-2, CT-6
+**Primary content types:** CT-1, CT-2, CT-6
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
-| 3.1 | The Stochastic Moment (centrepiece) | CT-5 | **Multi-output comparison.** Learner writes a one-paragraph specification (e.g. "a function that validates an email address and returns true or false"). Platform submits it 5 times via AI Gateway with identical parameters. 5 responses displayed side by side. Learner writes analysis: what was the same, what differed, which differences matter, which don't. AI evaluator scores the analysis. |
-| 3.2 | How Language Models Actually Work | CT-1 | Narrative: token prediction, temperature, context windows, training cutoff, hallucination, jagged frontier. Diagrams: temperature slider visualisation, context window as a sliding window over text. |
+| 3.1 | The Stochastic Moment (centrepiece) | CT-2 (multi-output) | **Multi-output comparison.** Learner writes a one-paragraph specification (e.g. "a function that validates an email address and returns true or false"). Platform submits it 5 times via AI Gateway with identical parameters. 5 responses displayed side by side. Learner writes analysis: what was the same, what differed, which differences matter, which don't. AI evaluator scores the analysis. |
+| 3.2 | How Language Models Actually Work | CT-1 | Narrative: token prediction, temperature, context windows, training cutoff, hallucination, jagged frontier, cognitive surrender (Shaw & Nave, 2026 — Tri-System Theory, System 3 as artificial cognition, N=1,372 experimental evidence that people adopt AI outputs without scrutiny, accuracy drops 15pp when AI errs). Diagrams: temperature slider visualisation, context window as a sliding window over text. |
 | 3.3 | Memory, State, and the Illusion of Continuity | CT-6 | **Three-session exercise.** Learner works with an agent across three simulated sessions on the same project (platform manages context). In session two, they introduce a deliberate requirement change contradicting session one. In session three, they ask for a requirements summary. Learner documents what the agent got right, wrong, and invented. Evaluated on observation quality. Implementation: Durable Object manages the three-session context, injecting contradictions at prescribed points. |
 | 3.4 | Model Selection as a Pilotry Skill | CT-1 | Narrative: frontier vs. edge vs. specialised models. Decision framework table (task complexity, data sensitivity, latency, cost). No exercise — conceptual framework, reinforced in later modules. |
 
 **Content authoring notes:**
-- For CT-5 (stochastic moment), the spec prompt must be carefully constrained — simple enough that 5 outputs are comparable, complex enough that meaningful differences emerge. Email validation is a strong candidate because there's genuine ambiguity in what "valid" means.
-- The three-session exercise (3.3) is the most technically complex content type. It requires a Durable Object to maintain multi-session state and inject contradictions. This is a custom content type variant of CT-6. Build it as a reusable "multi-session agent exercise" component.
+- For the stochastic moment, the spec prompt must be carefully constrained — simple enough that 5 outputs are comparable, complex enough that meaningful differences emerge. Email validation is a strong candidate because there's genuine ambiguity in what "valid" means.
+- The three-session exercise (3.3) is the most technically complex content type variant. It requires a Durable Object to maintain multi-session state and inject contradictions. Build it as a reusable "multi-session agent exercise" component.
 
 ---
 
-## Module 4: Specification — The Pilot's Primary Skill (5 hours)
+## Retrieval Sprint: Module 2
 
-**Primary content types:** CT-1, CT-6, CT-8
+**Gate:** Must complete before entering Module 4.
+**Format:** 3–5 quick-recall questions, self-checked. ~10 minutes.
+**Sample questions:**
+- A page loads but shows no data. You open the Network tab and see a request with status 500. What does that mean? Where is the problem?
+- What is the difference between a 401 and a 403 status code?
+- You try to insert a row into a database and get a constraint violation. What does that tell you?
+
+---
+
+## Module 4: Specification — The Pilot's Primary Skill (2.5 hours, MVP scope)
+
+**Primary content types:** CT-1, CT-6, CT-2
+
+**MVP scope:** Sections 4.1–4.3 only. Sections 4.4 (Decomposition), 4.5 (Constraints), and 4.6 (Specification for Different Audiences) are deferred to the full course.
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
 | 4.1 | Problem Before Solution | CT-6 | Learner is given a vague brief ("I need a booking system for my dental practice"). Must generate 15 clarifying questions before writing any specification. Evaluator rubric: would the questions change the solution? Questions like "How many dentists?" score higher than "What colour should the buttons be?" |
-| 4.2 | Testable Acceptance Criteria | CT-6 | Rewrite 5 vague requirements as testable acceptance criteria. Each must include: actor, action, expected outcome, measurable threshold, failure case. Evaluator scores each criterion independently on measurability and completeness. Platform provides the 5 vague requirements as input. |
-| 4.3 | Edge Cases and Failure Modes | CT-8 + CT-6 | Given an agent-generated CRUD app (pre-built, shared — CT-8), find and document 5 unhandled edge cases. Then write the specification addenda that would have prevented each. Evaluator scores on edge case severity and specification precision. The app is deliberately built without edge case handling — empty inputs succeed, concurrent edits overwrite, long strings overflow. |
-| 4.4 | Decomposition and Sequencing | CT-6 | Given a product brief (e.g. "project management tool for a small construction company"), decompose into 8–12 user stories, sequence by dependency, identify the walking skeleton. Evaluator scores on: vertical slicing, dependency logic, walking skeleton identification. |
-| 4.5 | Constraint Specification | CT-6 | For the dental booking system from 4.1, write the constraint specification: authentication, data privacy (patient health records), availability, accessibility. Evaluator scores on completeness and regulatory awareness (GDPR/health data is the critical dimension). |
-| 4.6 | Specification for Different Audiences | CT-1 | Narrative: how specification detail varies by agent autonomy level. More autonomous agents need more constraints, less procedural guidance. Reference back to Module 5 (taught out of order — this section previews concepts Module 5 will formalise). |
+| 4.2 | Testable Acceptance Criteria | CT-6 | Rewrite 5 vague requirements as testable acceptance criteria. Each must include: actor, action, expected outcome, measurable threshold, failure case. Evaluator scores each criterion independently on measurability and completeness. Platform provides the 5 vague requirements as input. Inline tutor prompts: "What's the measurable threshold?" "What happens when this fails?" Semantic triangulation concept introduced: code, tests, and specification as three independent angles on the same intent — where any two diverge, it signals a hidden assumption. |
+| 4.3 | Edge Cases and Failure Modes | CT-2 (diagnostic) + CT-6 | Given an agent-generated CRUD app (pre-built, shared), find and document 5 unhandled edge cases. Then write the specification addenda that would have prevented each. Evaluator scores on edge case severity and specification precision. The app is deliberately built without edge case handling — empty inputs succeed, concurrent edits overwrite, long strings overflow. **Embedded callback to Module 2:** learner must use DevTools to discover at least one edge case (e.g. a console error on empty input). |
 
 **Content authoring notes:**
-- Module 4 is the longest and most important. Six exercises, all CT-6 (structured authoring with AI evaluation). The evaluator rubrics here need the most careful design — specification quality is subjective, so rubrics must be very specific about what "testable" means, what "measurable threshold" means, etc.
-- The pre-built CRUD app for 4.3 (CT-8) should be a simple form-based app — contacts list or task manager. Build it once, serve to all learners. Deliberately omit: input validation, concurrent edit handling, input length limits, error states for missing data, and XSS sanitisation.
+- Module 4 exercises are all CT-6 (structured authoring with AI evaluation). The evaluator rubrics here need the most careful design — specification quality is subjective, so rubrics must be very specific about what "testable" means, what "measurable threshold" means, etc.
+- The pre-built CRUD app for 4.3 should be a simple form-based app — contacts list or task manager. Build it once, serve to all learners. Deliberately omit: input validation, concurrent edit handling, input length limits, error states for missing data, and XSS sanitisation.
 - The five vague requirements for 4.2 need to span different types: performance ("the system should be fast"), security ("users can log in"), UX ("the interface should be intuitive"), data ("the system should store customer information"), and reliability ("it should always work").
 
 ---
 
-## Module 5: The Autonomy Spectrum (3 hours)
+## Retrieval Sprint: Modules 2 & 3
 
-**Primary content types:** CT-1, CT-11
-
-| Section | Content | Type | Detail |
-|---------|---------|------|--------|
-| 5.1 | The Spectrum | CT-1 | Narrative: five-level taxonomy from structured workflow to self-modifying system. Interactive visual: a slider or stepped diagram showing how failure modes change at each level. Pilot role evolution: operator → supervisor → director → governor. |
-| 5.2 | Multi-Agent Coordination | CT-1 | Narrative: promise and risk of agent swarms. Groupthink hallucination, circular validation, architectural incoherence. Air traffic control analogy. |
-| 5.3 | Agentic Agency | CT-1 | Narrative: what self-direction actually means. The trajectory (12-month view). |
-| Ex 5.1 | Agent risk classification | CT-11 | Three agent tool descriptions provided (one workflow, one semi-autonomous, one swarm). Learner classifies each on the spectrum, identifies failure modes, writes a risk assessment for using each on a patient-facing healthcare app. Evaluator scores on: correct classification, failure mode identification, risk reasoning. |
-
-**Content authoring notes:**
-- The three agent descriptions for Ex 5.1 should be anonymised but recognisable composites. E.g. Description A reads like a CI/CD pipeline with AI steps, B reads like Claude Code, C reads like a multi-agent review team. Learners should be able to classify even without knowing the specific tools.
-- The autonomy spectrum visual should be interactive — hover/tap reveals failure modes at each level. Implementable as a Sandpack embed with a simple React component, or as vanilla HTML/CSS/JS within the SPA.
+**Gate:** Must complete before entering Module 6.
+**Format:** 3–5 quick-recall questions, self-checked. ~10 minutes.
+**Sample questions:**
+- You give the same specification to an AI agent twice and get different code. Why? What does this mean for verification?
+- What is cognitive surrender and why is it dangerous for a software pilot?
+- An agent claims its code "passes all tests." Why is this insufficient evidence that the software works?
 
 ---
 
-## Module 6: Building with Agents (4 hours)
+## Module 6: Building with Agents (3 hours)
 
-**Primary content types:** CT-1, CT-7, CT-4, CT-8, CT-6
+**Primary content types:** CT-1, CT-7, CT-2, CT-6
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
-| 6.1 | The Build Cycle | CT-1 + CT-7 | Narrative introduces the cycle: spec → prompt → output → review → diagnose → refine → iterate. Then the learner does it: using either the platform-hosted agent environment (Container + VibeSDK fork) or their own tools, build a working app from a specification they wrote in Module 4. **This is the first CT-7 exercise.** |
-| 6.2 | Applied Diagnostics | CT-4 | The app built in 6.1 will have issues. Learner uses DevTools to diagnose: console errors, network failures, environment issues. Structured report submitted. This is CT-4 applied to the learner's own build, not a pre-made broken page. |
-| 6.3 | Security Awareness in Practice | CT-8 + CT-6 | Pre-built agent-generated app with 3 deliberate security flaws: hardcoded API key, unprotected route, unsanitised user input. Learner finds all three, describes in plain language, writes the constraint spec that would have prevented each. |
+| 6.1 | The Build Cycle | CT-1 + CT-7 | Narrative introduces the cycle: spec → prompt → output → review → diagnose → refine → iterate. Then the learner does it: using their own agent tool (Claude Code, Cursor, Windsurf, or similar), build a working app from a specification they wrote in Module 4. Learner submits a URL or uploads a bundle for evaluation. **Embedded callback to Module 4:** the specification they wrote IS the input — they experience the consequences of their own specification quality. |
+| 6.2 | Applied Diagnostics | CT-2 (diagnostic) | The app built in 6.1 will have issues. Learner uses DevTools to diagnose: console errors, network failures, environment issues. Structured report submitted. **Embedded callback to Module 2:** this is the DevTools cockpit from 2.4 applied to the learner's own build, not a pre-made broken page. |
+| 6.3 | Security Awareness in Practice | CT-2 (diagnostic) + CT-6 | Pre-built agent-generated app with 3 deliberate security flaws: hardcoded API key, unprotected route, unsanitised user input. Learner finds all three, describes in plain language, writes the constraint spec that would have prevented each. |
 | 6.4 | Knowing Your Limits | CT-6 | Given a project brief, assess against the 7 warning signs. Write a hiring brief for a software pilot: what expertise is needed, what success looks like. Evaluator scores on honest self-assessment and brief quality. |
 
 **Content authoring notes:**
-- **CT-7 is the critical path.** This is where the platform either delivers or doesn't. Two options must work:
-  - **Platform-hosted:** VibeSDK fork in a Container. Learner pastes their spec from Module 4 into the build UI. Agent generates the app. Learner reviews against their own acceptance criteria. Iterates.
-  - **Bring-your-own-tools:** Learner builds in Claude Code, Cursor, Windsurf, etc. Uploads a zip or provides a URL. Platform evaluates the submitted artefact.
-- Both paths converge at evaluation: the platform scores the output against the learner's own specification from Module 4. This is a unique evaluation pattern — the rubric is partially generated by the learner themselves.
-- The security flaw app for 6.3 (CT-8): build a simple Node/Express app. Hardcode an API key in a client-side script tag. Leave one route unprotected behind no auth check. Pass a form field directly into a SQL query string. Serve from a shared Container or Pages.
+- **Bring-your-own-tools is the only path for MVP.** Learner builds in their preferred agent environment. Platform evaluates the submitted artefact. Both paths converge at evaluation: the platform scores the output against the learner's own specification from Module 4.
+- The security flaw app for 6.3: build a simple Node/Express app. Hardcode an API key in a client-side script tag. Leave one route unprotected behind no auth check. Pass a form field directly into a SQL query string. Serve from Pages as a shared static app.
 
 ---
 
-## Module 7: Users, Data, and the Dual Interface (4 hours)
+## Retrieval Sprint: Modules 3 & 4
 
-**Primary content types:** CT-1, CT-9, CT-10, CT-6
-
-| Section | Content | Type | Detail |
-|---------|---------|------|--------|
-| 7.1 | The Dual Interface | CT-1 | Narrative: every interface consumed by humans and agents. Semantic structure, API-first design, machine-readable metadata, accessibility as dual-use investment. |
-| 7.2 | Agentic UX Patterns | CT-1 | Narrative: confidence communication, override design, automation complacency, progressive disclosure, error recovery. Illustrated with annotated screenshots/mockups of good and bad patterns. |
-| 7.3 | Simulation and Synthetic Testing | CT-9 | **Simulation exercise.** For a given application (the app from Module 6, or a provided one), learner defines 3 user personas with distinct needs (e.g. tech-savvy power user, elderly first-time user, user with visual impairment). Writes 3 scenarios per persona. Platform runs the personas as synthetic tests via AI. Learner interprets results. Evaluator scores persona quality, scenario coverage, and interpretation. |
-| 7.4 | Observability: Your Black Box Recorder | CT-1 + CT-4 | Narrative: logging, tracing, telemetry. Then a diagnostic exercise: two identical-looking apps, one with logging and one without. Both broken. Learner attempts to diagnose both. The point: the one without logs is a brick wall. Structured report. |
-| 7.5 | Reading Data: Analytics as a Pilotry Skill | CT-10 | **Dashboard interpretation.** Simulated SaaS dashboard with synthetic data. Five questions: conversion rate, onboarding drop-off point, performance trend, error-prone segment, next investigation. AI evaluator scores against known answers. |
-
-**Content authoring notes:**
-- The simulation exercise (7.3) is technically ambitious. The platform needs to: (a) accept persona + scenario definitions, (b) generate synthetic user behaviour via AI against a target app, (c) report pass/fail per scenario. This is a specialised CT-9 implementation. Consider a simpler v1 where the "simulation" is the AI evaluator reasoning about what would happen, rather than actually interacting with the app.
-- The analytics dashboard (7.5) should be a static React component with realistic-looking charts (recharts or similar). Data is pre-computed and baked in — no live data connection. Design it to look like a real Mixpanel/Amplitude dashboard. Synthetic data for a hypothetical SaaS: ~6 months of data, clear trends, one anomaly, one underperforming segment.
-- The observability exercise (7.4) requires two versions of the same app: one that writes structured logs, one that doesn't. Both have the same bug. Serve both from Pages. When the learner tries to diagnose the no-logs version, they hit a wall. That's the lesson.
+**Gate:** Must complete before entering Module 8.
+**Format:** 3–5 quick-recall questions, self-checked. ~10 minutes.
+**Sample questions:**
+- Write one testable acceptance criterion for: "The system should handle errors gracefully." Include actor, action, threshold, and failure case.
+- You built an app with an AI agent and it works. What are three reasons you should NOT trust it?
+- What is the difference between an edge case and a failure mode?
 
 ---
 
-## Module 8: Verification and Acceptance (3 hours)
+## Module 8: Verification, Acceptance, and Sustainable Practice (3 hours)
 
-**Primary content types:** CT-1, CT-8, CT-6
+**Primary content types:** CT-1, CT-2, CT-6
+
+This module combines the original Module 8 (Verification and Acceptance) with the wellbeing core from Module 9 (Sustainable Practice). The regulation and accountability landscape from Module 9 is deferred to the full course.
 
 | Section | Content | Type | Detail |
 |---------|---------|------|--------|
-| 8.1 | The Verification Problem | CT-1 | Narrative: why agent-generated tests are insufficient. The agent writes tests that pass its own broken code. Five verification strategies: specification-driven review, independent test generation, edge case probing, adversarial testing, user simulation. |
+| 8.1 | The Verification Problem | CT-1 | Narrative: why agent-generated tests are insufficient — the agent writes tests that pass its own broken code. The collapse of code review as motivation: traditional review is buckling under AI-generated volume (Latent Space/Faros.ai data — 98% more PRs, 91% longer reviews, developers report AI code harder to review than human code). Verification must move upstream to specification and downstream to independent acceptance testing. Five verification strategies: specification-driven review, independent test generation, edge case probing, adversarial testing, user simulation. Braess's Paradox: making coding faster can slow overall delivery by shifting bottlenecks downstream (METR trial: experienced devs 19% slower with AI tools). |
 | 8.2 | The Pre-Launch Checklist | CT-1 + CT-6 | Narrative presents the checklist (functionality, security, performance, accessibility, observability, legal/compliance, pilot fitness). Learner applies it to their Module 6 build. Structured submission covering each checklist section. |
-| 8.3 | The Go/No-Go Decision | CT-8 + CT-6 | **Provided:** a completed verification report for a pre-built app (some items pass, some fail — realistic mixed results). Learner makes the call: ship or don't ship. Writes 300-word justification covering: what passed, what failed, risk of shipping with known issues, mitigation plan, recommendation. Evaluator scores on reasoning quality, risk awareness, and honesty about tradeoffs. |
+| 8.3 | Sustainable Practice and Pilot Fitness | CT-1 + CT-6 | Narrative: the new pressure (AI removes natural friction that limited overwork), the infinite capacity illusion, what fatigue does to pilotry (vague specifications, unchallenged agent output, skipped verification), cognitive surrender amplified by fatigue (Shaw & Nave), the FAA Part 117 precedent (duty limits exist because self-regulation fails). **Personal practice charter exercise:** learner defines weekly hour limit, mandatory rest periods, session stop rule, go/no-go delay rule. Evaluator scores on concreteness, honesty, and enforceability — not on the specific numbers. |
+| 8.4 | The Go/No-Go Decision | CT-6 | **Provided:** a completed verification report for a pre-built app (some items pass, some fail — realistic mixed results). Learner makes the call: ship or don't ship. Writes 300-word justification covering: what passed, what failed, risk of shipping with known issues, mitigation plan, recommendation. The pre-launch checklist includes pilot fitness: "Am I rested enough to be making this decision?" Evaluator scores on reasoning quality, risk awareness, and honesty about tradeoffs. |
 
 **Content authoring notes:**
-- The verification report for 8.3 needs to be realistic and genuinely ambiguous — not obvious pass or fail. Design it so reasonable people could disagree. E.g.: all functionality works, one security issue (low severity), performance is borderline, accessibility has one WCAG AA failure, no logging configured. The "right" answer isn't ship or don't ship — it's the quality of the reasoning.
+- The verification report for 8.4 needs to be realistic and genuinely ambiguous — not obvious pass or fail. Design it so reasonable people could disagree. E.g.: all functionality works, one security issue (low severity), performance is borderline, accessibility has one WCAG AA failure, no logging configured. The "right" answer isn't ship or don't ship — it's the quality of the reasoning.
 - The pre-launch checklist should be a reusable component (CT-6 template) that learners also use in the final project. Build it once as a structured form with yes/no/na per item plus evidence text fields.
+- The sustainable practice charter (8.3) is unusual — the evaluator isn't checking for a "right answer" but for quality of self-reflection. The rubric needs to reward specificity ("I will not work with agents past 8pm on weekdays" > "I will try to take breaks") and self-awareness ("I know I'm susceptible to the one-more-thing cycle because I've done it" > generic pledges).
 
 ---
 
-## Module 9: Responsibility, Risk, and Sustainable Practice (3 hours)
+## Final Project: Build, Verify, Launch
 
-**Primary content types:** CT-1, CT-6
-
-| Section | Content | Type | Detail |
-|---------|---------|------|--------|
-| 9.1 | The Accountability Landscape | CT-1 | Narrative: product liability, EULA disclaimers, no professional licensing for software, no case law on AI-generated code harm. |
-| 9.2 | Your Responsibilities as the Deploying Party | CT-1 | Narrative: GDPR, CCPA, accessibility law, consumer protection, duty of care. Jurisdiction-dependent, so taught as awareness ("these exist, know when to get legal advice"). |
-| 9.3 | Sustainable Pilotry | CT-1 + CT-6 | Narrative: the new pressure, infinite capacity illusion, what fatigue does to pilotry, FAA Part 117 precedent. Then the **personal practice charter exercise**: learner defines weekly hour limit, mandatory rest periods, session stop rule, go/no-go delay rule. Evaluator scores on: concreteness (are the limits specific?), honesty (are they realistic?), enforceability (how would you actually stick to this?). |
-| 9.4 | The Future of Pilotry | CT-1 | Narrative: trajectory of agent capabilities, the evolving pilot role, the manifesto, the call to action. |
-
-**Content authoring notes:**
-- The sustainable practice charter (9.3) is unusual — the evaluator isn't checking for a "right answer" but for quality of self-reflection. The rubric needs to reward specificity ("I will not work with agents past 8pm on weekdays" > "I will try to take breaks") and self-awareness ("I know I'm susceptible to the one-more-thing cycle because I've done it" > generic pledges).
-- Module 9 is the lightest on interactive content. That's appropriate — it's reflective and conceptual. Don't over-engineer it.
-
----
-
-## Final Project: Build, Verify, Launch (6–10 hours)
-
-**Primary content types:** CT-6, CT-7, CT-4, CT-9, CT-8
+**Hours:** Variable (estimated 4–6 hours for MVP scope)
+**Primary content types:** CT-6, CT-7, CT-2
 
 The final project is a full pilotry cycle. It chains multiple content types into a single assessed workflow.
 
 | Step | Curriculum reference | Type | Detail |
 |------|---------------------|------|--------|
 | 1. Problem definition | Module 1, 4 | CT-6 | Learner identifies a real problem in their domain. Writes the problem statement only. |
-| 2. Specification | Module 4 | CT-6 | Full specification: acceptance criteria, edge cases, constraints, decomposition. This becomes the rubric input for later steps. |
-| 3. Agent-assisted build | Module 6 | CT-7 | Build the application. Platform-hosted or bring-your-own-tools. |
-| 4. Diagnostic cycle | Module 2, 3, 6 | CT-4 | Diagnose and resolve ≥3 issues using DevTools and agent iteration. Document each: symptom, diagnosis method, resolution. |
-| 5. User and data assessment | Module 7 | CT-6 + CT-9 | Define personas, describe instrumentation plan, identify post-launch metrics. Optional: run synthetic test. |
-| 6. Verification | Module 8 | CT-6 + CT-8 | Complete the pre-launch checklist against their own app. Document all test results. |
-| 7. Go/no-go decision | Module 8 | CT-6 | Written justification: ship or don't ship, with reasoning. |
-| 8. Complexity assessment | Module 6 | CT-6 | Honest assessment: does this project need a professional pilot? If so, what expertise and why? |
+| 2. Specification | Module 4 | CT-6 | Specification with acceptance criteria and edge cases (MVP scope: 4.1–4.3 skills). This becomes the rubric input for later steps. |
+| 3. Agent-assisted build | Module 6 | CT-7 | Build the application using own agent tools. Submit URL or bundle. |
+| 4. Diagnostic cycle | Module 2, 6 | CT-2 (diagnostic) | Diagnose and resolve ≥3 issues using DevTools and agent iteration. Document each: symptom, diagnosis method, resolution. |
+| 5. Verification | Module 8 | CT-6 | Complete the pre-launch checklist against their own app. Document all test results. Include pilot fitness check. |
+| 6. Go/no-go decision | Module 8 | CT-6 | Written justification: ship or don't ship, with reasoning. |
+| 7. Complexity assessment | Module 6 | CT-6 | Honest assessment: does this project need a professional pilot? If so, what expertise and why? |
 
 **Evaluation:** Each step scored independently against its rubric. Overall score weighted per the curriculum rubric:
 
@@ -215,9 +216,8 @@ The final project is a full pilotry cycle. It chains multiple content types into
 | Problem clarity | 15% | Step 1 |
 | Specification quality | 25% | Step 2 |
 | Build execution | 15% | Steps 3, 4 |
-| Verification rigour | 20% | Steps 5, 6 |
-| Judgment and accountability | 15% | Steps 7, 8 |
-| Communication | 10% | All steps (writing quality) |
+| Verification rigour | 25% | Steps 5, 6 |
+| Judgment and accountability | 20% | Steps 6, 7 |
 
 **Content authoring notes:**
 - The final project is learner-directed — they choose the problem domain. This means the evaluator cannot use a fixed answer key. Instead, the evaluator assesses structural quality: are acceptance criteria actually testable? Are edge cases plausible? Is the go/no-go reasoning sound? This is a harder evaluation problem than fixed-answer exercises.
@@ -229,42 +229,42 @@ The final project is a full pilotry cycle. It chains multiple content types into
 
 ### Per exercise, the content team produces:
 
-1. **Exercise definition** (JSON): content type, template files, rubric ID, prerequisites, time estimate.
-2. **Rubric** (JSON): dimensions, weights, pass threshold per dimension, example good/bad responses for evaluator calibration.
-3. **Assets:** Sandpack file configs, pre-built apps (for CT-8), database seed files (for CT-3), dashboard data (for CT-10), case study text (for CT-11).
-4. **Evaluator prompt template:** The system prompt sent to AI Gateway along with the rubric and learner submission. Must be tested against 10+ sample submissions before going live.
+1. **Exercise definition** (JSON): content type, variant, template files, rubric ID, prerequisites, time estimate.
+2. **Rubric** (JSON): dimensions, weights, pass threshold per dimension, 10–15 expert-scored sample submissions (from volunteer practitioners) for evaluator calibration.
+3. **Tutor prompt template:** The system prompt for the inline tutor, including rubric dimensions and example prompts. Must be tested for helpfulness without giving away answers.
+4. **Assets:** Pyodide/Sandpack file configs, pre-built apps (for diagnostic exercises), database seed files, retrieval sprint question sets.
+5. **Evaluator prompt template:** The system prompt sent to AI Gateway (frontier model) along with the rubric and learner submission. Must be tested against calibration corpus before going live.
+6. **Self-assessment template:** The prediction prompt shown before scoring — which dimensions to predict on, how to frame the weakest-dimension question.
 
-### Estimated content volume:
+### Estimated content volume (MVP):
 
 | Content piece | Count |
 |--------------|-------|
-| Narrative sections | ~30 |
-| Exercise definitions | ~25 |
-| Evaluator rubrics | ~25 |
-| Sandpack configurations | ~8 |
-| Pre-built apps (CT-8) | 3–4 |
-| Database seed files | 1–2 |
-| Case studies | 3 |
-| Dashboard mockups | 1–2 |
+| Narrative sections | ~15 |
+| Scored exercise definitions | ~12 |
+| Evaluator rubrics | ~12 |
+| Tutor prompt templates | ~12 |
+| Calibration submissions (10–15 per exercise) | ~150 |
+| Pyodide/Sandpack configurations | ~5 |
+| Pre-built apps (shared, for diagnostic/review) | 2 |
+| Database seed files | 1 |
+| Retrieval sprint question sets | 5 |
 | Starter briefs (final project) | 3–5 |
 
 ---
 
-## Layer 3 Reference Labs — Content Approach
+## Deferred to Full Course
 
-Reference labs are standalone, not part of the scored curriculum. Each is a single exercise combining CT-1 (narrative) with one hands-on content type.
+The following content is designed in the curriculum but not built in the MVP:
 
-| Lab | Primary CT | Approach |
-|-----|-----------|----------|
-| R1: Docker and containers | CT-1 + CT-2 | Narrative + Sandpack showing Dockerfile build output (simulated) |
-| R2: Email (SMTP, SPF/DKIM) | CT-1 | Narrative only — email infrastructure is conceptual at this level |
-| R3: WebSockets and SSE | CT-2 | Sandpack with a simple WebSocket client showing real-time messages |
-| R4: Canvas and visual rendering | CT-2 | Sandpack with HTML Canvas drawing exercise |
-| R5: DNS deep dive | CT-1 + CT-4 | Narrative + diagnostic exercise using `dig` output (simulated terminal) |
-| R6: Git and version control | CT-1 | Narrative with interactive visualisation of branching (static React component) |
-| R7: API design and REST | CT-2 | Sandpack with fetch() calls to a mock API |
-| R8: Specific agent tool guides | CT-1 | Narrative only — updated quarterly as tools change |
-| R9: Deployment platforms | CT-1 | Narrative comparing Cloudflare Workers, Vercel, Railway, Fly.io |
-| R10: Mobile considerations | CT-1 | Narrative on responsive design, PWAs, native vs. web |
-
-Reference labs do not require AI evaluation. They are self-paced, self-assessed, and exist to fill knowledge gaps on demand.
+| Content | Source |
+|---------|--------|
+| Module 4.4–4.6 (Decomposition, Constraints, Audience Adaptation) | Curriculum v0.2 |
+| Module 5 (The Autonomy Spectrum) | Curriculum v0.2 |
+| Module 7 (Users, Data, Dual Interface) | Curriculum v0.2 |
+| Module 9 standalone (Regulation, Accountability, Future of Pilotry) | Curriculum v0.2 |
+| Reference Labs R1–R10 | Curriculum v0.2 |
+| Platform-hosted agent environment (Containers + VibeSDK fork) | Tech Architecture v0.1 |
+| Simulation exercises (CT-9: synthetic user testing) | Tech Architecture v0.1 |
+| Dashboard interpretation exercises (CT-10) | Tech Architecture v0.1 |
+| Extended final project (persona definition, instrumentation plan) | Curriculum v0.2 |

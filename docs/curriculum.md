@@ -64,7 +64,7 @@ This curriculum is designed for **non-technical domain professionals** — docto
 
 ### Content
 
-**The barrier collapsed.** AI coding agents can generate working applications from natural language. This unlocks hundreds of millions of domain professionals who had problems software could solve but couldn't build solutions. The technical barrier is gone. The complexity spectrum has not changed.
+**The barrier collapsed.** AI coding agents can generate working applications from natural language. The technical barrier to building software is gone. What follows is not a golden age of democratised creation — it is an explosion of software produced without any of the traditional quality supports: no code review, no architectural oversight, no professional accountability. The complexity spectrum has not changed. The number of people shipping into it has.
 
 **Three roles, not two.** The public conversation frames this as "AI replaces developers." The reality is three roles: the domain expert who knows the problem, the agent that generates code, and the pilot who takes responsibility for whether the software actually works, is secure, and does what it should. These roles can overlap — a domain expert can learn enough pilotry to handle simple projects — but they are distinct.
 
@@ -168,6 +168,7 @@ Not the mathematics. The intuition. Language models predict the next token based
 - Training data cutoff — the model's knowledge has an expiration date
 - Hallucination — the model generates plausible but false information with full confidence
 - The jagged frontier — AI improves your performance on tasks inside its capability zone and *degrades* your performance on tasks outside it (Dell'Acqua et al., BCG × HBS, 2023)
+- Cognitive surrender — Shaw & Nave's Tri-System Theory (2026) extends Kahneman's dual-process model by adding System 3: artificial cognition. "Cognitive surrender" is the tendency to adopt AI outputs without critical scrutiny, overriding both intuition (System 1) and deliberation (System 2). Unlike cognitive offloading, which is strategic delegation, cognitive surrender is uncritical abdication of reasoning itself. Across three preregistered experiments (N=1,372; 9,593 trials), accuracy rose 25 percentage points when AI was correct and fell 15 percentage points when it erred — participants accepted the AI's answer as their own. Participants with higher trust in AI and lower need for cognition showed greater surrender. Performance incentives and real-time feedback helped resist it — when people had a reason to care about accuracy and could see how they were doing, they rejected faulty AI outputs more often. For the pilot, this is the central psychological hazard: the better the AI usually is, the harder it is to catch when it's wrong.
 
 ### Section 3.3 — Memory, State, and the Illusion of Continuity
 
@@ -220,6 +221,8 @@ Most people jump straight to "build me an app that does X." The first pilotry di
 "The system should be fast" is not a specification. "The search results page loads in under 2 seconds on a 3G connection with 10,000 records" is. "The user can log in" is not a specification. "A registered user can authenticate with email and password, receive a session token, and access protected routes; an unregistered email returns a specific error message; five consecutive failures trigger a 15-minute lockout" is.
 
 **The Ceetrix model:** Every requirement has a verification method. Every verification method has a pass/fail threshold. If you can't describe how you'd test it, you haven't specified it.
+
+**Semantic triangulation.** JUXT's concept of semantic triangulation treats code, tests, and specification as three independent angles on the same intent — like the Great Trigonometrical Survey checking measurements against each other. Code describes what the system does. Tests describe what it should do. A specification models what the system is *for* — its rules and constraints stated independently of how they're implemented. Where any two diverge, it signals a hidden assumption or a gap in understanding. This matters because code and tests can confirm each other's shared assumptions without either one catching a flaw in the underlying intent. The specification is the independent witness. GitHub open-sourced Spec Kit in 2025 (reaching 71,000 stars within months), ThoughtWorks placed spec-driven development on their Technology Radar, and AWS built Kiro, an IDE that generates specifications before code. The industry is converging on a principle this course teaches from Module 1: when code is cheap to produce, clarity of intent becomes the scarce resource.
 
 **Exercise:** Rewrite five vague requirements as testable acceptance criteria. Each must include: the actor, the action, the expected outcome, the measurable threshold, and the failure case. (AI-evaluated against rubric with specific scoring on measurability and completeness)
 
@@ -280,6 +283,8 @@ A specification for a structured workflow agent (Ceetrix-style, where the agent 
 | **Self-modifying system** | Agent rewrites own prompts, spawns sub-agents, pursues emergent goals | OpenClaw/NanoClaw, Gas Town-style architectures | Goal drift, unintended optimisation, loss of human oversight |
 
 **Key principle:** Each level up the spectrum doesn't just add capability — it adds a qualitatively different category of failure. The risk curve is non-linear. The pilot's role changes at each level: operator → supervisor → director → governor.
+
+**Braess's Paradox and the delivery network.** A German mathematician proved that in a network where agents choose their own routes, adding capacity can paradoxically make everyone slower — local optimisations compound into collective gridlock. Software development is precisely this kind of network. Making coding faster with AI does not make *delivery* faster if the bottleneck shifts downstream to code review, testing, architecture validation, and maintenance. Data from Faros.ai (10,000+ developers across 1,255 teams) shows that teams with high AI adoption complete 21% more tasks and merge 98% more pull requests, but PR review time increases 91%. The METR randomised trial found experienced developers became 19% *slower* overall with AI tools on familiar projects. The implication for pilotry: the pilot must think in terms of the whole delivery system, not just the code generation step. Faster agent output without proportionally stronger specification, verification, and architectural oversight creates the software equivalent of a motorway that feeds into a single-lane road.
 
 ### Section 5.2 — Multi-Agent Coordination
 
@@ -434,6 +439,8 @@ Not data science. Practical data literacy: what to measure, what a cohort is, wh
 ### Section 8.1 — The Verification Problem
 
 If the agent writes the code AND the tests, it can write tests that pass its own broken implementation. This is the fundamental verification problem of AI-generated software. The pilot cannot rely on green test suites as proof of correctness.
+
+**The collapse of code review.** Traditional code review — the last human checkpoint before production — is buckling under AI-generated volume. Ankit Jain's analysis in Latent Space (2026) puts it bluntly: "Human-written code died in 2025. Code reviews will die in 2026." Data from Faros.ai across 10,000+ developers confirms the mechanism: teams with high AI adoption merge 98% more pull requests, but PR review time increases 91%. Developers report that reviewing AI-generated code requires *more* effort than reviewing code written by colleagues — the code is syntactically competent but lacks the shared context and intent that makes human-written code reviewable. The implication is structural: if verification cannot happen at the code review stage, it must move upstream to specification and downstream to independent acceptance testing. The pilot's verification discipline — specification-driven review, independent test generation, adversarial probing — is not a nice-to-have supplement to code review. It is the replacement for a practice that is ceasing to function.
 
 **Verification strategies:**
 - **Specification-driven review:** Walk through every acceptance criterion from Module 4. Does the application satisfy each one? Manually verify, don't just read the agent's claim.

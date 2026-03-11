@@ -1,16 +1,34 @@
 # Technical Architecture — Software Pilotry Platform
 
-**Baseline v0.1 — March 2026**
+**Baseline v0.2 — March 2026 (MVP scope)**
 
 ---
 
 ## Design Constraints
 
-1. **All Cloudflare.** Workers, Pages, D1, Durable Objects, R2, AI Gateway, Containers. No AWS/GCP/Azure dependencies.
+1. **All Cloudflare.** Workers, Pages, D1, Durable Objects, R2, AI Gateway. No AWS/GCP/Azure dependencies.
 2. **Per-learner isolation.** Every learner gets their own state, their own agent context, and their own sandboxed execution. No cross-contamination.
-3. **Three execution tiers.** Content ranges from "edit five lines and watch the console" to "build a full app with an AI agent and evaluate it." The platform must support all three without forcing the heaviest tier on the simplest exercise.
-4. **Cost-proportional.** A learner reading narrative content costs near zero. A learner running a Cloudflare Container costs real money. The architecture must scale cost with activity, not enrolment.
+3. **Two execution tiers.** Client-side sandboxes (Pyodide, sql.js, Sandpack) for Modules 1–4 at zero marginal cost. Bring-your-own-tools for Module 6 agent-assisted builds. No platform-hosted containers in MVP.
+4. **Cost-proportional.** A learner reading narrative content costs near zero. AI evaluation costs scale with submissions. The architecture scales cost with activity, not enrolment.
 5. **Evaluator-native.** AI-evaluated exercises are the core feedback loop, not an add-on. The evaluator is a first-class service with structured rubrics, not a chatbot wrapper.
+6. **Linear mastery progression.** Each module is gated — learners must demonstrate competence before unlocking the next module. The platform enforces the sequence the curriculum requires.
+
+---
+
+## MVP Module Scope
+
+The MVP covers ~12–15 hours across six modules:
+
+| Module | Title | Hours (est.) |
+|--------|-------|-------------|
+| 1 | The New Landscape | 2 |
+| 2 | The Machine Beneath | 4 |
+| 3 | The Probabilistic Machine | 4 |
+| 4 | Specification (4.1–4.3 only) | 2.5 |
+| 6 | Building with Agents | 3 |
+| 8 | Verification, Acceptance, and Sustainable Practice | 3 |
+
+Modules 5 (Autonomy Spectrum), 7 (Users, Data, Dual Interface), and 9 (Responsibility, standalone) are deferred to the full course. Module 9's wellbeing core (sustainable practice argument, personal charter exercise) is folded into Module 8.
 
 ---
 
@@ -18,17 +36,18 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Cloudflare Pages                       │
-│              React SPA — course shell, routing            │
-│         Sandpack embeds (Tier 1 exercises)                │
+│                    Cloudflare Pages                      │
+│              React SPA — course shell, routing           │
+│         Client-side sandboxes (Pyodide, sql.js,          │
+│         Sandpack) for Tier 1 exercises                   │
 └──────────────┬──────────────────────────────┬────────────┘
                │                              │
                ▼                              ▼
 ┌──────────────────────┐       ┌──────────────────────────┐
 │   Course API Worker  │       │   Evaluator Worker       │
 │   Auth, progress,    │       │   Rubric engine,         │
-│   content delivery   │       │   AI Gateway calls,      │
-│                      │       │   submission scoring     │
+│   mastery gates,     │       │   AI Gateway calls,      │
+│   content delivery   │       │   submission scoring     │
 └──────┬───────────────┘       └──────┬───────────────────┘
        │                              │
        ▼                              ▼
@@ -36,21 +55,23 @@
 │   D1 Database        │       │   AI Gateway             │
 │   Learner state,     │       │   Rate limiting,         │
 │   progress, scores,  │       │   cost control,          │
-│   submissions        │       │   provider routing       │
+│   submissions,       │       │   provider routing,      │
+│   self-assessments   │       │   two-model strategy     │
 └──────────────────────┘       └──────────────────────────┘
        │
        ▼
-┌──────────────────────┐       ┌──────────────────────────┐
-│   Durable Objects    │       │   Cloudflare Containers  │
-│   Per-learner tutor  │       │   Tier 3 sandboxes,      │
-│   agent (persistent  │       │   VibeSDK fork for       │
-│   memory + context)  │       │   agent-assisted builds  │
-└──────────────────────┘       └──────────────────────────┘
+┌──────────────────────┐
+│   Durable Objects    │
+│   Per-learner tutor  │
+│   agent (persistent  │
+│   memory + context,  │
+│   active during all  │
+│   scored exercises)  │
+└──────────────────────┘
 
 ┌──────────────────────┐
 │   R2 Object Storage  │
 │   Submission assets,  │
-│   generated apps,    │
 │   learner artefacts  │
 └──────────────────────┘
 ```
@@ -59,116 +80,59 @@
 
 ## Content Type Taxonomy
 
-Every exercise in the curriculum maps to one of these content types. Each type has a defined execution environment, input/output contract, and evaluation method.
+Every exercise in the curriculum maps to one of four content types. Each type has a defined execution environment, input/output contract, and evaluation method.
 
 ### CT-1: Narrative
 
 **What it is:** Explanatory text, diagrams, embedded video, conceptual frameworks.
 **Execution:** None — static content rendered in the SPA.
-**Evaluation:** None, or lightweight comprehension check (multiple choice).
+**Evaluation:** None, or lightweight comprehension check (multiple choice, self-assessed).
 **Cost per learner:** Near zero (Pages CDN).
 **Used in:** All modules for conceptual sections.
 
-### CT-2: Constrained Code Sandbox
+### CT-2: Interactive Sandbox
 
-**What it is:** Learner edits a small number of lines in a controlled environment. Some files locked/hidden. Console output visible. The learner writes code, predicts output, runs it, sees the result.
-**Execution:** Sandpack (client-side bundler in iframe). Zero server cost.
-**Input:** Pre-configured file set with editable regions marked. Template (vanilla JS, React, or Node via Nodebox).
-**Output:** Console output, rendered preview, or both.
-**Evaluation:** Automated assertion (did the output match?), or AI evaluator compares output to expected behaviour.
-**Cost per learner:** Zero marginal (client-side only).
-**Used in:** Module 2 (compiler moment, DevTools exercises), Module 3 (comparing outputs).
+**What it is:** Learner interacts with a controlled environment — editing code, inspecting broken pages, comparing outputs, or querying a database. Some files locked/hidden. Output visible.
+**Execution:** Client-side via one of several runtimes, selected per exercise:
 
-### CT-3: Database Sandbox
+| Variant | Runtime | Used for |
+|---------|---------|----------|
+| Code editing (Python) | Pyodide (CPython via WASM) | Module 2.1 compiler moment |
+| Code editing (JS) | Sandpack (client-side bundler) | Module 2.4 broken page construction |
+| Database | sql.js (SQLite via WASM) | Module 2.3 data structure exercises |
+| Diagnostic | Sandpack or hosted static page | Module 2.2, 2.4 DevTools exercises |
+| Multi-output comparison | AI Gateway × N | Module 3.1 stochastic moment |
 
-**What it is:** Learner runs SQL queries against a pre-loaded dataset. Sees results, errors, constraint violations.
-**Execution:** sql.js (SQLite compiled to WASM, runs in browser) with pre-loaded `.sqlite` file fetched from R2. No server-side database per learner.
-**Input:** Pre-loaded schema + seed data. Guided query prompts.
-**Output:** Query results table, or error message on constraint violation.
-**Evaluation:** Assertion (did the query return expected rows?), or AI evaluator assesses whether the learner correctly identified the constraint failure.
-**Cost per learner:** Near zero (WASM + static asset from R2/CDN).
-**Used in:** Module 2 Section 2.3 (data has structure).
+All variants except multi-output comparison have zero server cost. Multi-output comparison requires N inference calls via AI Gateway (configurable, default 5).
 
-### CT-4: Diagnostic Exercise
-
-**What it is:** Learner is given a broken or instrumented web page and must use browser DevTools (Console, Network, Elements) to find and describe problems.
-**Execution:** Sandpack or a hosted static page served from Pages with deliberate errors. The errors are in the page itself — the learner's tool is their own browser DevTools.
-**Input:** URL or embedded Sandpack preview of a broken app. Error manifest (known bugs the learner must find).
-**Output:** Learner submits a structured report: which errors they found, where (console/network/elements), what the error message said, what they think caused it.
-**Evaluation:** AI evaluator scores the report against the error manifest. Partial credit for finding some but not all.
-**Cost per learner:** Near zero (static broken page + evaluator inference call).
-**Used in:** Module 2 (DevTools cockpit, Section 2.4), Module 6 (applied diagnostics).
-
-### CT-5: Multi-Output Comparison
-
-**What it is:** Learner submits an identical specification to an AI agent N times and compares the outputs side by side. The point is experiencing variability — same input, different results.
-**Execution:** Platform submits the learner's spec to the AI Gateway N times (configurable, default 5) with identical parameters. Responses are stored and displayed side by side.
-**Input:** Learner-authored specification text.
-**Output:** N agent responses displayed in a comparison view (diff highlights optional).
-**Evaluation:** AI evaluator scores the learner's written analysis of what differed, what mattered, and what didn't.
-**Cost per learner:** N inference calls per exercise via AI Gateway. Moderate — rate-limited per learner.
-**Used in:** Module 3 Section 3.1 (the stochastic moment).
+**Input:** Pre-configured file set or database with editable regions marked. For multi-output comparison: learner-authored specification text.
+**Output:** Console output, rendered preview, query results, error messages, or side-by-side comparison of N agent responses.
+**Evaluation:** Automated assertion (did the output match?), self-checked, or AI evaluator compares output to expected behaviour.
+**Cost per learner:** Zero marginal for client-side variants. Moderate for multi-output comparison (N inference calls).
+**Used in:** Module 2 (compiler moment, request lifecycle, data structure, DevTools), Module 3 (stochastic moment).
 
 ### CT-6: Structured Authoring
 
-**What it is:** Learner writes a document to a structured template — problem definition, acceptance criteria, edge cases, constraint specification, risk assessment, go/no-go justification, personal charter. The document has defined sections and evaluation dimensions.
+**What it is:** Learner writes a document to a structured template — problem definition, acceptance criteria, edge cases, risk assessment, go/no-go justification, personal practice charter. The document has defined sections and evaluation dimensions.
 **Execution:** Rich text editor in the SPA with section scaffolding. Saved to D1.
+**Inline tutor:** The per-learner tutor agent is active during all CT-6 exercises, providing paragraph-level feedback in real time using a cheaper/faster model. The tutor has access to the rubric dimensions and prompts the learner with questions ("What's the measurable threshold?" "What's the failure case?") as they write.
+**Self-assessment:** Before final submission, the learner predicts their score and identifies their weakest dimension. Stored in `self_assessment_json`.
 **Input:** Template with section headers and guidance prompts. Context from prior exercises (e.g. "use the dental booking system from 4.1").
 **Output:** Structured document stored as JSON in D1.
-**Evaluation:** AI evaluator scores each section against a rubric. Per-dimension scores (e.g. "testability: 7/10, edge case coverage: 5/10") with specific feedback.
-**Cost per learner:** One evaluator inference call per submission. Low-moderate.
-**Used in:** Module 1 (problem description), Module 4 (all specification exercises), Module 5 (risk assessment), Module 6 (hiring brief), Module 7 (persona definitions), Module 8 (go/no-go justification), Module 9 (sustainable practice charter).
+**Evaluation:** AI evaluator (frontier model) scores each section against a rubric. Per-dimension scores (e.g. "testability: 7/10, edge case coverage: 5/10") with specific feedback. Self-assessment calibration gap shown alongside.
+**Cost per learner:** Multiple inline tutor calls (cheaper model) during authoring + one evaluator inference call (frontier model) per submission. Low-moderate.
+**Used in:** Module 1 (problem description, case study analysis), Module 4 (all specification exercises), Module 6 (hiring brief), Module 8 (go/no-go justification, sustainable practice charter).
 
-### CT-7: Agent-Assisted Build
+### CT-7: Agent-Assisted Build (Bring Your Own Tools)
 
-**What it is:** Learner uses an AI agent to build a working application from their specification. The platform provides the agent environment, or the learner uses their own tools and submits the result.
-**Execution — platform-hosted path:** Cloudflare Container running a VibeSDK fork. Learner provides specification, agent generates app in phases, learner reviews and iterates. WebSocket streaming for real-time feedback.
-**Execution — bring-your-own-tools path:** Learner builds in Claude Code, Cursor, or any agent tool. Submits a URL or uploads a bundle for evaluation.
-**Input:** Learner's specification (from CT-6). Optional: iterative prompts during the build.
-**Output:** Running application (Container preview URL or uploaded bundle). Build log showing agent phases.
+**What it is:** Learner uses their own AI agent (Claude Code, Cursor, Windsurf, or similar) to build a working application from their specification. The platform evaluates the submitted result, not the process.
+**Execution:** Learner builds in their own environment. Submits a URL or uploads a bundle for evaluation.
+**Input:** Learner's specification (from CT-6).
+**Output:** Running application (external URL or uploaded bundle).
 **Evaluation:** Multi-dimensional: (a) does the app satisfy the learner's own acceptance criteria? (b) security scan (hardcoded secrets, missing auth, SQL injection patterns), (c) AI evaluator reviews code quality and specification adherence.
-**Cost per learner:** High — Container instance + multiple inference calls. This is the expensive content type. Rate-limited: max concurrent containers per learner, session time caps.
+**Self-assessment:** Before seeing evaluation results, learner predicts which acceptance criteria pass and which fail.
+**Cost per learner:** One evaluator inference call per submission. No platform compute — the learner provides the agent environment.
 **Used in:** Module 6 (build cycle), final project.
-
-### CT-8: App Review
-
-**What it is:** Learner is given a pre-built application (agent-generated, with deliberate flaws) and must evaluate it — find security issues, unhandled edge cases, missing functionality, accessibility problems.
-**Execution:** Pre-built app served from a Container or Pages. The app is the same for all learners (no per-learner compute). Learner interacts with it in their browser and submits findings.
-**Input:** Running app URL + the original specification it was built from. Flaw manifest (known issues the learner should find).
-**Output:** Structured review report (CT-6 format): issues found, severity, specification gap that caused each one.
-**Evaluation:** AI evaluator scores against flaw manifest. Bonus for finding issues not in the manifest.
-**Cost per learner:** Near zero (shared app) + one evaluator call.
-**Used in:** Module 4 Section 4.3 (edge cases), Module 6 Section 6.3 (security), Module 8 (verification).
-
-### CT-9: Simulation Exercise
-
-**What it is:** Learner defines user personas and test scenarios. The platform runs synthetic users through an application and reports results. Learner interprets the results.
-**Execution:** AI Gateway calls to simulate persona behaviour against the target app (Container or external URL). Results aggregated and presented as a report.
-**Input:** Persona definitions (CT-6 format), scenario scripts, target app URL.
-**Output:** Simulation results: which scenarios passed/failed per persona, with logs.
-**Evaluation:** AI evaluator scores the learner's interpretation of results — did they identify the right failures, prioritise correctly, propose the right fixes?
-**Cost per learner:** Multiple inference calls (personas × scenarios). Moderate-high. Capped per exercise.
-**Used in:** Module 7 Section 7.3 (simulation and synthetic testing).
-
-### CT-10: Dashboard Interpretation
-
-**What it is:** Learner is presented with a simulated analytics dashboard (pre-rendered with synthetic data) and must answer analytical questions — conversion rates, drop-off points, anomalies, segment comparisons.
-**Execution:** Static dashboard UI served from Pages with synthetic data baked in. No live data connection.
-**Input:** Dashboard view + set of analytical questions.
-**Output:** Learner's written answers.
-**Evaluation:** AI evaluator scores answers against known correct values and reasoning quality.
-**Cost per learner:** Near zero (static content) + one evaluator call.
-**Used in:** Module 7 Section 7.5 (analytics as a pilotry skill).
-
-### CT-11: Case Study Analysis
-
-**What it is:** Learner reads a case study (real or composite) and answers structured questions about roles, failures, accountability, and what should have been done differently.
-**Execution:** Narrative content (CT-1) + structured response form (CT-6).
-**Input:** Case study text + analysis questions.
-**Output:** Written analysis.
-**Evaluation:** AI evaluator against rubric.
-**Cost per learner:** One evaluator call. Low.
-**Used in:** Module 1 (AI failure case studies), Module 5 (agent risk assessment).
 
 ---
 
@@ -179,33 +143,29 @@ Every exercise in the curriculum maps to one of these content types. Each type h
 Single Worker handling:
 - **Authentication:** GitHub OAuth (initial), extensible to email/password.
 - **Learner progress:** Module completion, exercise scores, weak-area tracking. All in D1.
+- **Mastery gates:** Prerequisite check before unlocking each module. Module 4 requires passing Modules 2 and 3. Module 6 requires passing Module 4. Module 8 requires passing Module 6. Gate logic enforced server-side — the SPA requests unlock status, the Worker checks `progress` rows.
+- **Retrieval sprints:** At each module boundary, the Worker serves a retrieval sprint — 3–5 quick-recall questions from earlier modules. Self-checked, no AI evaluation. Must complete before unlocking the next module.
 - **Content routing:** Serves exercise configurations (which files, which template, which rubric) as JSON. Actual content lives in the SPA bundle or R2.
-- **Submission intake:** Receives exercise submissions, validates structure, enqueues for evaluation.
+- **Submission intake:** Receives exercise submissions with self-assessment predictions, validates structure, enqueues for evaluation.
 
 ### Evaluator Service
 
-Separate Worker (or Durable Object per submission) handling:
+Separate Worker handling:
 - **Rubric engine:** Each exercise has a rubric defined as structured JSON — dimensions, weights, pass thresholds, example good/bad answers.
-- **AI Gateway integration:** Sends learner submission + rubric to AI Gateway. Provider-agnostic (Claude, GPT, Gemini — routed by cost/capability).
-- **Scoring pipeline:** Parse model response → extract per-dimension scores → store in D1 → return to learner.
+- **Two-model strategy via AI Gateway:** Inline tutor calls use a cheaper/faster model (e.g. Haiku-class) for speed and cost. Final evaluation uses a frontier model (e.g. Sonnet/Opus-class) for accuracy. Both routed through AI Gateway for rate limiting and cost control.
+- **Scoring pipeline:** Parse model response → extract per-dimension scores → store in D1 → compute self-assessment calibration gap → return to learner.
+- **Calibration monitoring:** Compare evaluator scores against calibration corpus (10–15 expert-scored submissions per exercise from volunteer practitioners). Flag exercises where evaluator-expert agreement drops below threshold.
 - **Retry and fallback:** If primary model fails, route to secondary via AI Gateway. Never lose a submission.
 
 ### Per-Learner Tutor Agent (Durable Object)
 
 One Durable Object instance per enrolled learner:
-- **Persistent context:** Knows the learner's progress, scores, weak areas, and recent submissions.
-- **Contextual help:** "Why did my specification fail?" → tutor reads the rubric feedback and explains in the context of what the learner wrote.
+- **Persistent context:** Knows the learner's progress, scores, weak areas, self-assessment calibration history, and recent submissions.
+- **Active during all scored exercises.** The tutor is a co-present guide, not a post-hoc explainer. During CT-6 exercises, it provides paragraph-level feedback using the cheaper model. During CT-2 exercises, it asks diagnostic questions ("What do you expect to see in the console?" "Why did that query fail?").
+- **Rubric-aware prompting:** The tutor has access to rubric dimensions for the current exercise. Its inline feedback aligns with how the submission will ultimately be scored, creating consistency between guidance and evaluation.
+- **Post-evaluation help:** "Why did my specification fail?" → tutor reads the rubric feedback and explains in the context of what the learner wrote.
 - **Not a chatbot.** Scoped to course content and the learner's own work. Does not generate code for them. Does not answer questions outside the curriculum.
 - **Hibernation:** Durable Object hibernates when inactive. Wakes on request. Cost only when active.
-
-### Sandbox Orchestrator (Containers — Tier 3 only)
-
-Manages Cloudflare Container lifecycle for CT-7 and CT-9:
-- **Provisioning:** Spin up container from VibeSDK fork image on demand.
-- **Session binding:** Container bound to learner session via Durable Object coordination.
-- **Time limits:** Max session duration (configurable, e.g. 30 minutes). Hard kill after limit.
-- **Cleanup:** Container destroyed on session end. Artefacts (generated code, build logs) persisted to R2 before teardown.
-- **Concurrency cap:** Max N concurrent containers per learner (suggest 1). Platform-wide cap tied to billing.
 
 ---
 
@@ -235,25 +195,25 @@ progress
   PRIMARY KEY (learner_id, module_id, exercise_id)
 
 submissions
-  id              TEXT PK DEFAULT (hex(randomblob(16)))
-  learner_id      TEXT FK → learners.id
-  module_id       TEXT NOT NULL
-  exercise_id     TEXT NOT NULL
-  content_json    TEXT NOT NULL   -- the submission payload
-  rubric_version  TEXT NOT NULL
-  score_json      TEXT            -- null until evaluated
-  evaluator_model TEXT            -- which model scored it
-  submitted_at    TEXT DEFAULT (datetime('now'))
-  scored_at       TEXT
+  id                    TEXT PK DEFAULT (hex(randomblob(16)))
+  learner_id            TEXT FK → learners.id
+  module_id             TEXT NOT NULL
+  exercise_id           TEXT NOT NULL
+  content_json          TEXT NOT NULL   -- the submission payload
+  self_assessment_json  TEXT            -- predicted scores + weakest dimension, before seeing results
+  rubric_version        TEXT NOT NULL
+  score_json            TEXT            -- null until evaluated
+  evaluator_model       TEXT            -- which model scored it
+  calibration_gap_json  TEXT            -- computed difference between self-assessment and actual scores
+  submitted_at          TEXT DEFAULT (datetime('now'))
+  scored_at             TEXT
 
-container_sessions
-  id              TEXT PK DEFAULT (hex(randomblob(16)))
+retrieval_sprints
   learner_id      TEXT FK → learners.id
-  container_id    TEXT
-  exercise_id     TEXT NOT NULL
-  started_at      TEXT DEFAULT (datetime('now'))
-  ended_at        TEXT
-  artefact_r2_key TEXT           -- R2 path to persisted build output
+  gate_module_id  TEXT NOT NULL        -- the module this sprint gates entry to
+  responses_json  TEXT NOT NULL        -- learner's answers
+  completed_at    TEXT DEFAULT (datetime('now'))
+  PRIMARY KEY (learner_id, gate_module_id)
 ```
 
 ### Indexes
@@ -261,47 +221,46 @@ container_sessions
 ```
 CREATE INDEX idx_progress_learner ON progress(learner_id);
 CREATE INDEX idx_submissions_learner ON submissions(learner_id, module_id);
-CREATE INDEX idx_container_sessions_learner ON container_sessions(learner_id);
+CREATE INDEX idx_submissions_calibration ON submissions(module_id, exercise_id) WHERE self_assessment_json IS NOT NULL;
 ```
 
 ---
 
 ## Cost Model
 
-| Content type | Infra cost per exercise | Inference cost per exercise | Frequency |
-|-------------|------------------------|---------------------------|-----------|
+| Content type | Infra cost per exercise | Inference cost per exercise | MVP frequency |
+|-------------|------------------------|---------------------------|---------------|
 | CT-1 Narrative | ~$0 (CDN) | $0 | Every section |
-| CT-2 Code sandbox | ~$0 (client-side) | $0–0.02 (optional eval) | ~15 exercises |
-| CT-3 Database sandbox | ~$0 (WASM) | $0–0.02 | ~3 exercises |
-| CT-4 Diagnostic | ~$0 (static page) | $0.02–0.05 | ~5 exercises |
-| CT-5 Multi-output | ~$0 | $0.10–0.50 (N calls) | ~3 exercises |
-| CT-6 Structured authoring | ~$0 | $0.03–0.10 | ~15 exercises |
-| CT-7 Agent-assisted build | $0.10–1.00 (Container) | $0.50–2.00 | ~3 exercises |
-| CT-8 App review | ~$0 (shared app) | $0.03–0.10 | ~5 exercises |
-| CT-9 Simulation | ~$0 | $0.20–1.00 | ~2 exercises |
-| CT-10 Dashboard | ~$0 (static) | $0.02–0.05 | ~2 exercises |
-| CT-11 Case study | ~$0 | $0.02–0.05 | ~3 exercises |
+| CT-2 Interactive sandbox (client-side variants) | ~$0 (WASM/client) | $0–0.02 (optional eval) | ~8 exercises |
+| CT-2 Interactive sandbox (multi-output) | ~$0 | $0.10–0.50 (N calls) | ~2 exercises |
+| CT-6 Structured authoring | ~$0 | $0.05–0.20 (inline tutor + eval) | ~8 exercises |
+| CT-7 Agent-assisted build (BYOT) | $0 (learner's infra) | $0.10–0.50 (eval only) | ~2 exercises |
+| Retrieval sprints | ~$0 | $0 (self-checked) | ~5 sprints |
 
-**Estimated total inference cost per learner completing the full course:** $3–8, heavily dependent on CT-7 usage.
+**Estimated total inference cost per learner completing the MVP:** $2–5, dominated by CT-6 inline tutoring and final evaluations.
 
-**Fixed infrastructure:** Workers Paid ($5/mo), D1 (included), AI Gateway (included), Containers (usage-based). Platform becomes cost-effective at ~50+ concurrent learners.
+**Fixed infrastructure:** Workers Paid ($5/mo), D1 (included), AI Gateway (included). Platform becomes cost-effective at ~50+ concurrent learners.
 
 ---
 
 ## Security Boundaries
 
 - **Learner isolation:** D1 queries always scoped by `learner_id`. No endpoint returns another learner's data.
-- **Container isolation:** Each container is a separate Cloudflare Container instance. No shared filesystem.
 - **Evaluator integrity:** Rubrics stored server-side, never sent to the client. Learners cannot see rubric details or manipulate scoring.
 - **Submission immutability:** Once submitted, `submissions` rows are append-only. Rescoring creates a new row, doesn't mutate.
 - **AI Gateway as chokepoint:** All inference routed through AI Gateway. Per-learner rate limits enforced there. No direct model API access from client.
+- **Self-assessment integrity:** Self-assessment predictions are submitted and stored before the evaluation call is made. The learner cannot revise their prediction after seeing the score.
 
 ---
 
 ## What This Architecture Does NOT Cover (Yet)
 
-- **Payment/billing.** Out of scope for baseline. Stripe integration is a future layer.
+- **Platform-hosted agent environments.** Cloudflare Containers with a VibeSDK fork for learners who don't have their own agent tools. Deferred until MVP validates demand and the bring-your-own-tools path reveals friction.
+- **Payment/billing.** Out of scope for MVP. Stripe integration is a future layer.
 - **Cohort/classroom features.** This is a single-learner self-paced architecture. Instructor dashboards, group exercises, and cohort management are future work.
 - **Certificate issuance.** The rubric engine can determine pass/fail. Issuing a verifiable credential is a separate system.
 - **Content authoring CMS.** Exercise definitions are JSON files in the codebase. A CMS for non-technical content authors is future work.
 - **Mobile app.** SPA is responsive but there is no native app. PWA is a low-cost future option.
+- **Full course modules.** Module 5 (Autonomy Spectrum), Module 7 (Users, Data, Dual Interface), Module 9 standalone (Regulation, Future of Pilotry), Module 4 sections 4.4–4.6, and the full final project are designed in the curriculum but not built in the MVP.
+- **Simulation exercises (CT-9).** AI-driven synthetic user testing against live applications. Deferred to Module 7 in the full course.
+- **Dashboard interpretation exercises (CT-10).** Static analytics dashboards with synthetic data. Deferred to Module 7 in the full course.
