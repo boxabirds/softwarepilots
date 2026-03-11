@@ -4,18 +4,22 @@ import { CodeEditor, type CodeEditorHandle } from "../components/CodeEditor";
 import { SelfAssessment } from "../components/SelfAssessment";
 import { ScoreDisplay } from "../components/ScoreDisplay";
 import { apiClient } from "../lib/api-client";
+import { getExerciseContent, getExerciseRubric, type PyodideStep } from "@softwarepilots/shared";
+import { getStepRendering } from "../config/step-rendering";
+import {
+  InputPill,
+  SubmitArrow,
+  ChatCard,
+  ComparisonCard,
+  OutputCard,
+  TutorCard,
+  StepPrompt,
+  MobileTabBar,
+  type MobileTab,
+} from "../components/exercise";
+import { useIsMobile } from "../hooks/useIsMobile";
 
-/* ---- Exercise step definitions ---- */
-
-interface ExerciseStep {
-  prompt: string;
-  input?: {
-    type: "prediction" | "reflection";
-    placeholder: string;
-  };
-  showRun?: boolean;
-  focus?: "editor" | "input";
-}
+/* ---- Types ---- */
 
 interface RunSnapshot {
   code: string;
@@ -29,54 +33,35 @@ interface ChatMessage {
   onTopic?: boolean;
 }
 
-const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
-  "2.1": [
-    {
-      prompt: "Read the code. **What do you think it will print?**",
-      input: { type: "prediction", placeholder: "Type your prediction..." },
-      showRun: true,
-      focus: "input",
-    },
-    {
-      prompt: "Now try removing `str()` from line 3 and run again. What happens?",
-      showRun: true,
-      focus: "editor",
-    },
-    {
-      prompt: "Make one more change of your own. **What do you think will happen?**",
-      input: { type: "prediction", placeholder: "Type your prediction..." },
-      showRun: true,
-      focus: "editor",
-    },
-    {
-      prompt: "**What did you change, and what did you learn?**",
-      input: { type: "reflection", placeholder: "What did you change and what did you learn?" },
-      focus: "input",
-    },
-  ],
-};
-
-const EXERCISE_TITLES: Record<string, string> = {
-  "2.1": "The Compiler Moment",
-};
-
-const EXERCISE_INTROS: Record<string, { welcome: string }> = {
-  "2.1": {
-    welcome:
-      "You're about to look at 5 lines of Python. You don't need to know Python \u2014 just read each line carefully and try to figure out what it does.\n\nThis exercise is about feeling how precise a computer is. It does exactly what it's told, nothing more, nothing less. You'll predict what the code will do, run it, and see if you were right.\n\nWhen you're ready, hit the button below.",
-  },
-};
-
 const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
-const SUBMIT_BUTTON_SIZE = 32;
-const FIRST_PREDICTION_STEP = 0;
 const MAX_TUTOR_QUESTIONS = 30;
+const EDITOR_INTRO_OPACITY = 0.3;
+const INTRO_STEP_INDEX = -1;
 
 type Phase = "intro" | "steps" | "self-assessment" | "submitting" | "results";
 
-const INTRO_STEP_INDEX = -1;
-const EDITOR_INTRO_OPACITY = 0.3;
+/* ---- Kbd helper ---- */
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-block rounded-[3px] border border-border bg-muted px-1 py-px font-sans text-[10px]">
+      {children}
+    </kbd>
+  );
+}
+
+const modKey = typeof navigator !== "undefined" && navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl";
+
+/* ---- Helpers ---- */
+
+function findFirstPredictionStep(steps: PyodideStep[]): number {
+  return steps.findIndex((s) => s.type === "predict" || s.type === "edit-and-predict");
+}
+
+function findReflectionStep(steps: PyodideStep[]): number {
+  return steps.findIndex((s) => s.type === "reflect");
+}
 
 /* ---- Component ---- */
 
@@ -84,14 +69,16 @@ export function Exercise() {
   const { moduleId, exerciseId } = useParams();
   const fullExerciseId = `${moduleId}.${exerciseId}` || "2.1";
 
-  const steps = EXERCISE_STEPS[fullExerciseId] || [];
-  const title = EXERCISE_TITLES[fullExerciseId] || "Exercise";
+  const exerciseContent = getExerciseContent(fullExerciseId);
+  const rubric = getExerciseRubric(fullExerciseId);
+  const steps = exerciseContent.steps;
+  const title = exerciseContent.title;
 
   const editorRef = useRef<CodeEditorHandle>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const intro = EXERCISE_INTROS[fullExerciseId];
+  const intro = exerciseContent.intro;
   const [phase, setPhase] = useState<Phase>(intro ? "intro" : "steps");
   const [code, setCode] = useState("");
   const [editorReady, setEditorReady] = useState(false);
@@ -102,30 +89,30 @@ export function Exercise() {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showSnapshotPopup, setShowSnapshotPopup] = useState(false);
 
-  // Per-step input: text the user types in the input bar
   const [inputText, setInputText] = useState("");
-  // Submitted inputs indexed by step number
   const [submittedInputs, setSubmittedInputs] = useState<Record<number, string>>({});
-  // Tutor conversation
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Mobile layout
+  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState<MobileTab>("exercise");
+
   const activeStep = Math.min(snapshots.length, steps.length - 1);
   const currentStep = steps[activeStep];
+  const currentRendering = getStepRendering(currentStep.type);
 
-  // Has the current step's required input been submitted?
   const currentInputSubmitted = submittedInputs[activeStep] !== undefined;
-  // Run is gated if the step has input that must be submitted first
-  const inputGatesRun = currentStep?.input && currentStep?.showRun && !currentInputSubmitted;
-  const runDisabled = !editorReady || (phase !== "steps") || viewingSnapshot !== null || !!inputGatesRun;
+  const inputGatesRun = currentRendering.inputGatesRun && !currentInputSubmitted;
+  const runDisabled = !editorReady || (phase !== "steps") || viewingSnapshot !== null || inputGatesRun;
 
   const tutorQuestionsUsed = chatMessages.filter((m) => m.role === "user").length;
   const tutorLimitReached = tutorQuestionsUsed >= MAX_TUTOR_QUESTIONS;
 
-  // Convenience accessors for the API
-  const firstPrediction = submittedInputs[FIRST_PREDICTION_STEP] || "";
-  const reflectionStep = steps.findIndex((s) => s.input?.type === "reflection");
-  const reflection = submittedInputs[reflectionStep] || "";
+  const firstPredictionStepIndex = findFirstPredictionStep(steps);
+  const firstPrediction = firstPredictionStepIndex >= 0 ? (submittedInputs[firstPredictionStepIndex] || "") : "";
+  const reflectionStepIndex = findReflectionStep(steps);
+  const reflection = reflectionStepIndex >= 0 ? (submittedInputs[reflectionStepIndex] || "") : "";
 
   /* ---- Scrolling ---- */
 
@@ -153,17 +140,18 @@ export function Exercise() {
   /* ---- Step-driven focus management ---- */
 
   useEffect(() => {
-    // Small delay to let the DOM settle after step transitions
     const timer = setTimeout(() => {
       if (phase !== "steps" || viewingSnapshot !== null) return;
-      if (currentStep?.focus === "editor") {
+      if (currentRendering.focus === "editor") {
+        if (isMobile) setActiveTab("code");
         editorRef.current?.focus();
-      } else if (currentStep?.focus === "input") {
+      } else if (currentRendering.focus === "input") {
+        if (isMobile) setActiveTab("exercise");
         inputRef.current?.focus();
       }
     }, 50);
     return () => clearTimeout(timer);
-  }, [activeStep, currentInputSubmitted, phase, viewingSnapshot, currentStep?.focus, editorReady]);
+  }, [activeStep, currentInputSubmitted, phase, viewingSnapshot, currentRendering.focus, editorReady, isMobile]);
 
   /* ---- Ctrl+Enter for Run ---- */
 
@@ -182,13 +170,13 @@ export function Exercise() {
 
   const handleReady = () => {
     setPhase("steps");
-    // Focus will be handled by the step-driven focus effect
   };
 
   const handleRun = (output: string) => {
     setSnapshots((prev) => [...prev, { code, output }]);
     setReadyMessage(false);
-    setInputText(""); // clear for next step
+    setInputText("");
+    if (isMobile) setActiveTab("exercise");
   };
 
   const handleRunClick = () => {
@@ -212,11 +200,9 @@ export function Exercise() {
     setSubmittedInputs((prev) => ({ ...prev, [activeStep]: inputText.trim() }));
     setInputText("");
 
-    // If this step has no Run (e.g. reflection), trigger evaluation
-    if (!currentStep?.showRun) {
+    if (!currentRendering.showRun) {
       setPhase("self-assessment");
     } else {
-      // Input submitted, user now needs to Run — focus editor
       requestAnimationFrame(() => editorRef.current?.focus());
     }
   };
@@ -308,7 +294,6 @@ export function Exercise() {
   function renderChat() {
     const elements: React.ReactNode[] = [];
 
-    // Intro welcome message + intro chat messages
     if (intro) {
       elements.push(
         <TutorCard key="intro-welcome" content={intro.welcome} />
@@ -320,7 +305,7 @@ export function Exercise() {
           if (msg.role === "user") {
             elements.push(
               <ChatCard key={`intro-user-${j}`} align="right">
-                <div style={quotedBlockStyle}>{msg.content}</div>
+                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{msg.content}</div>
               </ChatCard>
             );
           } else {
@@ -331,7 +316,6 @@ export function Exercise() {
         });
     }
 
-    // Don't render step content during intro
     if (phase === "intro") {
       if (chatLoading) {
         elements.push(<TutorCard key="intro-loading" content="" loading />);
@@ -343,40 +327,37 @@ export function Exercise() {
       if (i > activeStep) break;
 
       const step = steps[i];
+      const stepRendering = getStepRendering(step.type);
 
-      // Step prompt
       elements.push(
         <ChatCard key={`prompt-${i}`}>
           <StepPrompt text={step.prompt} />
         </ChatCard>
       );
 
-      // Submitted input for this step
       const submitted = submittedInputs[i];
       if (submitted) {
         elements.push(
           <ChatCard key={`input-${i}`} align="right">
-            <div style={quotedBlockStyle}>{submitted}</div>
+            <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{submitted}</div>
           </ChatCard>
         );
       }
 
-      // Waiting-for-run hint (input submitted but not yet run)
-      if (submitted && step.showRun && !snapshots[i]) {
+      if (submitted && stepRendering.showRun && !snapshots[i]) {
         elements.push(
           <ChatCard key={`run-hint-${i}`} muted>
-            <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+            <span className="text-[13px] text-muted-foreground">
               Click <strong>Run</strong> to see if you were right.
-              {" "}<span style={{ fontSize: 11 }}>(<kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd>)</span>
+              {" "}<span className="text-[11px]"><Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></span>
             </span>
           </ChatCard>
         );
       }
 
-      // Output: comparison card for any step with a prediction, regular output for others
       if (snapshots[i]) {
         const isSelected = viewingSnapshot === i;
-        if (submitted && steps[i].input?.type === "prediction") {
+        if (submitted && stepRendering.inputType === "prediction") {
           elements.push(
             <ComparisonCard
               key={`comparison-${i}`}
@@ -399,14 +380,13 @@ export function Exercise() {
         }
       }
 
-      // Tutor conversation for this step
       chatMessages
         .filter((msg) => msg.atStep === i)
         .forEach((msg, j) => {
           if (msg.role === "user") {
             elements.push(
               <ChatCard key={`chat-user-${i}-${j}`} align="right">
-                <div style={quotedBlockStyle}>{msg.content}</div>
+                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{msg.content}</div>
               </ChatCard>
             );
           } else {
@@ -417,45 +397,36 @@ export function Exercise() {
         });
     }
 
-    // Tutor typing indicator
     if (chatLoading) {
       elements.push(
         <TutorCard key="tutor-loading" content="" loading />
       );
     }
 
-    // "Ready to test" message
     if (readyMessage && phase === "steps") {
       elements.push(
         <ChatCard key="ready" muted>
-          <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+          <span className="text-[13px] text-muted-foreground">
             Ready to test your new edits.
           </span>
         </ChatCard>
       );
     }
 
-    // Submitting spinner
     if (phase === "submitting") {
       elements.push(
         <ChatCard key="submitting">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-            <div style={spinnerStyle} />
-            <span style={{ fontSize: 14, color: "var(--muted-foreground)" }}>Evaluating...</span>
+          <div className="flex items-center gap-2.5 py-1">
+            <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm text-muted-foreground">Evaluating...</span>
           </div>
         </ChatCard>
       );
     }
 
-    // Results
     if (phase === "results" && submissionId) {
       elements.push(
-        <div key="results" style={{
-          marginTop: 12,
-          background: "var(--background)",
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-        }}>
+        <div key="results" className="mt-3 rounded-[10px] border border-border bg-background">
           <ScoreDisplay submissionId={submissionId} />
         </div>
       );
@@ -469,7 +440,7 @@ export function Exercise() {
   function renderInputBar() {
     if (phase === "intro") {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           <InputPill>
             <textarea
               ref={inputRef}
@@ -477,7 +448,7 @@ export function Exercise() {
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Ask a question..."
               rows={1}
-              style={pillTextareaStyle}
+              className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
               disabled={chatLoading}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
@@ -488,34 +459,36 @@ export function Exercise() {
             />
             <SubmitArrow active={!!inputText.trim() && !chatLoading} onClick={handleChatSubmit} />
           </InputPill>
-          <button onClick={handleReady} style={readyBtnStyle}>
+          <button
+            onClick={handleReady}
+            className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[15px] font-semibold text-primary-foreground transition-transform duration-100"
+          >
             I'm ready — let's start
           </button>
         </div>
       );
     }
     if (phase === "submitting") {
-      return <InputPill><span style={hintTextStyle}>Waiting for evaluation...</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Waiting for evaluation...</span></InputPill>;
     }
     if (phase === "results") {
-      return <InputPill><span style={hintTextStyle}>Exercise complete.</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Exercise complete.</span></InputPill>;
     }
     if (phase === "self-assessment") {
-      return <InputPill><span style={hintTextStyle}>Complete self-assessment above...</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Complete self-assessment above...</span></InputPill>;
     }
     if (!currentStep) return null;
 
-    // Step has input and it hasn't been submitted yet: show textarea
-    if (currentStep.input && !currentInputSubmitted) {
+    if (currentRendering.hasInput && !currentInputSubmitted) {
       return (
         <InputPill>
           <textarea
             ref={inputRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={currentStep.input.placeholder}
+            placeholder={currentStep.inputPlaceholder}
             rows={2}
-            style={pillTextareaStyle}
+            className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
                 e.preventDefault();
@@ -528,22 +501,20 @@ export function Exercise() {
       );
     }
 
-    // Tutor question mode: available when step input is already submitted or step has no input
     if (tutorLimitReached) {
       return (
         <InputPill>
-          <span style={hintTextStyle}>You've used your tutor questions for this exercise.</span>
+          <span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">You've used your tutor questions for this exercise.</span>
         </InputPill>
       );
     }
 
-    // Show question textarea with contextual hint above
-    const runHint = currentStep.showRun ? (
-      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginBottom: 4, paddingLeft: 2 }}>
-        {currentStep.input && currentInputSubmitted
-          ? <>Click <strong>Run</strong> to test your prediction. <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd></>
-          : !currentStep.input
-            ? <>Make your change, then <strong>Run</strong>. <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Enter</kbd></>
+    const runHint = currentRendering.showRun ? (
+      <div className="mb-1 pl-0.5 text-[11px] text-muted-foreground">
+        {currentRendering.hasInput && currentInputSubmitted
+          ? <>Click <strong>Run</strong> to test your prediction. <Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></>
+          : !currentRendering.hasInput
+            ? <>Make your change, then <strong>Run</strong>. <Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></>
             : null}
       </div>
     ) : null;
@@ -558,7 +529,7 @@ export function Exercise() {
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Ask about what you see..."
             rows={1}
-            style={pillTextareaStyle}
+            className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
             disabled={chatLoading}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
@@ -575,35 +546,36 @@ export function Exercise() {
 
   /* ---- Layout ---- */
 
-  return (
-    <div style={{ display: "flex", height: "100dvh", background: "var(--muted)" }}>
+  const codeTabDisabled = phase === "intro";
+  const showEditorPanel = !isMobile || activeTab === "code";
+  const showChatPanel = !isMobile || activeTab === "exercise";
 
-      {/* ===== LHS: Editor panel ===== */}
-      <div style={{
-        width: "50%",
-        display: "flex",
-        flexDirection: "column",
-        borderRight: "1px solid var(--border)",
-        background: "var(--background)",
-      }}>
+  return (
+    <div className="flex h-dvh flex-col bg-muted md:flex-row">
+
+      {/* ===== Editor panel ===== */}
+      <div className={`flex flex-col border-border bg-background md:w-1/2 md:border-r ${
+        showEditorPanel ? "flex-1 md:flex" : "hidden"
+      }`}>
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-          <span style={metaLabelStyle}>
+        <div className="border-b border-border px-5 py-4">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             Module {moduleId} &middot; Exercise {exerciseId}
           </span>
-          <h1 style={{ margin: "4px 0 0", fontSize: 20, fontWeight: 700 }}>{title}</h1>
+          <h1 className="mt-1 text-xl font-bold">{title}</h1>
         </div>
 
         {/* Editor area */}
-        <div style={{ flex: 1, position: "relative", minHeight: EDITOR_MIN_HEIGHT }}>
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            display: viewingSnapshot !== null ? "none" : "block",
-            opacity: phase === "intro" ? EDITOR_INTRO_OPACITY : 1,
-            pointerEvents: phase === "intro" ? "none" : "auto",
-            transition: "opacity 0.3s ease",
-          }}>
+        <div className="relative flex-1" style={{ minHeight: isMobile ? undefined : EDITOR_MIN_HEIGHT }}>
+          <div
+            className={`absolute inset-0 transition-opacity duration-300 ${
+              phase === "intro" ? "pointer-events-none" : ""
+            }`}
+            style={{
+              display: viewingSnapshot !== null ? "none" : "block",
+              opacity: phase === "intro" ? EDITOR_INTRO_OPACITY : 1,
+            }}
+          >
             <CodeEditor
               ref={editorRef}
               exerciseId={fullExerciseId}
@@ -616,33 +588,26 @@ export function Exercise() {
 
           {viewingSnapshot !== null && (
             <div
-              style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
+              className="absolute inset-0 flex flex-col"
               onDoubleClick={() => setShowSnapshotPopup(true)}
             >
-              <div style={{
-                padding: "8px 16px",
-                background: "var(--muted)",
-                fontSize: 12,
-                fontWeight: 500,
-                color: "var(--muted-foreground)",
-                borderBottom: "1px solid var(--border)",
-              }}>
+              <div className="border-b border-border bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
                 Viewing code from run #{viewingSnapshot + 1} (read-only)
               </div>
-              <pre style={snapshotCodeStyle}>
+              <pre className="m-0 flex-1 overflow-y-auto whitespace-pre-wrap bg-[#1e1e1e] px-5 py-4 font-mono text-[13px] leading-relaxed text-[#d4d4d4]">
                 {snapshots[viewingSnapshot].code}
               </pre>
 
               {showSnapshotPopup && (
                 <div
-                  style={popupOverlayStyle}
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-black/40"
                   onClick={() => setShowSnapshotPopup(false)}
                 >
                   <div
-                    style={popupCardStyle}
+                    className="rounded-xl border border-border bg-background px-6 py-5 text-center shadow-lg"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--foreground)" }}>
+                    <p className="mb-3 text-sm text-foreground">
                       This is from a previous run.
                     </p>
                     <button
@@ -650,7 +615,7 @@ export function Exercise() {
                         setShowSnapshotPopup(false);
                         handleResumeEditing();
                       }}
-                      style={btnPrimary}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground"
                     >
                       Make another edit
                     </button>
@@ -661,53 +626,47 @@ export function Exercise() {
           )}
         </div>
 
-        {/* Undo hint (hidden during intro) */}
+        {/* Undo hint (hidden on mobile to save space) */}
         {phase !== "intro" && (
-          <div style={{
-            padding: "4px 20px",
-            borderTop: "1px solid var(--border)",
-            fontSize: 11,
-            color: "var(--muted-foreground)",
-            textAlign: "center",
-          }}>
-            <kbd style={kbdStyle}>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</kbd>+<kbd style={kbdStyle}>Z</kbd> to undo edits
+          <div className="hidden border-t border-border px-5 py-1 text-center text-[11px] text-muted-foreground md:block">
+            <Kbd>{modKey}</Kbd>+<Kbd>Z</Kbd> to undo edits
           </div>
         )}
 
-        {/* Bottom bar: Run or Resume (hidden during intro) */}
-        <div style={{
-          padding: "8px 20px 12px",
-          display: phase === "intro" ? "none" : "flex",
-          justifyContent: "flex-end",
-        }}>
+        {/* Bottom bar: Run or Resume */}
+        <div className={`flex justify-end px-5 pb-3 pt-2 ${phase === "intro" ? "hidden" : ""}`}>
           {viewingSnapshot !== null ? (
-            <button onClick={handleResumeEditing} style={btnPrimary}>
+            <button
+              onClick={handleResumeEditing}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground"
+            >
               Make another edit
             </button>
           ) : (
             <button
               onClick={handleRunClick}
               disabled={runDisabled}
-              style={runDisabled ? btnDisabled : btnPrimary}
+              className={`inline-flex items-center gap-1 rounded-md border-none px-4 py-[7px] text-[13px] font-medium ${
+                runDisabled
+                  ? "cursor-default bg-muted text-muted-foreground"
+                  : "cursor-pointer bg-primary text-primary-foreground"
+              }`}
             >
-              {editorReady && !inputGatesRun && <span style={{ fontSize: 11 }}>&#9654;</span>}
+              {editorReady && !inputGatesRun && <span className="text-[11px]">&#9654;</span>}
               {" "}{!editorReady ? "Loading Python..." : inputGatesRun ? "Submit your answer first" : "Run"}
             </button>
           )}
         </div>
       </div>
 
-      {/* ===== RHS: Chat + input ===== */}
-      <div style={{
-        width: "50%",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-      }}>
+      {/* ===== Chat + input panel ===== */}
+      <div className={`relative flex flex-col md:w-1/2 ${
+        showChatPanel ? "flex-1 md:flex" : "hidden"
+      }`}>
         {/* Scrollable chat area */}
         <div
           ref={chatRef}
-          style={{ flex: 1, overflowY: "auto", padding: "16px 20px 16px" }}
+          className="flex-1 overflow-y-auto px-5 py-4"
         >
           {renderChat()}
         </div>
@@ -716,24 +675,18 @@ export function Exercise() {
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
-            style={scrollToBottomBtnStyle}
+            className="absolute bottom-[100px] left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"
             aria-label="Scroll to bottom"
           >
             &#8595;
           </button>
         )}
 
-        {/* Self-assessment popup (above input bar) */}
+        {/* Self-assessment popup */}
         {phase === "self-assessment" && (
-          <div style={{
-            borderTop: "1px solid var(--border)",
-            padding: "20px",
-            background: "var(--background)",
-            boxShadow: "0 -4px 16px rgba(0,0,0,0.08)",
-            maxHeight: "60vh",
-            overflowY: "auto",
-          }}>
+          <div className="max-h-[60vh] overflow-y-auto border-t border-border bg-background p-5 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
             <SelfAssessment
+              dimensions={rubric.dimensions}
               onSubmit={handleSelfAssessmentSubmit}
               onSkip={handleSkipSelfAssessment}
             />
@@ -741,389 +694,19 @@ export function Exercise() {
         )}
 
         {/* Fixed input bar */}
-        <div style={{ padding: "12px 20px 16px", background: "var(--muted)" }}>
+        <div className="bg-muted px-5 pb-4 pt-3">
           {renderInputBar()}
         </div>
       </div>
-    </div>
-  );
-}
 
-/* ---- Shared sub-components ---- */
-
-function InputPill({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      display: "flex",
-      alignItems: "flex-end",
-      gap: 8,
-      padding: "12px 16px",
-      background: "var(--background)",
-      border: "1px solid var(--border)",
-      borderRadius: 20,
-      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function SubmitArrow({ active, onClick }: { active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={!active}
-      style={{
-        width: SUBMIT_BUTTON_SIZE,
-        height: SUBMIT_BUTTON_SIZE,
-        borderRadius: "50%",
-        border: "none",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: active ? "pointer" : "default",
-        background: active ? "var(--primary)" : "var(--muted)",
-        color: active ? "var(--primary-foreground)" : "var(--muted-foreground)",
-        flexShrink: 0,
-        fontSize: 16,
-        transition: "background 0.15s, color 0.15s",
-      }}
-      aria-label="Submit"
-    >
-      &#8593;
-    </button>
-  );
-}
-
-function ChatCard({ children, muted, align }: {
-  children: React.ReactNode;
-  muted?: boolean;
-  align?: "right";
-}) {
-  return (
-    <div style={{
-      marginTop: 12,
-      padding: 16,
-      background: muted ? "var(--muted)" : "var(--background)",
-      borderRadius: 10,
-      border: "1px solid var(--border)",
-      ...(align === "right" ? { marginLeft: 40 } : {}),
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function ComparisonCard({ prediction, output, selected, onClick }: {
-  prediction: string;
-  output: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const match = prediction.trim() === output.trim();
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        marginTop: 12,
-        padding: 16,
-        background: "var(--background)",
-        borderRadius: 10,
-        border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`,
-        cursor: "pointer",
-        transition: "border-color 0.15s",
-      }}
-    >
-      <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
-        <div style={{ flex: 1 }}>
-          <FieldLabel>Your prediction</FieldLabel>
-          <pre style={comparisonPreStyle}>{prediction}</pre>
-        </div>
-        <div style={{ flex: 1 }}>
-          <FieldLabel>Actual output</FieldLabel>
-          <pre style={comparisonPreStyle}>{output}</pre>
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: match ? "var(--success)" : "var(--warning)",
-        }}>
-          {match ? "Exact match!" : "Not quite \u2014 spot the difference"}
-        </span>
-        <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-          {selected ? "viewing code \u2190" : "click to view code"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function OutputCard({ index, output, selected, onClick }: {
-  index: number;
-  output: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        marginTop: 12,
-        padding: 16,
-        background: "var(--background)",
-        borderRadius: 10,
-        border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`,
-        cursor: "pointer",
-        transition: "border-color 0.15s",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <FieldLabel>Output (run #{index + 1})</FieldLabel>
-        <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-          {selected ? "viewing code \u2190" : "click to view code"}
-        </span>
-      </div>
-      <pre style={consoleStyle}>{output}</pre>
-    </div>
-  );
-}
-
-function TutorCard({ content, loading }: { content: string; loading?: boolean }) {
-  return (
-    <div style={tutorCardStyle}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: loading ? 0 : 4 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          Tutor
-        </span>
-      </div>
-      {loading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
-          <div style={spinnerStyle} />
-          <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Thinking...</span>
-        </div>
-      ) : (
-        <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--foreground)" }}>{content}</div>
+      {/* ===== Mobile tab bar ===== */}
+      {isMobile && (
+        <MobileTabBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          codeDisabled={codeTabDisabled}
+        />
       )}
     </div>
   );
 }
-
-function StepPrompt({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return (
-    <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5 }}>
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <code key={i} style={inlineCodeStyle}>{part.slice(1, -1)}</code>;
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </div>
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted-foreground)", marginBottom: 4 }}>
-      {children}
-    </div>
-  );
-}
-
-/* ---- Styles ---- */
-
-const metaLabelStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--muted-foreground)",
-};
-
-const pillTextareaStyle: React.CSSProperties = {
-  flex: 1,
-  border: "none",
-  outline: "none",
-  resize: "none",
-  fontSize: 14,
-  lineHeight: 1.5,
-  background: "transparent",
-  color: "var(--foreground)",
-  fontFamily: "inherit",
-  minHeight: 24,
-};
-
-const hintTextStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "var(--muted-foreground)",
-  lineHeight: 1.5,
-  flex: 1,
-};
-
-const consoleStyle: React.CSSProperties = {
-  margin: 0,
-  padding: "12px 16px",
-  fontSize: 13,
-  fontFamily: "monospace",
-  lineHeight: 1.5,
-  background: "#0d1117",
-  color: "#c9d1d9",
-  borderRadius: 6,
-  whiteSpace: "pre-wrap",
-  overflowX: "auto",
-};
-
-const comparisonPreStyle: React.CSSProperties = {
-  margin: 0,
-  padding: "10px 12px",
-  fontSize: 13,
-  fontFamily: "monospace",
-  lineHeight: 1.5,
-  background: "#0d1117",
-  color: "#c9d1d9",
-  borderRadius: 6,
-  whiteSpace: "pre-wrap",
-};
-
-const snapshotCodeStyle: React.CSSProperties = {
-  flex: 1,
-  margin: 0,
-  padding: "16px 20px",
-  fontSize: 13,
-  fontFamily: "monospace",
-  lineHeight: 1.6,
-  background: "#1e1e1e",
-  color: "#d4d4d4",
-  overflowY: "auto",
-  whiteSpace: "pre-wrap",
-};
-
-const quotedBlockStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  fontSize: 13,
-  fontFamily: "monospace",
-  lineHeight: 1.5,
-  borderLeft: "3px solid var(--border)",
-  background: "var(--muted)",
-  borderRadius: "0 4px 4px 0",
-  color: "var(--foreground)",
-};
-
-const inlineCodeStyle: React.CSSProperties = {
-  padding: "2px 5px",
-  fontSize: 12,
-  fontFamily: "monospace",
-  background: "var(--muted)",
-  borderRadius: 4,
-};
-
-const btnBase: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-  padding: "7px 16px",
-  fontSize: 13,
-  fontWeight: 500,
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-
-const btnPrimary: React.CSSProperties = {
-  ...btnBase,
-  background: "var(--primary)",
-  color: "var(--primary-foreground)",
-};
-
-const btnDisabled: React.CSSProperties = {
-  ...btnBase,
-  background: "var(--muted)",
-  color: "var(--muted-foreground)",
-  cursor: "default",
-};
-
-const spinnerStyle: React.CSSProperties = {
-  width: 16,
-  height: 16,
-  border: "2px solid var(--primary)",
-  borderTopColor: "transparent",
-  borderRadius: "50%",
-  animation: "spin 1s linear infinite",
-};
-
-const popupOverlayStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(0,0,0,0.4)",
-  zIndex: 20,
-};
-
-const popupCardStyle: React.CSSProperties = {
-  padding: "20px 24px",
-  background: "var(--background)",
-  borderRadius: 12,
-  border: "1px solid var(--border)",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-  textAlign: "center",
-};
-
-const kbdStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "1px 4px",
-  fontSize: 10,
-  fontFamily: "inherit",
-  background: "var(--muted)",
-  border: "1px solid var(--border)",
-  borderRadius: 3,
-};
-
-const tutorCardStyle: React.CSSProperties = {
-  marginTop: 12,
-  padding: 16,
-  background: "var(--muted)",
-  borderRadius: 10,
-  border: "1px solid var(--border)",
-  borderLeft: "3px solid var(--primary)",
-  marginRight: 40,
-};
-
-const readyBtnStyle: React.CSSProperties = {
-  padding: "12px 24px",
-  fontSize: 15,
-  fontWeight: 600,
-  border: "none",
-  borderRadius: 10,
-  cursor: "pointer",
-  background: "var(--primary)",
-  color: "var(--primary-foreground)",
-  textAlign: "center",
-  transition: "transform 0.1s ease",
-};
-
-const scrollToBottomBtnStyle: React.CSSProperties = {
-  position: "absolute",
-  bottom: 100,
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  border: "1px solid var(--border)",
-  background: "var(--background)",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 18,
-  color: "var(--muted-foreground)",
-  zIndex: 10,
-};

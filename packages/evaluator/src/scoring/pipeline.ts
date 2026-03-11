@@ -2,7 +2,7 @@ import type { Env } from "../env";
 import { buildEvaluationPrompt } from "./prompt-builder";
 import { parseEvaluatorResponse } from "./response-parser";
 import { buildScoringResult, type ScoringResult } from "./gap-calculator";
-import rubric21 from "../rubrics/2.1.json";
+import { getExerciseRubric } from "@softwarepilots/shared";
 
 const RETRY_DELAY_MS = 1000;
 const MAX_RETRIES = 1;
@@ -33,7 +33,7 @@ export async function evaluateSubmission(
   }
 
   // 2. Load rubric
-  const rubric = loadRubric(submission.exercise_id);
+  const rubric = getExerciseRubric(submission.exercise_id);
   const content = JSON.parse(submission.content_json);
   const selfAssessment = submission.self_assessment_json
     ? JSON.parse(submission.self_assessment_json)
@@ -93,12 +93,6 @@ export async function evaluateSubmission(
   return result;
 }
 
-function loadRubric(exerciseId: string) {
-  if (exerciseId === "2.1") {
-    return rubric21;
-  }
-  throw new Error(`No rubric found for exercise ${exerciseId}`);
-}
 
 async function callGeminiWithRetry(
   env: Env,

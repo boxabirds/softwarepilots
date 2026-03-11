@@ -1,27 +1,28 @@
 import { useState } from "react";
 
-const DIMENSIONS = [
-  { key: "code_comprehension", label: "Code Comprehension", description: "How well could you explain what each line does to someone else?" },
-  { key: "prediction_accuracy", label: "Output Predictions", description: "When you predicted what the code would print, how often were you right?" },
-  { key: "modification_quality", label: "Your Modification", description: "How deliberate was your change — did you know what would happen before you ran it?" },
-];
-
 const MIN_SCORE = 1;
 const MAX_SCORE = 10;
 const DEFAULT_SCORE = 5;
 
+interface DimensionDisplay {
+  key: string;
+  label: string;
+  self_assessment_description: string;
+}
+
 interface SelfAssessmentProps {
+  dimensions: DimensionDisplay[];
   onSubmit: (predictions: Record<string, number>, weakestDimension: string) => void;
   onSkip?: () => void;
 }
 
-export function SelfAssessment({ onSubmit, onSkip }: SelfAssessmentProps) {
+export function SelfAssessment({ dimensions, onSubmit, onSkip }: SelfAssessmentProps) {
   const [predictions, setPredictions] = useState<Record<string, number>>(
-    () => Object.fromEntries(DIMENSIONS.map((d) => [d.key, DEFAULT_SCORE]))
+    () => Object.fromEntries(dimensions.map((d) => [d.key, DEFAULT_SCORE]))
   );
   const [weakest, setWeakest] = useState("");
 
-  const isComplete = weakest !== "" && Object.keys(predictions).length === DIMENSIONS.length;
+  const isComplete = weakest !== "" && Object.keys(predictions).length === dimensions.length;
 
   const handleSubmit = () => {
     if (!isComplete) return;
@@ -37,7 +38,7 @@ export function SelfAssessment({ onSubmit, onSkip }: SelfAssessmentProps) {
         </div>
       </div>
 
-      {DIMENSIONS.map((dim) => (
+      {dimensions.map((dim) => (
         <div key={dim.key}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <label style={{ fontSize: 13, fontWeight: 500 }}>{dim.label}</label>
@@ -45,7 +46,7 @@ export function SelfAssessment({ onSubmit, onSkip }: SelfAssessmentProps) {
               {predictions[dim.key]}/{MAX_SCORE}
             </span>
           </div>
-          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{dim.description}</div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 6 }}>{dim.self_assessment_description}</div>
           <input
             type="range"
             min={MIN_SCORE}
@@ -79,7 +80,7 @@ export function SelfAssessment({ onSubmit, onSkip }: SelfAssessmentProps) {
         >
           <option value="">Select...</option>
           <option value="none">None — I'm confident in all three</option>
-          {DIMENSIONS.map((dim) => (
+          {dimensions.map((dim) => (
             <option key={dim.key} value={dim.key}>{dim.label}</option>
           ))}
         </select>

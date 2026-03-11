@@ -1,13 +1,6 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { loadPyodideRuntime, executePython, type PyodideInterface } from "../lib/pyodide-loader";
-
-const STARTER_CODE: Record<string, string> = {
-  "2.1": `price = 10
-tax = price * 0.2
-label = "Total: " + str(price + tax)
-cheap = price < 5
-print(label, "| Cheap?", cheap)`,
-};
+import { getExerciseMeta } from "@softwarepilots/shared";
 
 export interface CodeEditorHandle {
   run: () => void;
@@ -24,7 +17,7 @@ interface CodeEditorProps {
 
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
   function CodeEditor({ exerciseId, onCodeChange, onRun, disabled, onReadyChange }, ref) {
-    const initialCode = STARTER_CODE[exerciseId] || "# No starter code";
+    const initialCode = getExerciseMeta(exerciseId).starter_code;
     const [code, setCode] = useState(initialCode);
     const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
     const [loading, setLoading] = useState(true);

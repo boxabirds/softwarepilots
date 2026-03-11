@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { getExerciseMeta } from "@softwarepilots/shared";
 
 /* ---- Constants ---- */
 
@@ -58,21 +59,6 @@ const TUTOR_TOOLS = [
   },
 ];
 
-/* ---- Exercise context for tutor prompts ---- */
-
-const EXERCISE_CONTEXT: Record<string, { title: string; starter_code: string; topics: string }> = {
-  "2.1": {
-    title: "The Compiler Moment",
-    starter_code: `price = 10
-tax = price * 0.2
-label = "Total: " + str(price + tax)
-cheap = price < 5
-print(label, "| Cheap?", cheap)`,
-    topics:
-      "variable assignment, arithmetic operators, string concatenation, str() type conversion, boolean comparison, print() function, TypeError when mixing types",
-  },
-};
-
 /* ---- Request/response types ---- */
 
 interface ChatRequest {
@@ -128,13 +114,15 @@ chat.post("/", async (c) => {
     return c.json({ error: "message is required" }, 400);
   }
 
-  const exercise = EXERCISE_CONTEXT[body.exercise_id];
-  if (!exercise) {
+  let meta;
+  try {
+    meta = getExerciseMeta(body.exercise_id);
+  } catch {
     return c.json({ error: `Unknown exercise: ${body.exercise_id}` }, 400);
   }
 
   // Build system prompt
-  const systemPrompt = buildTutorSystemPrompt(exercise, body.context);
+  const systemPrompt = buildTutorSystemPrompt(meta, body.context);
 
   // Build conversation history for Gemini multi-turn
   const contents = buildGeminiContents(body.context.conversation, body.message);
@@ -155,17 +143,17 @@ chat.post("/", async (c) => {
 
 /* ---- Exports for testing ---- */
 
-export { messageCounts, EXERCISE_CONTEXT, MAX_MESSAGES_PER_SESSION };
+export { messageCounts, MAX_MESSAGES_PER_SESSION };
 export type { ChatRequest, GeminiFunctionCallResponse };
 
 /* ---- Prompt builder ---- */
 
 export function buildTutorSystemPrompt(
-  exercise: { title: string; starter_code: string; topics: string },
+  meta: { title: string; starter_code: string; topics: string[] },
   context: ChatRequest["context"]
 ): string {
   const lines = [
-    `You are a Socratic Python tutor for the exercise "${exercise.title}".`,
+    `You are a Socratic Python tutor for the exercise "${meta.title}".`,
     "",
     "Your role:",
     "- Guide the learner to understand concepts through questions, not direct answers",
@@ -173,10 +161,10 @@ export function buildTutorSystemPrompt(
     "- Never give away the solution — help them discover it",
     "- Be encouraging but honest",
     "",
-    `Relevant topics for this exercise: ${exercise.topics}`,
+    `Relevant topics for this exercise: ${meta.topics.join(", ")}`,
     "",
     "== Starter Code ==",
-    exercise.starter_code,
+    meta.starter_code,
     "",
     "== Current Code ==",
     context.code,

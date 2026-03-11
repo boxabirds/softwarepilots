@@ -19,6 +19,7 @@
     "wrangler": "^4.71.0"
   },
   "dependencies": {
+    "@softwarepilots/shared": "workspace:*",
     "hono": "^4.7.0"
   }
 }

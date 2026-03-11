@@ -5,11 +5,13 @@ interface RubricDimension {
 }
 
 interface Rubric {
-  exercise_id: string;
+  id: string;
   title: string;
   starter_code: string;
   dimensions: RubricDimension[];
   pass_threshold: number;
+  step_summary: string;
+  scoring_guidance: Record<string, string>;
 }
 
 interface SubmissionContent {
@@ -30,20 +32,18 @@ export function buildEvaluationPrompt(
     )
     .join("\n");
 
-  const system = `You are an educational evaluator for the Software Pilotry Foundation Course.
-You are scoring exercise "${rubric.title}" (${rubric.exercise_id}).
+  const guidanceBlocks = Object.entries(rubric.scoring_guidance)
+    .map(([key, guidance]) => `IMPORTANT for ${key}: ${guidance}`)
+    .join("\n\n");
 
-CONTEXT: The learner was given starter code and asked to:
-1. Predict what it would print before running it
-2. Run it and compare their prediction
-3. Make deliberate modifications (e.g. removing str()) and predict what would change
-4. Describe what they changed and what they learned
+  const system = `You are an educational evaluator for the Software Pilotry Foundation Course.
+You are scoring exercise "${rubric.title}" (${rubric.id}).
+
+CONTEXT: ${rubric.step_summary}
 
 The learner's descriptions under "Modifications" explain what THEY CHANGED and why — not the original code. Evaluate them in that context.
 
-IMPORTANT for modification_quality: Score based on whether the learner made a deliberate change and understood why the output changed. Do NOT penalise for the size or ambition of the modification. A small, intentional change with a clear explanation scores just as highly as a large one. The exercise does not require major changes.
-
-IMPORTANT for prediction_accuracy: Compare the learner's prediction text against the actual console output. Score based on how closely the prediction matches reality — exact match scores high, partially correct scores medium, completely wrong or missing scores low. If the learner did not write a prediction, score prediction_accuracy no higher than 3.
+${guidanceBlocks}
 
 Score the learner's submission on each dimension using a 1-10 scale.
 Provide specific, constructive feedback for each dimension. Keep feedback concise (1-2 sentences).

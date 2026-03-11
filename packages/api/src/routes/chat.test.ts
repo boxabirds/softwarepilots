@@ -3,13 +3,13 @@ import {
   buildTutorSystemPrompt,
   buildGeminiContents,
   messageCounts,
-  EXERCISE_CONTEXT,
   MAX_MESSAGES_PER_SESSION,
 } from "./chat";
+import { getExerciseMeta } from "@softwarepilots/shared";
 
 /* ---- Test fixtures ---- */
 
-const EXERCISE_21 = EXERCISE_CONTEXT["2.1"];
+const EXERCISE_21_META = getExerciseMeta("2.1");
 
 const baseContext = () => ({
   current_step: 0,
@@ -83,7 +83,7 @@ const malformedResponse = () => ({
 
 describe("buildTutorSystemPrompt", () => {
   it("includes exercise title and starter code", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, baseContext());
     expect(prompt).toContain("The Compiler Moment");
     expect(prompt).toContain("price = 10");
     expect(prompt).toContain("str(price + tax)");
@@ -92,7 +92,7 @@ describe("buildTutorSystemPrompt", () => {
   it("includes current code", () => {
     const ctx = baseContext();
     ctx.code = 'label = "Total: " + (price + tax)';
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, ctx);
     expect(prompt).toContain('label = "Total: " + (price + tax)');
   });
 
@@ -102,7 +102,7 @@ describe("buildTutorSystemPrompt", () => {
       { code: "print(1)", output: "1" },
       { code: "print(2)", output: "TypeError: can only concatenate str" },
     ];
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, ctx);
     expect(prompt).toContain("Run #1 output: 1");
     expect(prompt).toContain("Run #2 output: TypeError");
   });
@@ -110,19 +110,19 @@ describe("buildTutorSystemPrompt", () => {
   it("includes learner predictions", () => {
     const ctx = baseContext();
     ctx.submitted_inputs = { 0: "Total: 12.0 | Cheap? False" };
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, ctx);
     expect(prompt).toContain('Step 0: "Total: 12.0 | Cheap? False"');
   });
 
   it("includes current step number", () => {
     const ctx = baseContext();
     ctx.current_step = 2;
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, ctx);
     expect(prompt).toContain("currently on step 2");
   });
 
   it("omits run history when no snapshots", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, baseContext());
     expect(prompt).not.toContain("Run History");
   });
 });

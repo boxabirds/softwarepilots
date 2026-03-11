@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { getAllExerciseIds } from "@softwarepilots/shared";
 
 const MIN_SCORE = 1;
 const MAX_SCORE = 10;
 
-const KNOWN_EXERCISES = new Set(["2.1"]);
+const KNOWN_EXERCISES = new Set(getAllExerciseIds());
 
 interface SubmissionPayload {
   module_id: string;

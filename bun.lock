@@ -13,6 +13,7 @@
       "name": "@softwarepilots/api",
       "version": "0.1.0",
       "dependencies": {
+        "@softwarepilots/shared": "workspace:*",
         "hono": "^4.7.0",
       },
       "devDependencies": {
@@ -27,6 +28,7 @@
       "name": "@softwarepilots/evaluator",
       "version": "0.1.0",
       "dependencies": {
+        "@softwarepilots/shared": "workspace:*",
         "hono": "^4.7.0",
       },
       "devDependencies": {
@@ -35,12 +37,21 @@
         "wrangler": "^4.71.0",
       },
     },
+    "packages/shared": {
+      "name": "@softwarepilots/shared",
+      "version": "0.1.0",
+      "devDependencies": {
+        "typescript": "^5.8.3",
+        "vitest": "^3.2.1",
+      },
+    },
     "packages/web": {
       "name": "@softwarepilots/web",
       "version": "0.1.0",
       "dependencies": {
         "@base-ui/react": "^1.2.0",
         "@fontsource-variable/geist": "^5.2.8",
+        "@softwarepilots/shared": "workspace:*",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "lucide-react": "^0.577.0",
@@ -405,6 +416,8 @@
     "@softwarepilots/api": ["@softwarepilots/api@workspace:packages/api"],
 
     "@softwarepilots/evaluator": ["@softwarepilots/evaluator@workspace:packages/evaluator"],
+
+    "@softwarepilots/shared": ["@softwarepilots/shared@workspace:packages/shared"],
 
     "@softwarepilots/web": ["@softwarepilots/web@workspace:packages/web"],
 

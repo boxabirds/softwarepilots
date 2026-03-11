@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildEvaluationPrompt } from "./prompt-builder";
 
 const rubric = {
-  exercise_id: "2.1",
+  id: "2.1",
   title: "The Compiler Moment",
   starter_code: 'print("original")',
   dimensions: [
@@ -11,6 +11,11 @@ const rubric = {
     { key: "modification_quality", weight: 0.3, description: "Intentional modification" },
   ],
   pass_threshold: 0.6,
+  step_summary: "The learner was asked to predict output, run code, make modifications, and reflect.",
+  scoring_guidance: {
+    modification_quality: "Score based on whether the learner made a deliberate change and understood why.",
+    prediction_accuracy: "Compare the learner's prediction text against the console output.",
+  },
 };
 
 const content = {
@@ -31,6 +36,23 @@ describe("buildEvaluationPrompt", () => {
     const { system } = buildEvaluationPrompt(rubric, content);
     expect(system).toContain("The Compiler Moment");
     expect(system).toContain("2.1");
+  });
+
+  it("includes step_summary as CONTEXT", () => {
+    const { system } = buildEvaluationPrompt(rubric, content);
+    expect(system).toContain("CONTEXT: The learner was asked to predict output");
+  });
+
+  it("includes scoring_guidance as IMPORTANT blocks", () => {
+    const { system } = buildEvaluationPrompt(rubric, content);
+    expect(system).toContain("IMPORTANT for modification_quality: Score based on whether the learner made a deliberate change");
+    expect(system).toContain("IMPORTANT for prediction_accuracy: Compare the learner's prediction text");
+  });
+
+  it("does not contain hardcoded exercise-specific text", () => {
+    const { system } = buildEvaluationPrompt(rubric, content);
+    expect(system).not.toContain("removing str()");
+    expect(system).not.toContain("Predict what it would print");
   });
 
   it("includes learner code in user prompt", () => {
@@ -66,5 +88,12 @@ describe("buildEvaluationPrompt", () => {
     const { system } = buildEvaluationPrompt(rubric, content);
     expect(system).toContain("valid JSON");
     expect(system).toContain('"scores"');
+  });
+
+  it("works with empty scoring_guidance", () => {
+    const minimalRubric = { ...rubric, scoring_guidance: {} };
+    const { system } = buildEvaluationPrompt(minimalRubric, content);
+    expect(system).not.toContain("IMPORTANT for");
+    expect(system).toContain("CONTEXT:");
   });
 });

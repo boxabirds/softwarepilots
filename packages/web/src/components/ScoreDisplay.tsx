@@ -19,6 +19,7 @@ interface DimensionScore {
   score: number;
   weight: number;
   feedback: string;
+  label?: string;
 }
 
 interface CalibrationGap {
@@ -31,12 +32,6 @@ interface CalibrationGap {
 interface ScoreDisplayProps {
   submissionId: string;
 }
-
-const DIMENSION_LABELS: Record<string, string> = {
-  code_comprehension: "Code Comprehension",
-  prediction_accuracy: "Output Predictions",
-  modification_quality: "Your Modification",
-};
 
 function calibrationLabel(absGap: number): string {
   if (absGap <= CALIBRATION_CLOSE) return "well calibrated";
@@ -136,7 +131,7 @@ export function ScoreDisplay({ submissionId }: ScoreDisplayProps) {
                 <div key={dim.key}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>
-                      {DIMENSION_LABELS[dim.key] || dim.key}
+                      {dim.label || dim.key}
                     </span>
                     <span style={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                       {dim.score}
