@@ -39,7 +39,7 @@ const EXERCISE_STEPS: Record<string, ExerciseStep[]> = {
       prompt: "Make one more change of your own. **What do you think will happen?**",
       input: { type: "prediction", placeholder: "Type your prediction..." },
       showRun: true,
-      focus: "input",
+      focus: "editor",
     },
     {
       prompt: "**What did you change, and what did you learn?**",
