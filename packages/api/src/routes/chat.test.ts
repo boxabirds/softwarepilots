@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  assembleStepContext,
   buildTutorSystemPrompt,
   buildTutorTools,
   buildGeminiContents,
@@ -13,7 +14,8 @@ import type { PyodideStep } from "@softwarepilots/shared";
 /* ---- Test fixtures ---- */
 
 const EXERCISE_21_META = getExerciseMeta("2.1");
-const EXERCISE_21_STEPS = getExerciseContent("2.1").steps;
+const EXERCISE_21_CONTENT = getExerciseContent("2.1");
+const EXERCISE_21_STEPS = EXERCISE_21_CONTENT.steps;
 
 const baseContext = (): ChatRequest["context"] => ({
   current_step: 0,
@@ -123,6 +125,85 @@ describe("computeCodeDiff", () => {
   });
 });
 
+/* ---- assembleStepContext ---- */
+
+describe("assembleStepContext", () => {
+  const contentWithContext = {
+    intro: {
+      welcome: ["Welcome"],
+      context: ["Python", "programming language"],
+    },
+    steps: [
+      { type: "predict" as const, prompt: "p0", context: ["predict", "output"] },
+      { type: "experiment" as const, prompt: "p1", context: ["experiment", "error"] },
+      { type: "edit-and-predict" as const, prompt: "p2", context: ["edit", "modify"] },
+      { type: "reflect" as const, prompt: "p3", context: ["reflect", "learned"] },
+    ],
+  };
+
+  const metaWithTopics = {
+    ...EXERCISE_21_META,
+    topics: ["variable assignment", "str() type conversion"],
+  };
+
+  it("at step 0 includes meta.topics + intro context + step 0 context", () => {
+    const result = assembleStepContext(metaWithTopics, contentWithContext, 0);
+    expect(result).toContain("variable assignment");
+    expect(result).toContain("Python");
+    expect(result).toContain("predict");
+    expect(result).not.toContain("experiment");
+    expect(result).not.toContain("edit");
+  });
+
+  it("at step 2 includes intro + steps 0-2 context", () => {
+    const result = assembleStepContext(metaWithTopics, contentWithContext, 2);
+    expect(result).toContain("Python");
+    expect(result).toContain("predict");
+    expect(result).toContain("experiment");
+    expect(result).toContain("edit");
+    expect(result).not.toContain("reflect");
+  });
+
+  it("at last step includes all context", () => {
+    const result = assembleStepContext(metaWithTopics, contentWithContext, 3);
+    expect(result).toContain("reflect");
+    expect(result).toContain("learned");
+  });
+
+  it("deduplicates keywords (case-insensitive)", () => {
+    const meta = { ...metaWithTopics, topics: ["Python"] };
+    const result = assembleStepContext(meta, contentWithContext, 0);
+    const pythonCount = result.filter((k) => k.toLowerCase() === "python").length;
+    expect(pythonCount).toBe(1);
+  });
+
+  it("returns just meta.topics when no context fields exist", () => {
+    const noContextContent = {
+      intro: { welcome: ["Hi"] },
+      steps: [{ type: "predict" as const, prompt: "p" }],
+    };
+    const result = assembleStepContext(metaWithTopics, noContextContent, 0);
+    expect(result).toEqual(["variable assignment", "str() type conversion"]);
+  });
+
+  it("handles currentStep beyond steps length gracefully", () => {
+    const result = assembleStepContext(metaWithTopics, contentWithContext, 99);
+    expect(result).toContain("reflect");
+    expect(result).toContain("learned");
+  });
+
+  it("works with real exercise 2.1 data", () => {
+    const result = assembleStepContext(
+      EXERCISE_21_META,
+      { intro: EXERCISE_21_CONTENT.intro, steps: EXERCISE_21_CONTENT.steps },
+      0
+    );
+    expect(result).toContain("Python");
+    expect(result).toContain("variable assignment");
+    expect(result).toContain("predict");
+  });
+});
+
 /* ---- buildTutorTools ---- */
 
 describe("buildTutorTools", () => {
@@ -180,6 +261,18 @@ describe("buildTutorTools", () => {
     );
     expect(offTopic?.description).toContain("The Compiler Moment");
   });
+
+  it("includes accumulated context keywords in help_with_curriculum description", () => {
+    const step: PyodideStep = { type: "predict", prompt: "test" };
+    const contextScope = ["variable assignment", "Python", "programming language", "predict"];
+    const tools = buildTutorTools(step, contextScope, "Test");
+    const helpTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "help_with_curriculum"
+    );
+    expect(helpTool?.description).toContain("Python");
+    expect(helpTool?.description).toContain("programming language");
+    expect(helpTool?.description).toContain("variable assignment");
+  });
 });
 
 /* ---- buildTutorSystemPrompt ---- */
@@ -194,6 +287,18 @@ describe("buildTutorSystemPrompt", () => {
   it("includes module description when present", () => {
     const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
     expect(prompt).toContain("compiler moment");
+  });
+
+  it("uses contextScope instead of meta.topics when provided", () => {
+    const contextScope = ["variable assignment", "Python", "programming language", "predict"];
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), contextScope);
+    expect(prompt).toContain("This exercise explores: variable assignment, Python, programming language, predict");
+  });
+
+  it("falls back to meta.topics when contextScope is not provided", () => {
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    expect(prompt).toContain("This exercise explores: variable assignment");
+    expect(prompt).not.toContain("Python");
   });
 
   it("includes starter code", () => {

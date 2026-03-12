@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * E2e tests for Story 21: unified input routing, experiment acknowledgment,
- * and multi-tool LLM response handling.
+ * E2e tests for Stories 21 and 25: unified input routing, experiment acknowledgment,
+ * multi-tool LLM response handling, and step-level context routing.
  *
  * These tests mock the /api/chat endpoint to avoid requiring a live Gemini key.
  * The mock returns controlled tool-call responses to verify frontend behavior.
@@ -123,5 +123,34 @@ test.describe("Exercise unified input flow", () => {
     // The Run button should now be enabled (prediction submitted)
     const runButton = page.getByRole("button", { name: /Run/ });
     await expect(runButton).toBeEnabled();
+  });
+
+  test("question about intro vocabulary gets on-topic response (Story 25: step context)", async ({ page }) => {
+    // Mock chat to return an on-topic response about Python
+    // In production, assembleStepContext includes "Python" from intro.context,
+    // so Gemini would route this through help_with_curriculum, not off_topic_detected
+    await mockChatApi(page, {
+      reply: "Python is the programming language we're using in this exercise. Each line tells the computer exactly what to do.",
+      on_topic: true,
+      topic: "Python",
+    });
+
+    await page.goto(EXERCISE_URL);
+
+    // Advance through intro to predict step
+    await page.getByText("Next").first().click();
+    await page.getByText("Next").first().click();
+    await page.getByText("I\u2019m ready").click();
+
+    // Ask about Python — mentioned in intro messages
+    const input = page.locator("textarea");
+    await input.fill("What is Python?");
+    await input.press("Enter");
+
+    // Tutor responds on-topic (not redirected as off-topic)
+    await expect(page.getByText("Python is the programming language")).toBeVisible();
+
+    // Step input should still be pending (question doesn't consume step answer)
+    await expect(page.getByText("Submit your answer first")).toBeVisible();
   });
 });

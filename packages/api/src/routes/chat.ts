@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { getExerciseMeta, getExerciseContent } from "@softwarepilots/shared";
-import type { PyodideStep, PyodideStepType, ExerciseMeta } from "@softwarepilots/shared";
+import type { PyodideStep, PyodideStepType, ExerciseMeta, ExerciseDefinition } from "@softwarepilots/shared";
 
 /* ---- Constants ---- */
 
@@ -19,14 +19,51 @@ const STEP_INPUT_EXPECTATIONS: Partial<Record<PyodideStepType, string>> = {
   reflect: "a description of what they changed and what they learned",
 };
 
+/* ---- Step context assembly ---- */
+
+/**
+ * Assembles deduplicated topic scope from exercise-level topics,
+ * intro context, and accumulated step context up to the current step.
+ */
+export function assembleStepContext(
+  meta: ExerciseMeta,
+  content: ExerciseDefinition["content"],
+  currentStep: number
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  const add = (keyword: string) => {
+    const lower = keyword.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      result.push(keyword);
+    }
+  };
+
+  for (const topic of meta.topics) add(topic);
+  if (content.intro.context) {
+    for (const kw of content.intro.context) add(kw);
+  }
+  const maxStep = Math.min(currentStep, content.steps.length - 1);
+  for (let i = 0; i <= maxStep; i++) {
+    const stepContext = content.steps[i].context;
+    if (stepContext) {
+      for (const kw of stepContext) add(kw);
+    }
+  }
+
+  return result;
+}
+
 /* ---- Dynamic tool builder ---- */
 
 export function buildTutorTools(
   step: PyodideStep,
-  topics: string[],
+  contextScope: string[],
   title: string
 ): Array<{ functionDeclarations: Array<Record<string, unknown>> }> {
-  const topicList = topics.join(", ");
+  const topicList = contextScope.join(", ");
 
   const declarations: Array<Record<string, unknown>> = [
     {
@@ -174,21 +211,24 @@ chat.post("/", async (c) => {
 
   let meta: ExerciseMeta;
   let steps: PyodideStep[];
+  let exerciseContent: ExerciseDefinition["content"];
   try {
     meta = getExerciseMeta(body.exercise_id);
     const content = getExerciseContent(body.exercise_id);
     steps = content.steps;
+    exerciseContent = { intro: content.intro, steps: content.steps };
   } catch {
     return c.json({ error: `Unknown exercise: ${body.exercise_id}` }, 400);
   }
 
   const currentStep = steps[body.context.current_step] ?? steps[0];
+  const contextScope = assembleStepContext(meta, exerciseContent, body.context.current_step);
 
-  // Build dynamic tools for current step
-  const tools = buildTutorTools(currentStep, meta.topics, meta.title);
+  // Build dynamic tools for current step with accumulated context
+  const tools = buildTutorTools(currentStep, contextScope, meta.title);
 
   // Build system prompt with rich context
-  const systemPrompt = buildTutorSystemPrompt(meta, steps, body.context);
+  const systemPrompt = buildTutorSystemPrompt(meta, steps, body.context, contextScope);
 
   // Build conversation history for Gemini multi-turn
   const contents = buildGeminiContents(body.context.conversation, body.message);
@@ -209,7 +249,8 @@ chat.post("/", async (c) => {
 export function buildTutorSystemPrompt(
   meta: ExerciseMeta,
   steps: PyodideStep[],
-  context: ChatRequest["context"]
+  context: ChatRequest["context"],
+  contextScope?: string[]
 ): string {
   const moduleId = meta.id.split(".")[0];
 
@@ -229,7 +270,7 @@ export function buildTutorSystemPrompt(
     "- Never give away the solution — help them discover it",
     "- Be encouraging but honest",
     "",
-    `This exercise explores: ${meta.topics.join(", ")}`,
+    `This exercise explores: ${(contextScope ?? meta.topics).join(", ")}`,
     "",
     "== Starter Code ==",
     meta.starter_code,

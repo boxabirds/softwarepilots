@@ -140,6 +140,17 @@ describe("Exercise 2.1 definition", () => {
         expect(step).not.toHaveProperty("input");
       }
     });
+
+    it("each step has context keywords", () => {
+      for (const step of ex.content.steps) {
+        expect(Array.isArray(step.context)).toBe(true);
+        expect(step.context!.length).toBeGreaterThan(0);
+        for (const keyword of step.context!) {
+          expect(typeof keyword).toBe("string");
+          expect(keyword.length).toBeGreaterThan(0);
+        }
+      }
+    });
   });
 
   describe("intro", () => {
@@ -148,6 +159,13 @@ describe("Exercise 2.1 definition", () => {
       expect(ex.content.intro.welcome.length).toBeGreaterThan(0);
       expect(ex.content.intro.welcome[0]).toContain("5 lines of Python");
       expect(ex.content.intro.welcome[2]).toContain("predict what the code will do");
+    });
+
+    it("has context keywords covering intro vocabulary", () => {
+      expect(Array.isArray(ex.content.intro.context)).toBe(true);
+      expect(ex.content.intro.context!.length).toBeGreaterThan(0);
+      expect(ex.content.intro.context).toContain("Python");
+      expect(ex.content.intro.context).toContain("programming language");
     });
   });
 

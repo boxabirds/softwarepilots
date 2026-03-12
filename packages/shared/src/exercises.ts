@@ -8,6 +8,8 @@ export interface PyodideStep {
   type: PyodideStepType;
   prompt: string;
   inputPlaceholder?: string;
+  /** Keywords describing what this step introduces — used to scope tutor topic matching */
+  context?: string[];
 }
 
 /* ---- Shared types ---- */
@@ -42,7 +44,7 @@ export interface PyodideExercise {
   sandbox: "pyodide";
   meta: ExerciseMeta;
   content: {
-    intro: { welcome: string[] };
+    intro: { welcome: string[]; context?: string[] };
     steps: PyodideStep[];
   };
   rubric: ExerciseRubric;
