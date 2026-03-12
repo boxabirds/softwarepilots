@@ -18,6 +18,7 @@ describe("getStepRendering", () => {
       expect(typeof rendering.showRun).toBe("boolean");
       expect(typeof rendering.hasInput).toBe("boolean");
       expect(typeof rendering.inputGatesRun).toBe("boolean");
+      expect(typeof rendering.requiresAcknowledgment).toBe("boolean");
     }
   });
 
@@ -57,6 +58,10 @@ describe("getStepRendering", () => {
       expect(r.inputType).toBeNull();
       expect(r.inputGatesRun).toBe(false);
     });
+
+    it("requires acknowledgment before advancing", () => {
+      expect(r.requiresAcknowledgment).toBe(true);
+    });
   });
 
   describe("edit-and-predict", () => {
@@ -95,6 +100,17 @@ describe("getStepRendering", () => {
       expect(r.inputType).toBe("reflection");
       expect(r.inputGatesRun).toBe(false);
     });
+  });
+
+  it("only experiment step requires acknowledgment", () => {
+    for (const type of ALL_STEP_TYPES) {
+      const r = getStepRendering(type);
+      if (type === "experiment") {
+        expect(r.requiresAcknowledgment).toBe(true);
+      } else {
+        expect(r.requiresAcknowledgment).toBe(false);
+      }
+    }
   });
 
   it("inputGatesRun is only true when both hasInput and showRun are true", () => {

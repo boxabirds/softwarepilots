@@ -17,6 +17,8 @@ export interface StepRendering {
   inputType: InputType | null;
   /** Whether text input must be submitted before Run is enabled */
   inputGatesRun: boolean;
+  /** Whether the learner must explicitly acknowledge output before advancing */
+  requiresAcknowledgment: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ const PYODIDE_RENDERING: Record<PyodideStepType, StepRendering> = {
     hasInput: true,
     inputType: "prediction",
     inputGatesRun: true,
+    requiresAcknowledgment: false,
   },
   experiment: {
     focus: "editor",
@@ -41,6 +44,7 @@ const PYODIDE_RENDERING: Record<PyodideStepType, StepRendering> = {
     hasInput: false,
     inputType: null,
     inputGatesRun: false,
+    requiresAcknowledgment: true,
   },
   "edit-and-predict": {
     focus: "editor",
@@ -48,6 +52,7 @@ const PYODIDE_RENDERING: Record<PyodideStepType, StepRendering> = {
     hasInput: true,
     inputType: "prediction",
     inputGatesRun: true,
+    requiresAcknowledgment: false,
   },
   reflect: {
     focus: "input",
@@ -55,6 +60,7 @@ const PYODIDE_RENDERING: Record<PyodideStepType, StepRendering> = {
     hasInput: true,
     inputType: "reflection",
     inputGatesRun: false,
+    requiresAcknowledgment: false,
   },
 };
 

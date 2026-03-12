@@ -34,9 +34,15 @@ interface ChatMessage {
   onTopic?: boolean;
 }
 
+interface ChatResponse {
+  reply: string;
+  on_topic: boolean;
+  topic?: string;
+  step_answer?: string;
+}
+
 const EDITOR_MIN_HEIGHT = 300;
 const SCROLL_BOTTOM_THRESHOLD = 50;
-const MAX_TUTOR_QUESTIONS = 30;
 const INTRO_STEP_INDEX = -1;
 
 type Phase = "intro" | "steps" | "self-assessment" | "submitting" | "results";
@@ -61,6 +67,21 @@ function findFirstPredictionStep(steps: PyodideStep[]): number {
 
 function findReflectionStep(steps: PyodideStep[]): number {
   return steps.findIndex((s) => s.type === "reflect");
+}
+
+/** Compute active step, pausing at experiment steps that need acknowledgment. */
+function computeActiveStep(
+  steps: PyodideStep[],
+  snapshots: RunSnapshot[],
+  acknowledgedSteps: Set<number>
+): number {
+  for (let i = 0; i < Math.min(snapshots.length, steps.length); i++) {
+    const rendering = getStepRendering(steps[i].type);
+    if (rendering.requiresAcknowledgment && !acknowledgedSteps.has(i)) {
+      return i;
+    }
+  }
+  return Math.min(snapshots.length, steps.length - 1);
 }
 
 /* ---- Component ---- */
@@ -93,6 +114,7 @@ export function Exercise() {
   const [submittedInputs, setSubmittedInputs] = useState<Record<number, string>>({});
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [acknowledgedSteps, setAcknowledgedSteps] = useState<Set<number>>(new Set());
 
   // Intro message sequencing
   const introMessages = intro?.welcome ?? [];
@@ -103,7 +125,7 @@ export function Exercise() {
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<MobileTab>("exercise");
 
-  const activeStep = Math.min(snapshots.length, steps.length - 1);
+  const activeStep = computeActiveStep(steps, snapshots, acknowledgedSteps);
   const currentStep = steps[activeStep];
   const currentRendering = getStepRendering(currentStep.type);
 
@@ -111,8 +133,11 @@ export function Exercise() {
   const inputGatesRun = currentRendering.inputGatesRun && !currentInputSubmitted;
   const runDisabled = !editorReady || (phase !== "steps") || viewingSnapshot !== null || inputGatesRun;
 
-  const tutorQuestionsUsed = chatMessages.filter((m) => m.role === "user").length;
-  const tutorLimitReached = tutorQuestionsUsed >= MAX_TUTOR_QUESTIONS;
+  // Experiment step waiting for acknowledgment
+  const awaitingAcknowledgment =
+    currentRendering.requiresAcknowledgment &&
+    snapshots[activeStep] !== undefined &&
+    !acknowledgedSteps.has(activeStep);
 
   const firstPredictionStepIndex = findFirstPredictionStep(steps);
   const firstPrediction = firstPredictionStepIndex >= 0 ? (submittedInputs[firstPredictionStepIndex] || "") : "";
@@ -220,21 +245,13 @@ export function Exercise() {
     requestAnimationFrame(() => editorRef.current?.focus());
   };
 
-  const handleInputSubmit = () => {
-    if (!inputText.trim()) return;
-    setSubmittedInputs((prev) => ({ ...prev, [activeStep]: inputText.trim() }));
-    setInputText("");
-
-    if (!currentRendering.showRun) {
-      setPhase("self-assessment");
-    } else {
-      requestAnimationFrame(() => editorRef.current?.focus());
-    }
+  const handleAcknowledgeStep = () => {
+    setAcknowledgedSteps((prev) => new Set(prev).add(activeStep));
   };
 
   const handleChatSubmit = async () => {
     const question = inputText.trim();
-    if (!question || chatLoading || tutorLimitReached) return;
+    if (!question || chatLoading) return;
 
     const chatStep = phase === "intro" ? INTRO_STEP_INDEX : activeStep;
     const userMsg: ChatMessage = { role: "user", content: question, atStep: chatStep };
@@ -243,7 +260,7 @@ export function Exercise() {
     setChatLoading(true);
 
     try {
-      const response = await apiClient.post<{ reply: string; on_topic: boolean; topic?: string }>(
+      const response = await apiClient.post<ChatResponse>(
         "/api/chat",
         {
           exercise_id: fullExerciseId,
@@ -257,6 +274,15 @@ export function Exercise() {
           },
         }
       );
+
+      // Handle step_answer extraction from LLM
+      if (response.step_answer && currentRendering.hasInput && !currentInputSubmitted) {
+        setSubmittedInputs((prev) => ({ ...prev, [activeStep]: response.step_answer! }));
+        if (!currentRendering.showRun) {
+          setPhase("self-assessment");
+        }
+      }
+
       setChatMessages((prev) => [
         ...prev,
         { role: "tutor", content: response.reply, atStep: chatStep, onTopic: response.on_topic },
@@ -405,6 +431,24 @@ export function Exercise() {
             />
           );
         }
+
+        // Continue button for experiment steps awaiting acknowledgment
+        if (
+          stepRendering.requiresAcknowledgment &&
+          !acknowledgedSteps.has(i) &&
+          i === activeStep
+        ) {
+          elements.push(
+            <ChatCard key={`ack-${i}`}>
+              <button
+                onClick={handleAcknowledgeStep}
+                className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[15px] font-semibold text-primary-foreground transition-transform duration-100"
+              >
+                Continue
+              </button>
+            </ChatCard>
+          );
+        }
       }
 
       chatMessages
@@ -506,37 +550,13 @@ export function Exercise() {
     }
     if (!currentStep) return null;
 
-    if (currentRendering.hasInput && !currentInputSubmitted) {
-      return (
-        <InputPill>
-          <textarea
-            ref={inputRef}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder={currentStep.inputPlaceholder}
-            rows={2}
-            className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
-                e.preventDefault();
-                handleInputSubmit();
-              }
-            }}
-          />
-          <SubmitArrow active={!!inputText.trim()} onClick={handleInputSubmit} />
-        </InputPill>
-      );
-    }
+    // Context-sensitive placeholder: step input placeholder when pending, otherwise generic
+    const placeholder =
+      currentRendering.hasInput && !currentInputSubmitted
+        ? currentStep.inputPlaceholder || "Type your answer..."
+        : "Ask about what you see...";
 
-    if (tutorLimitReached) {
-      return (
-        <InputPill>
-          <span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">You've used your tutor questions for this exercise.</span>
-        </InputPill>
-      );
-    }
-
-    const runHint = currentRendering.showRun ? (
+    const runHint = currentRendering.showRun && !awaitingAcknowledgment ? (
       <div className="mb-1 pl-0.5 text-[11px] text-muted-foreground">
         {currentRendering.hasInput && currentInputSubmitted
           ? <>Click <strong>Run</strong> to test your prediction. <Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></>
@@ -554,8 +574,8 @@ export function Exercise() {
             ref={inputRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Ask about what you see..."
-            rows={1}
+            placeholder={placeholder}
+            rows={currentRendering.hasInput && !currentInputSubmitted ? 2 : 1}
             className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
             disabled={chatLoading}
             onKeyDown={(e) => {

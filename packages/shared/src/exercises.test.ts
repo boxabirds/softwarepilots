@@ -34,6 +34,7 @@ describe("getExerciseMeta", () => {
     expect(meta.starter_code).toContain("price = 10");
     expect(Array.isArray(meta.topics)).toBe(true);
     expect(meta.topics).toContain("variable assignment");
+    expect(meta.module_description).toContain("compiler moment");
   });
 
   it("throws for unknown ID", () => {

@@ -17,6 +17,7 @@ export interface ExerciseMeta {
   title: string;
   starter_code: string;
   topics: string[];
+  module_description?: string;
 }
 
 export interface RubricDimension {
