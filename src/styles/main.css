@@ -223,6 +223,69 @@ body {
   color: var(--text-muted);
 }
 
+/* === Co-Signatories === */
+
+.signatories-section {
+  padding: 4rem 0;
+  background-color: #FFFFFF;
+}
+
+.signatories-intro {
+  font-family: 'Inter', var(--font-sans);
+  font-size: clamp(1.125rem, 2vw, 1.375rem);
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0 0 var(--space-6);
+}
+
+.signatories-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 40rem;
+  margin: 0 auto var(--space-6);
+}
+
+.signatory-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--pilot-50);
+  border-radius: var(--radius-lg);
+}
+
+.signatory-name {
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(1.125rem, 2vw, 1.375rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.signatory-role {
+  font-family: 'Inter', var(--font-sans);
+  font-size: 1rem;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.signatories-email {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  font-family: 'Inter', var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--pilot-blue);
+  text-decoration: none;
+  transition: color var(--duration-normal) var(--easing-default);
+}
+
+.signatories-email:hover {
+  color: var(--pilot-cyan);
+}
+
 /* === Footer === */
 
 .footer {
