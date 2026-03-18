@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +10,9 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="/logo-blue-circle.png">
   <link rel="icon" type="image/png" href="/logo-blue-circle.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles/palette.css">
   <link rel="stylesheet" href="./styles/main.css">
 </head>
@@ -25,37 +28,48 @@
         </div>
       </section>
 
-      <!-- Manifesto sections -->
+      <!-- What's Changed -->
       <section class="manifesto-section" id="context">
         <div class="container">
           <div class="section-label">What's Changed</div>
           <ol class="manifesto-points">
             <li>AI agents now generate working software from plain English.</li>
-            <li>Hundreds of millions of domain experts can finally build solutions to problems only they understand.</li>
+            <li>Huge amounts of software will be produced without any of the traditional quality supports.</li>
             <li>The tool doing the building is probabilistic: confident, inconsistent, and frequently wrong.</li>
           </ol>
         </div>
       </section>
 
-      <section class="manifesto-section manifesto-section--dark" id="problem">
+      <!-- The Problem -->
+      <section class="manifesto-section manifesto-section--brand" id="problem">
         <div class="container">
-          <div class="section-label section-label--light">The Problem</div>
-          <ol class="manifesto-points manifesto-points--light" start="4">
-            <li>Non-technical creators are shipping software they cannot evaluate, secure, or maintain.</li>
-            <li>Professional engineers have vital skills but no defined role in a world where machines write most of the code.</li>
+          <div class="section-label section-label--on-brand">The Problem</div>
+          <ol class="manifesto-points manifesto-points--on-brand" start="4">
+            <li>People are shipping software they cannot evaluate, secure, or maintain.</li>
+            <li>Engineers of all levels have vital skills, but no defined role in a world where machines write most of the code.</li>
             <li>When AI-generated software causes harm, nobody is clearly accountable.</li>
           </ol>
         </div>
       </section>
 
-      <section class="manifesto-section" id="solution">
+      <!-- The Solution -->
+      <section class="manifesto-section manifesto-section--subtle" id="solution">
         <div class="container">
           <div class="section-label">The Solution</div>
-          <ol class="manifesto-points" start="7">
-            <li>Engineers must evolve into <strong>software pilots</strong>: skilled practitioners who oversee, intervene, and take responsibility.</li>
-            <li>Employers must hire for judgment, specification, and verification: not just coding ability.</li>
-            <li>Education must teach pilotry as a discipline: the machine beneath, the probabilistic machine above, and the human accountable for both.</li>
-          </ol>
+          <div class="solution-cards">
+            <div class="solution-card">
+              <span class="solution-num">7</span>
+              <p>Engineers must evolve into <strong>software pilots</strong>: skilled practitioners who oversee, intervene, and take responsibility.</p>
+            </div>
+            <div class="solution-card">
+              <span class="solution-num">8</span>
+              <p>Employers must hire for good judgment, producing specifications, and ensuring verification: not just coding ability.</p>
+            </div>
+            <div class="solution-card">
+              <span class="solution-num">9</span>
+              <p>Education must teach pilotry as a discipline: the machine beneath, the probabilistic machine above, and the human accountable for both.</p>
+            </div>
+          </div>
         </div>
       </section>
 

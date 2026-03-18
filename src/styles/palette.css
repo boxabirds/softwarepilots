@@ -162,25 +162,7 @@ body {
   color: var(--text-primary);
 }
 
-/* === Dark Mode (auto-detect) === */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text-primary:    #E8EDFA;
-    --text-secondary:  #A8BBEB;
-    --text-tertiary:   #7A98E0;
-    --text-muted:      #4A5A7A;
-
-    --bg-base:         #0A0F1E;
-    --bg-subtle:       #0F1630;
-    --bg-muted:        #162040;
-
-    --border-light:    #162040;
-    --border-default:  #2A3654;
-    --border-strong:   #4A5A7A;
-
-    --interactive-hover: #33BBFF;
-  }
-}
+/* Dark mode auto-detect disabled — manifesto is light-mode only */
 
 /* === Manual Theme Classes === */
 

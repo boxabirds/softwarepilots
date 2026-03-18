@@ -15,6 +15,7 @@ body {
   overflow-y: auto;
   height: auto;
   min-height: 100vh;
+  font-family: 'Inter', var(--font-sans);
 }
 
 .site {
@@ -24,65 +25,71 @@ body {
 }
 
 .container {
-  max-width: 48rem;
+  max-width: 50rem;
   margin: 0 auto;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
 }
 
 /* === Hero === */
 
 .hero {
-  padding: var(--space-8) 0;
-  padding-top: 6rem;
+  padding: 5rem 0 4rem;
   text-align: center;
+  background: linear-gradient(180deg, var(--pilot-25) 0%, var(--pilot-cyan-100) 60%, var(--pilot-cyan-200) 100%);
 }
 
 .hero-emblem {
   display: block;
   margin: 0 auto var(--space-6);
-  width: clamp(12rem, 30vw, 20rem);
+  width: clamp(10rem, 25vw, 14rem);
   height: auto;
 }
 
 .hero-title {
-  font-size: clamp(2rem, 5vw, var(--text-2xl));
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-5);
 }
 
 .hero-subtitle {
-  font-size: var(--text-lg);
+  font-family: 'Inter', var(--font-sans);
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
   color: var(--text-secondary);
-  margin: 0;
-  max-width: 36rem;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
+  max-width: 44rem;
   line-height: var(--line-height-relaxed);
 }
 
 /* === Manifesto Sections === */
 
 .manifesto-section {
-  padding: var(--space-8) 0;
+  padding: 4rem 0;
+  background-color: #FFFFFF;
 }
 
-.manifesto-section--dark {
-  background-color: var(--pilot-950);
-  color: var(--text-on-dark);
+.manifesto-section--brand {
+  background: linear-gradient(180deg, var(--pilot-blue) 0%, var(--pilot-700) 100%);
+}
+
+.manifesto-section--subtle {
+  background-color: var(--pilot-50);
 }
 
 .section-label {
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(1.125rem, 2vw, 1.75rem);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.2em;
   color: var(--pilot-blue);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
-.section-label--light {
+.section-label--on-brand {
   color: var(--pilot-cyan);
 }
 
@@ -96,30 +103,32 @@ body {
 .manifesto-points li {
   counter-increment: manifesto;
   position: relative;
-  padding-left: 3rem;
-  margin-bottom: var(--space-5);
-  font-size: var(--text-lg);
+  padding-left: 4rem;
+  margin-bottom: var(--space-6);
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
   line-height: var(--line-height-relaxed);
   color: var(--text-primary);
 }
 
-.manifesto-points--light li {
-  color: var(--pilot-100);
+.manifesto-points--on-brand li {
+  color: #FFFFFF;
 }
 
 .manifesto-points li::before {
   content: counter(manifesto);
   position: absolute;
   left: 0;
-  top: 0.1em;
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  color: var(--pilot-blue);
-  width: 2rem;
+  top: 0;
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  font-weight: 700;
+  color: var(--pilot-cyan);
+  width: 2.5rem;
   text-align: right;
+  line-height: 1;
 }
 
-.manifesto-points--light li::before {
+.manifesto-points--on-brand li::before {
   color: var(--pilot-cyan);
 }
 
@@ -127,46 +136,90 @@ body {
   color: var(--pilot-blue);
 }
 
-.manifesto-points--light li strong {
+.manifesto-points--on-brand li strong {
   color: var(--pilot-cyan);
+}
+
+/* === Solution Cards === */
+
+.solution-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.solution-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  background: #FFFFFF;
+  padding: var(--space-5) 1.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 12px rgba(26, 79, 209, 0.08);
+}
+
+.solution-num {
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 700;
+  color: var(--pilot-blue);
+  line-height: 1;
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.solution-card p {
+  margin: 0;
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-primary);
+}
+
+.solution-card strong {
+  color: var(--pilot-blue);
 }
 
 /* === CTA === */
 
 .cta-section {
-  padding: var(--space-8) 0;
+  padding: 5rem 0;
   text-align: center;
-  border-top: 1px solid var(--border-light);
+  background: linear-gradient(180deg, var(--pilot-cyan-100) 0%, var(--pilot-25) 100%);
+  border-top: none;
 }
 
 .cta-title {
-  font-size: var(--text-xl);
-  font-weight: var(--font-semibold);
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-4);
 }
 
 .cta-text {
-  font-size: var(--text-base);
+  font-size: clamp(1rem, 1.8vw, 1.375rem);
   color: var(--text-secondary);
-  max-width: 32rem;
-  margin: 0 auto var(--space-5);
+  max-width: 40rem;
+  margin: 0 auto var(--space-6);
   line-height: var(--line-height-relaxed);
 }
 
 .cta-button {
   display: inline-block;
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-md);
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 1rem 2.5rem;
+  border-radius: var(--radius-lg);
   text-decoration: none;
   transition: background-color var(--duration-normal) var(--easing-default);
 }
 
 .cta-origin {
   margin-top: var(--space-6);
-  font-size: var(--text-sm);
+  font-size: 0.9375rem;
   color: var(--text-muted);
 }
 
@@ -175,12 +228,12 @@ body {
 .footer {
   margin-top: auto;
   padding: var(--space-5) 0;
-  border-top: 1px solid var(--border-light);
+  background-color: var(--text-primary);
   text-align: center;
 }
 
 .footer p {
-  font-size: var(--text-sm);
+  font-size: 0.9375rem;
   color: var(--text-muted);
   margin: 0;
 }
@@ -189,16 +242,27 @@ body {
 
 @media (max-width: 640px) {
   .hero {
-    padding-top: var(--space-8);
+    padding-top: 3rem;
+  }
+
+  .manifesto-section {
+    padding: 3rem 0;
   }
 
   .manifesto-points li {
-    font-size: var(--text-base);
-    padding-left: 2.5rem;
+    padding-left: 3rem;
   }
 
   .manifesto-points li::before {
-    font-size: var(--text-base);
-    width: 1.5rem;
+    width: 2rem;
+  }
+
+  .solution-card {
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .cta-section {
+    padding: 3rem 0;
   }
 }
