@@ -1,5 +1,57 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
+/* ---- Level 0 interactive exercises (original POC) ---- */
+
+interface ExerciseModule {
+  number: number;
+  title: string;
+  description: string;
+  status: "available" | "locked" | "completed";
+  exerciseLink?: string;
+  exerciseLabel?: string;
+}
+
+const LEVEL_0_EXERCISES: ExerciseModule[] = [
+  {
+    number: 1,
+    title: "The New Landscape",
+    description: "What changed, who builds software now, and why accountability matters.",
+    status: "locked",
+  },
+  {
+    number: 2,
+    title: "The Machine Beneath",
+    description: "Compilers, HTTP, databases, DevTools - the reality under the abstraction.",
+    status: "available",
+    exerciseLink: "/exercise/2/1",
+    exerciseLabel: "Start: The Compiler Moment",
+  },
+  {
+    number: 3,
+    title: "The Probabilistic Machine",
+    description: "Temperature, hallucination, cognitive surrender - why AI is confident and wrong.",
+    status: "locked",
+  },
+  {
+    number: 4,
+    title: "Specification",
+    description: "Writing specifications that constrain the machine's output.",
+    status: "locked",
+  },
+  {
+    number: 6,
+    title: "Building with Agents",
+    description: "Using AI agents to build from your specification.",
+    status: "locked",
+  },
+  {
+    number: 8,
+    title: "Verification & Sustainable Practice",
+    description: "Testing, acceptance, and maintaining human judgment over time.",
+    status: "locked",
+  },
+];
 import { apiClient } from "../lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -160,6 +212,16 @@ export function Dashboard() {
                   progressMap={progressMap}
                 />
               ))}
+
+              {/* Level 0 interactive exercises (original POC) */}
+              {expanded === "level-0" && (
+                <>
+                  <h3 className="mt-4 text-sm font-semibold text-muted-foreground">Interactive Exercises</h3>
+                  {LEVEL_0_EXERCISES.map((ex) => (
+                    <ExerciseCard key={ex.number} {...ex} />
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -252,6 +314,37 @@ function ModuleTree({
             );
           })}
         </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExerciseCard({ number, title, description, status, exerciseLink, exerciseLabel }: ExerciseModule) {
+  const isLocked = status === "locked";
+
+  return (
+    <Card className={isLocked ? "opacity-50" : ""}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-sm font-semibold">
+            Module {number}: {title}
+          </CardTitle>
+          {status === "completed" && (
+            <Badge variant="default" className="bg-success text-white">Completed</Badge>
+          )}
+        </div>
+        <CardDescription className="text-xs">{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {exerciseLink && !isLocked ? (
+          <Link to={exerciseLink} className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
+            {exerciseLabel || "Start Exercise"}
+          </Link>
+        ) : isLocked ? (
+          <p className="text-xs text-muted-foreground">
+            Complete previous modules to unlock
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
