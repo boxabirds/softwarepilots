@@ -1,16 +1,14 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useIsMobile } from "../hooks/useIsMobile";
+import { useBreadcrumbs } from "../hooks/useBreadcrumbs";
 
 const NAV_HEIGHT_PX = 48;
 
-interface TopNavProps {
-  children?: React.ReactNode;
-}
-
-export function TopNav({ children }: TopNavProps) {
+export function TopNav() {
   const { learner } = useAuth();
   const isMobile = useIsMobile();
+  const breadcrumbs = useBreadcrumbs();
 
   const firstInitial = learner?.display_name?.charAt(0)?.toUpperCase() ?? "?";
 
@@ -34,9 +32,13 @@ export function TopNav({ children }: TopNavProps) {
         )}
       </Link>
 
-      {/* Center: breadcrumb trail (placeholder for task 37.2) */}
-      <div className="mx-4 flex min-w-0 flex-1 items-center">
-        {children}
+      {/* Center: breadcrumb trail */}
+      <div className="mx-4 flex min-w-0 flex-1 items-center" data-testid="breadcrumbs">
+        {isMobile ? (
+          <MobileBreadcrumbs segments={breadcrumbs} />
+        ) : (
+          <DesktopBreadcrumbs segments={breadcrumbs} />
+        )}
       </div>
 
       {/* Right: Profile icon */}
@@ -48,6 +50,59 @@ export function TopNav({ children }: TopNavProps) {
         {firstInitial}
       </div>
     </nav>
+  );
+}
+
+interface BreadcrumbSegment {
+  label: string;
+  href?: string;
+}
+
+function DesktopBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
+  return (
+    <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      {segments.map((seg, i) => (
+        <li key={i} className="flex items-center gap-1.5">
+          {i > 0 && <span className="text-xs text-muted-foreground/60">&gt;</span>}
+          {seg.href ? (
+            <Link
+              to={seg.href}
+              className="truncate hover:text-foreground hover:underline"
+              data-testid={`breadcrumb-link-${i}`}
+            >
+              {seg.label}
+            </Link>
+          ) : (
+            <span className="truncate font-medium text-foreground" data-testid={`breadcrumb-current-${i}`}>
+              {seg.label}
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function MobileBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
+  const currentSegment = segments[segments.length - 1];
+  // Find the parent segment (last one with an href)
+  const parentSegment = [...segments].reverse().find((s) => s.href);
+
+  return (
+    <div className="flex items-center gap-1 text-sm">
+      {parentSegment && (
+        <Link
+          to={parentSegment.href!}
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label="Back"
+        >
+          &lt;
+        </Link>
+      )}
+      <span className="truncate font-medium text-foreground" data-testid="breadcrumb-current-mobile">
+        {currentSegment?.label}
+      </span>
+    </div>
   );
 }
 
