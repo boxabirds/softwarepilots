@@ -86,25 +86,19 @@ export function CurriculumSelect() {
     setLoadingSections(true);
     setProgressMap(new Map());
     try {
-      const sections = await apiClient.get<SectionSummary[]>(
-        `/api/curriculum/${profile}`,
-      );
+      const [sections, progress] = await Promise.all([
+        apiClient.get<SectionSummary[]>(`/api/curriculum/${profile}`),
+        apiClient.get<SectionProgress[]>(`/api/curriculum/${profile}/progress`).catch(() => [] as SectionProgress[]),
+      ]);
+
       setModules(groupByModule(sections));
       setError(null);
 
-      // Fetch progress separately - failure is non-fatal
-      try {
-        const progress = await apiClient.get<SectionProgress[]>(
-          `/api/curriculum/${profile}/progress`,
-        );
-        const map = new Map<string, SectionProgress>();
-        for (const p of progress) {
-          map.set(p.section_id, p);
-        }
-        setProgressMap(map);
-      } catch {
-        // Progress fetch failed - sections still display without badges
+      const map = new Map<string, SectionProgress>();
+      for (const p of progress) {
+        map.set(p.section_id, p);
       }
+      setProgressMap(map);
     } catch {
       setError(`Failed to load sections for ${profile}`);
       setModules([]);

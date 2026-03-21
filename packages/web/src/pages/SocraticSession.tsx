@@ -232,6 +232,16 @@ export function SocraticSession() {
     scrollToBottom();
   }, [conversation.length, sending, scrollToBottom]);
 
+  /* ---- Textarea auto-grow ---- */
+  const TEXTAREA_MAX_HEIGHT = 140; // ~7 lines
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0";
+    el.style.height = Math.min(el.scrollHeight, TEXTAREA_MAX_HEIGHT) + "px";
+    el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+  }, [inputText]);
+
   /* ---- Submit message ---- */
 
   const handleSubmit = async () => {
@@ -655,15 +665,7 @@ export function SocraticSession() {
             </div>
           )}
           <textarea
-            ref={(el) => {
-              (inputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
-              if (el) {
-                el.style.height = "0";
-                const max = 140;
-                el.style.height = Math.min(el.scrollHeight, max) + "px";
-                el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
-              }
-            }}
+            ref={inputRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Type your response..."

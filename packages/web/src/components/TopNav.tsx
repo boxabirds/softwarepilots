@@ -131,7 +131,10 @@ function DesktopBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
 function MobileBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
   const currentSegment = segments[segments.length - 1];
   // Find the parent segment (last one with an href)
-  const parentSegment = [...segments].reverse().find((s) => s.href);
+  let parentSegment: BreadcrumbSegment | undefined;
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (segments[i].href) { parentSegment = segments[i]; break; }
+  }
 
   return (
     <div className="flex items-center gap-1 text-sm">
