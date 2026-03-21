@@ -145,4 +145,66 @@ test.describe("Socratic session page", () => {
       page.getByText("Something went wrong connecting to the tutor"),
     ).toBeVisible();
   });
+
+  test("pause and resume: learner says 'I need a break', tutor pauses, input hidden, Resume Later shown", async ({ page }) => {
+    let socraticCallCount = 0;
+    await page.route("**/api/socratic", async (route) => {
+      socraticCallCount++;
+      if (socraticCallCount === 1) {
+        // Opening probe
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "Welcome! What do you think software pilotry means?",
+            tool_type: "socratic_probe",
+            topic: "introduction",
+          }),
+        });
+      } else {
+        // Pause response
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "Great work today! Take a well-deserved break.",
+            tool_type: "session_pause",
+            pause_reason: "learner_requested",
+            concepts_covered_so_far: "software pilotry basics",
+            resume_suggestion: "We'll continue with the next concept next time.",
+          }),
+        });
+      }
+    });
+
+    await page.goto(SESSION_URL);
+
+    // Wait for tutor opening message
+    await expect(
+      page.getByText("Welcome! What do you think software pilotry means?"),
+    ).toBeVisible();
+
+    // Type "I need a break" and submit
+    const input = page.locator('textarea[placeholder="Type your response..."]');
+    await input.fill("I need a break");
+    await input.press("Enter");
+
+    // Pause card should appear
+    const pauseCard = page.locator('[data-testid="session-pause-card"]');
+    await expect(pauseCard).toBeVisible();
+
+    // Acknowledgment text visible in pause card
+    await expect(pauseCard.getByText("Great work today! Take a well-deserved break.")).toBeVisible();
+
+    // Input bar should be hidden
+    await expect(input).not.toBeVisible();
+
+    // Resume Later button should be visible
+    const resumeLater = page.locator('[data-testid="resume-later-button"]');
+    await expect(resumeLater).toBeVisible();
+
+    // Continue Session button should be visible
+    const continueSession = page.locator('[data-testid="continue-session-button"]');
+    await expect(continueSession).toBeVisible();
+  });
 });
