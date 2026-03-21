@@ -6,6 +6,7 @@
 import {
   updateConceptAssessment,
   parseConceptsJson,
+  getConceptsDueForReview,
 } from "../lib/spaced-repetition";
 import type { ConceptsMap, ConceptUpdateOptions } from "../lib/spaced-repetition";
 import { getCurriculumSections } from "@softwarepilots/shared";
@@ -377,10 +378,10 @@ export async function buildProgressContext(
 ): Promise<string> {
   const { results } = await db
     .prepare(
-      "SELECT section_id, status, understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND status != ?"
+      "SELECT section_id, status, understanding_json, concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND status != ?"
     )
     .bind(learnerId, profile, STATUS_NOT_STARTED)
-    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json">>();
+    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json">>();
 
   if (!results || results.length === 0) {
     return "";
@@ -412,17 +413,45 @@ export async function buildProgressContext(
       ? `Section ${row.section_id} "${title}" (${level} understanding)`
       : `Section ${row.section_id} "${title}"`;
 
+    // Build per-section concept mastery details
+    const concepts = parseConceptsJson(row.concepts_json);
+    const conceptDetails: string[] = [];
+    for (const [conceptName, assessment] of Object.entries(concepts)) {
+      let detail = `    - ${conceptName}: ${assessment.level}`;
+      if (assessment.needed_instruction) {
+        detail += " (needed direct instruction)";
+      }
+      conceptDetails.push(detail);
+    }
+
+    const conceptSuffix = conceptDetails.length > 0
+      ? "\n  Concepts:\n" + conceptDetails.join("\n")
+      : "";
+
     if (row.status === STATUS_COMPLETED) {
-      completed.push(`Completed: ${label}`);
+      completed.push(`Completed: ${label}${conceptSuffix}`);
     } else if (row.status === STATUS_PAUSED) {
-      paused.push(`Paused: ${label}`);
+      paused.push(`Paused: ${label}${conceptSuffix}`);
     } else if (row.status === STATUS_IN_PROGRESS) {
-      inProgress.push(`In progress: ${label}`);
+      inProgress.push(`In progress: ${label}${conceptSuffix}`);
     }
   }
 
   const lines = ["== Learner Progress =="];
   lines.push(...completed, ...inProgress, ...paused);
+
+  // Add concepts due for spaced repetition review
+  const dueConcepts = getConceptsDueForReview(
+    results.map((r) => ({ section_id: r.section_id, concepts_json: r.concepts_json }))
+  );
+  if (dueConcepts.length > 0) {
+    lines.push("");
+    lines.push("== Concepts Due for Review ==");
+    for (const due of dueConcepts) {
+      const sectionTitle = sectionTitleMap.get(due.section_id) || due.section_id;
+      lines.push(`- "${due.concept}" from section ${due.section_id} "${sectionTitle}" (${due.days_overdue} days overdue)`);
+    }
+  }
 
   return lines.join("\n");
 }
