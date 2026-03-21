@@ -21,6 +21,7 @@ const BASE_TOOL_NAMES = [
   "evaluate_response",
   "surface_key_insight",
   "off_topic_detected",
+  "session_complete",
 ];
 
 const geminiResponse = (
@@ -73,7 +74,7 @@ describe("buildSocraticTools", () => {
   it("includes section title in base tool descriptions", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
     const baseDecls = tools[0].functionDeclarations.filter(
-      (d) => d.name !== "track_concepts"
+      (d) => d.name !== "track_concepts" && d.name !== "session_complete"
     );
     const descriptions = baseDecls.map((d) => d.description as string);
     for (const desc of descriptions) {
@@ -493,8 +494,8 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 5;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 6;
+const EXPECTED_BASE_TOOL_COUNT = 6;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 7;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {
@@ -581,7 +582,8 @@ describe("parseSocraticResponse with track_concepts", () => {
     };
 
     const result = parseSocraticResponse(response);
-    expect(result.tool_type).toBe("evaluate_response");
+    expect(result.tool_type).toContain("evaluate_response");
+    expect(result.tool_type).toContain("track_concepts");
     expect(result.concepts_demonstrated).toEqual([
       "concurrency",
       "race conditions",

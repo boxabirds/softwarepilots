@@ -21,7 +21,7 @@ import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 const SOCRATIC_TEMPERATURE = 0.4;
-const SOCRATIC_TOOL_COUNT = 5;
+const SOCRATIC_TOOL_COUNT = 6;
 const MAX_RESPONSE_SENTENCES = 3;
 const RETRY_DELAY_MS = 1000;
 const MAX_RETRIES = 1;
@@ -50,6 +50,7 @@ export interface SocraticChatResponse {
   final_understanding?: string;
   concepts_covered?: string[];
   concepts_missed?: string[];
+  recommendation?: string;
   pause_reason?: string;
   resume_suggestion?: string;
 }
@@ -180,6 +181,39 @@ export function buildSocraticTools(
         required: ["redirect_hint"],
       },
     },
+    {
+      name: "session_complete",
+      description:
+        "All key concepts in this section have been covered and the learner has demonstrated understanding. End the session with a summary.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          summary: {
+            type: "STRING",
+            description: "Summary of what was covered in this session",
+          },
+          final_understanding: {
+            type: "STRING",
+            enum: ["emerging", "developing", "solid", "strong"],
+            description: "Overall understanding level the learner demonstrated",
+          },
+          concepts_covered: {
+            type: "STRING",
+            description: "Comma-separated list of concepts that were covered",
+          },
+          concepts_missed: {
+            type: "STRING",
+            description:
+              "Comma-separated list of concepts that were not reached",
+          },
+          recommendation: {
+            type: "STRING",
+            description: "Suggestion for next section or review",
+          },
+        },
+        required: ["summary", "final_understanding", "concepts_covered"],
+      },
+    },
   ];
 
   if (section.concepts && section.concepts.length > 0) {
@@ -242,6 +276,7 @@ export function buildSocraticSystemPrompt(
     "- Use evaluate_response when the learner provides an answer",
     "- Use surface_key_insight when the learner is approaching the key intuition",
     "- Use off_topic_detected to redirect off-topic messages",
+    "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
   ];
 
   if (section.concepts && section.concepts.length > 0) {

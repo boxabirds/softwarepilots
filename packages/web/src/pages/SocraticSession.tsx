@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { apiClient } from "../lib/api-client";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { TutorCard } from "../components/exercise/TutorCard";
@@ -21,6 +21,10 @@ interface SocraticResponse {
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
+  final_understanding?: string;
+  concepts_covered?: string[];
+  concepts_missed?: string[];
+  recommendation?: string;
 }
 
 interface SectionMetadata {
@@ -51,6 +55,7 @@ export function SocraticSession() {
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
 
   // Mobile layout
   const isMobile = useIsMobile();
@@ -209,6 +214,9 @@ export function SocraticSession() {
       const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
       setConversation(withReply);
       saveConversation(withReply);
+      if (response.tool_type === "session_complete") {
+        setSessionComplete(response);
+      }
     } catch {
       setConversation((prev) => [
         ...prev,
@@ -353,6 +361,59 @@ export function SocraticSession() {
     return elements;
   }
 
+  /* ---- Completion card ---- */
+
+  function renderCompletionCard() {
+    if (!sessionComplete) return null;
+
+    return (
+      <div
+        className="mx-4 my-4 rounded-xl border-2 border-green-500 bg-green-50 p-5 dark:border-green-400 dark:bg-green-950/30"
+        data-testid="session-complete-card"
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-lg">&#10003;</span>
+          <h3 className="text-base font-semibold text-green-800 dark:text-green-300">
+            Section Complete
+          </h3>
+        </div>
+        <p className="text-sm leading-relaxed text-green-900 dark:text-green-200">
+          {sessionComplete.reply}
+        </p>
+        {sessionComplete.final_understanding && (
+          <p className="mt-2 text-xs text-green-700 dark:text-green-400">
+            Understanding: <span className="font-medium">{sessionComplete.final_understanding}</span>
+          </p>
+        )}
+        {sessionComplete.concepts_covered && sessionComplete.concepts_covered.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {sessionComplete.concepts_covered.map((concept) => (
+              <span
+                key={concept}
+                className="rounded-full bg-green-200 px-2 py-0.5 text-[11px] font-medium text-green-800 dark:bg-green-800 dark:text-green-200"
+              >
+                {concept}
+              </span>
+            ))}
+          </div>
+        )}
+        {sessionComplete.recommendation && (
+          <p className="mt-3 text-xs italic text-green-700 dark:text-green-400">
+            {sessionComplete.recommendation}
+          </p>
+        )}
+        <div className="mt-4 flex gap-3">
+          <Link
+            to={`/curriculum/${profile}`}
+            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+          >
+            Back to Curriculum
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- Input bar ---- */
 
   function renderInputBar() {
@@ -419,6 +480,7 @@ export function SocraticSession() {
         {/* Conversation */}
         <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4">
           {renderConversation()}
+          {renderCompletionCard()}
         </div>
 
         {/* Scroll-to-bottom */}
@@ -433,9 +495,11 @@ export function SocraticSession() {
         )}
 
         {/* Input */}
-        <div className="bg-muted px-4 pb-4 pt-3">
-          {renderInputBar()}
-        </div>
+        {!sessionComplete && (
+          <div className="bg-muted px-4 pb-4 pt-3">
+            {renderInputBar()}
+          </div>
+        )}
       </div>
     );
   }
@@ -453,6 +517,7 @@ export function SocraticSession() {
         {/* Conversation */}
         <div ref={chatRef} className="flex-1 overflow-y-auto px-5 py-4">
           {renderConversation()}
+          {renderCompletionCard()}
         </div>
 
         {/* Scroll-to-bottom */}
@@ -467,9 +532,11 @@ export function SocraticSession() {
         )}
 
         {/* Input */}
-        <div className="bg-muted px-5 pb-4 pt-3">
-          {renderInputBar()}
-        </div>
+        {!sessionComplete && (
+          <div className="bg-muted px-5 pb-4 pt-3">
+            {renderInputBar()}
+          </div>
+        )}
       </div>
     </div>
   );

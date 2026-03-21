@@ -241,7 +241,6 @@ describe("getProgressForProfile", () => {
   });
 });
 
-<<<<<<< HEAD
 /* ---- Concept tracking ---- */
 
 describe("concept tracking via updateSectionProgress", () => {
@@ -348,40 +347,10 @@ describe("concept tracking via updateSectionProgress", () => {
   it("tracks concepts even on completed sections", async () => {
     // Complete the section
     await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
-=======
-/* ---- buildProgressContext ---- */
-
-describe("buildProgressContext", () => {
-  it("returns empty string when no progress data exists", async () => {
-    const result = await buildProgressContext(db, "nonexistent-learner", TEST_PROFILE);
-    expect(result).toBe("");
-  });
-
-  it("returns empty string when all sections are not_started", async () => {
-    // Manually insert a not_started row (updateSectionProgress always creates in_progress)
-    sqliteDb
-      .prepare(
-        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, updated_at)
-         VALUES (?, ?, ?, 'not_started', '[]', datetime('now'))`
-      )
-      .run(TEST_LEARNER_ID, TEST_PROFILE, "1.1");
-
-    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
-    expect(result).toBe("");
-  });
-
-  it("includes completed sections with understanding level", async () => {
-    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
-      understanding_level: "solid",
-    });
-    // Complete the section
-    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
->>>>>>> worktree-agent-a106d9b7
       tool_type: "surface_key_insight",
       learner_readiness: "articulated",
     });
 
-<<<<<<< HEAD
     // Track concepts on completed section
     await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
       concepts_demonstrated: ["security"],
@@ -410,12 +379,6 @@ describe("buildProgressContext", () => {
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
 
     expect(JSON.parse(row.concepts_json as string)).toEqual({});
-=======
-    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
-    expect(result).toContain("== Learner Progress ==");
-    expect(result).toContain("Completed:");
-    expect(result).toContain("2.1");
-    expect(result).toContain("solid understanding");
   });
 
   it("includes in-progress sections", async () => {
@@ -476,6 +439,5 @@ describe("buildProgressContext", () => {
     // Should still produce output, using the section_id as fallback title
     expect(result).toContain("2.1");
     expect(result).toContain("developing understanding");
->>>>>>> worktree-agent-a106d9b7
-  });
+});
 });
