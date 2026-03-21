@@ -160,4 +160,70 @@ describe("SocraticSession", () => {
     // The opening probe should NOT have been called
     expect(mockPost).not.toHaveBeenCalled();
   });
+
+  it("renders instruction messages with distinct data-testid and concept label", async () => {
+    const savedMessages = [
+      { role: "tutor", content: "Let me think about that..." },
+      { role: "user", content: "I have no idea what recursion is." },
+      {
+        role: "tutor",
+        content: "Recursion is when a function calls itself.",
+        tool_type: "provide_instruction",
+        concept: "Recursion",
+      },
+    ];
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: savedMessages, updated_at: "2026-01-01T00:00:00Z" });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("instruction-card")).toBeTruthy();
+    });
+
+    // Concept label should be visible
+    const conceptLabel = screen.getByTestId("instruction-concept");
+    expect(conceptLabel).toBeTruthy();
+    expect(conceptLabel.textContent).toBe("Recursion");
+
+    // The instruction content should be rendered
+    expect(screen.getByText("Recursion is when a function calls itself.")).toBeTruthy();
+
+    // The "Direct Instruction" label should be visible
+    expect(screen.getByText("Direct Instruction")).toBeTruthy();
+  });
+
+  it("renders normal tutor messages without instruction styling", async () => {
+    const savedMessages = [
+      { role: "tutor", content: "What do you think about variables?" },
+    ];
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: savedMessages, updated_at: "2026-01-01T00:00:00Z" });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("What do you think about variables?")).toBeTruthy();
+    });
+
+    // Should NOT have the instruction card
+    expect(screen.queryByTestId("instruction-card")).toBeNull();
+    expect(screen.queryByTestId("instruction-concept")).toBeNull();
+  });
 });
