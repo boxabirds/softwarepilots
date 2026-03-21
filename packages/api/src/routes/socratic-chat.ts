@@ -14,7 +14,7 @@ import {
   GEMINI_API_URL,
 } from "../lib/gemini";
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
-import { buildCurriculumContext, compressConversation, persistSummary } from "../lib/context-assembly";
+import { buildCurriculumContext, buildConversationContext, compressConversation, persistSummary } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
@@ -312,7 +312,8 @@ export function buildSocraticSystemPrompt(
   section: SectionMeta,
   conversation: Array<{ role: "user" | "tutor"; content: string }>,
   progressContext?: string,
-  curriculumContext?: string
+  curriculumContext?: string,
+  conversationContext?: string
 ): string {
   const lines = [
     `You are a Socratic tutor for "${section.title}" in the ${meta.profile} software pilotry curriculum.`,
@@ -361,6 +362,10 @@ export function buildSocraticSystemPrompt(
 
   if (curriculumContext) {
     lines.push("", curriculumContext);
+  }
+
+  if (conversationContext) {
+    lines.push("", conversationContext);
   }
 
   if (conversation.length > 0) {
@@ -574,7 +579,15 @@ socraticChat.post("/", async (c) => {
     }
   }
   const curriculumContext = buildCurriculumContext(body.profile, body.section_id);
-  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined);
+  let conversationContext = "";
+  if (learnerId) {
+    try {
+      conversationContext = await buildConversationContext(c.env.DB, learnerId, body.profile, body.section_id);
+    } catch {
+      // Non-critical: proceed without conversation context
+    }
+  }
+  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
   const tools = buildSocraticTools(section, meta);
 
   // Build Gemini contents from conversation history

@@ -188,3 +188,76 @@ export async function persistSummary(
     .bind(summary, conversationId)
     .run();
 }
+
+/* ---- Conversation history assembly ---- */
+
+/**
+ * Builds a conversation history context block from prior session summaries.
+ * Loads summaries from curriculum_conversations where summary IS NOT NULL
+ * for the given learner+profile. Returns empty string if no prior sessions.
+ */
+export async function buildConversationContext(
+  db: D1Database,
+  learnerId: string,
+  profile: string,
+  currentSectionId: string
+): Promise<string> {
+  // Load all summarized conversations for this learner+profile
+  const { results } = await db
+    .prepare(
+      `SELECT section_id, summary, archived_at
+       FROM curriculum_conversations
+       WHERE learner_id = ? AND profile = ? AND summary IS NOT NULL
+       ORDER BY updated_at ASC`
+    )
+    .bind(learnerId, profile)
+    .all<{ section_id: string; summary: string; archived_at: string | null }>();
+
+  if (!results || results.length === 0) {
+    return "";
+  }
+
+  // Build section title lookup
+  let sectionTitleMap: Map<string, string>;
+  try {
+    const sections = getCurriculumSections(profile);
+    sectionTitleMap = new Map(sections.map((s) => [s.id, s.title]));
+  } catch {
+    sectionTitleMap = new Map();
+  }
+
+  const lines = ["== Prior Sessions =="];
+
+  // Group: archived conversations for current section first, then others
+  const currentSectionSummaries: string[] = [];
+  const otherSectionSummaries: string[] = [];
+
+  for (const row of results) {
+    const title = sectionTitleMap.get(row.section_id) || row.section_id;
+    const entry = `Section ${row.section_id} "${title}": ${row.summary}`;
+
+    if (row.section_id === currentSectionId && row.archived_at) {
+      currentSectionSummaries.push(entry);
+    } else {
+      otherSectionSummaries.push(entry);
+    }
+  }
+
+  if (currentSectionSummaries.length > 0) {
+    lines.push("");
+    lines.push("--- Previous sessions on current section ---");
+    for (const s of currentSectionSummaries) {
+      lines.push(`- ${s}`);
+    }
+  }
+
+  if (otherSectionSummaries.length > 0) {
+    lines.push("");
+    lines.push("--- Sessions on other sections ---");
+    for (const s of otherSectionSummaries) {
+      lines.push(`- ${s}`);
+    }
+  }
+
+  return lines.join("\n");
+}
