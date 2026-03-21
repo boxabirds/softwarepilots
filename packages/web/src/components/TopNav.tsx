@@ -72,7 +72,8 @@ function ProfileMenu({ initial, displayName }: { initial: string; displayName?: 
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors"
+        style={{ background: "#E8EDFA", color: "#1A4FD1" }}
         data-testid="nav-profile-icon"
         title={displayName ?? "Profile"}
       >

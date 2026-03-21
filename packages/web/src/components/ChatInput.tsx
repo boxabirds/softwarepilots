@@ -100,11 +100,16 @@ export function ChatInput({
         <button
           onClick={onSubmit}
           disabled={!canSubmit}
-          className={`flex size-8 shrink-0 items-center justify-center rounded-full border-none text-base transition-colors ${
-            canSubmit
-              ? "cursor-pointer bg-primary text-primary-foreground"
-              : "cursor-default bg-muted text-muted-foreground"
-          }`}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full border-none text-base transition-colors"
+          style={canSubmit ? {
+            background: "#1A4FD1",
+            color: "#ffffff",
+            cursor: "pointer",
+          } : {
+            background: "#E8EDFA",
+            color: "#A8BBEB",
+            cursor: "default",
+          }}
           aria-label="Submit"
         >
           &#8593;
