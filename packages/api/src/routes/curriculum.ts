@@ -24,6 +24,7 @@ import {
 /* ---- Valid profiles and section ID pattern ---- */
 
 const VALID_PROFILES = new Set([
+  "level-0",
   "level-1",
   "level-10",
   "level-20",

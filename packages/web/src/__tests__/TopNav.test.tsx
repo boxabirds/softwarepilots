@@ -119,17 +119,10 @@ describe("Breadcrumbs", () => {
     expect(breadcrumbs.textContent).toBe("");
   });
 
-  it("shows 'Curriculum' on /curriculum", () => {
+  it("shows empty breadcrumbs on /curriculum (redirects to dashboard)", () => {
     renderTopNavAtRoute("/curriculum");
     const breadcrumbs = screen.getByTestId("breadcrumbs");
-    expect(breadcrumbs.textContent).toContain("Curriculum");
-  });
-
-  it("Curriculum is the current (non-link) segment on /curriculum", () => {
-    renderTopNavAtRoute("/curriculum");
-    const current = screen.getByTestId("breadcrumb-current-0");
-    expect(current.tagName).toBe("SPAN");
-    expect(current.textContent).toBe("Curriculum");
+    expect(breadcrumbs.textContent?.trim()).toBe("");
   });
 
   it("shows profile and module title on session page", () => {
@@ -166,11 +159,14 @@ describe("Breadcrumbs", () => {
     expect(current.textContent).toBe("Progress");
   });
 
-  it("mobile shows only current segment", () => {
+  it("mobile shows only current segment on session page", () => {
     mockIsMobile = true;
-    renderTopNavAtRoute("/curriculum");
+    renderTopNavAtRoute(
+      "/curriculum/level-1/1.1",
+      "/curriculum/:profile/:sectionId",
+    );
     const current = screen.getByTestId("breadcrumb-current-mobile");
-    expect(current.textContent).toBe("Curriculum");
+    expect(current.textContent).toBeTruthy();
   });
 
   it("mobile dashboard has no back chevron", () => {

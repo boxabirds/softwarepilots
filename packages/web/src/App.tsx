@@ -10,11 +10,6 @@ const Dashboard = lazy(() =>
 const Exercise = lazy(() =>
   import("./pages/Exercise").then((m) => ({ default: m.Exercise }))
 );
-const CurriculumSelect = lazy(() =>
-  import("./pages/CurriculumSelect").then((m) => ({
-    default: m.CurriculumSelect,
-  }))
-);
 const SocraticSession = lazy(() =>
   import("./pages/SocraticSession").then((m) => ({ default: m.SocraticSession }))
 );
@@ -64,18 +59,8 @@ export function App() {
             </AuthGuard>
           }
         />
-        <Route
-          path="/curriculum"
-          element={
-            <AuthGuard>
-              <AuthenticatedLayout>
-                <RouteLoader>
-                  <CurriculumSelect />
-                </RouteLoader>
-              </AuthenticatedLayout>
-            </AuthGuard>
-          }
-        />
+        {/* /curriculum redirects to dashboard - they're the same page now */}
+        <Route path="/curriculum" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/exercise/:moduleId/:exerciseId"
           element={

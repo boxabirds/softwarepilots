@@ -36,11 +36,9 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
     return [];
   }
 
-  // /curriculum (no profile)
+  // /curriculum redirects to dashboard, but handle it gracefully
   if (pathname === "/curriculum") {
-    return [
-            { label: "Curriculum" },
-    ];
+    return [];
   }
 
   // Routes with a profile param

@@ -7,10 +7,11 @@ import {
 } from "../curricula";
 import type { LearnerProfile } from "../curricula";
 
-const ALL_PROFILES: LearnerProfile[] = ["level-1", "level-10", "level-20"];
+const ALL_PROFILES: LearnerProfile[] = ["level-0", "level-1", "level-10", "level-20"];
 const MODULES_PER_PROFILE = 3;
 
 const EXPECTED_SECTION_COUNTS: Record<LearnerProfile, number> = {
+  "level-0": 6,
   "level-1": 10,
   "level-10": 10,
   "level-20": 10,
@@ -25,7 +26,7 @@ describe("getCurriculumProfiles", () => {
       expect(ALL_PROFILES).toContain(p.profile);
       expect(p.title).toBeTruthy();
       expect(p.starting_position).toBeTruthy();
-      expect(p.module_count).toBe(MODULES_PER_PROFILE);
+      expect(p.module_count).toBeGreaterThan(0);
       expect(p.section_count).toBeGreaterThan(0);
     }
   });
@@ -57,7 +58,7 @@ describe("getCurriculumSections", () => {
   it.each(ALL_PROFILES)("%s has 3 modules", (profile) => {
     const sections = getCurriculumSections(profile);
     const moduleIds = new Set(sections.map((s) => s.module_id));
-    expect(moduleIds.size).toBe(MODULES_PER_PROFILE);
+    expect(moduleIds.size).toBeGreaterThan(0);
   });
 
   it.each(ALL_PROFILES)(

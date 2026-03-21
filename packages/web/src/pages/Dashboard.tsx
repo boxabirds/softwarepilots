@@ -1,114 +1,257 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiClient } from "../lib/api-client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressBadge } from "@/components/ProgressBadge";
+import type {
+  CurriculumProfileSummary,
+  LearnerProfile,
+} from "@softwarepilots/shared";
 
-interface ModuleInfo {
-  number: number;
+interface SectionSummary {
+  id: string;
+  module_id: string;
+  module_title: string;
   title: string;
-  description: string;
-  status: "available" | "locked" | "completed";
-  exerciseLink?: string;
-  exerciseLabel?: string;
+  key_intuition: string;
 }
 
-const MODULES: ModuleInfo[] = [
-  {
-    number: 1,
-    title: "The New Landscape",
-    description: "What changed, who builds software now, and why accountability matters.",
-    status: "locked",
-  },
-  {
-    number: 2,
-    title: "The Machine Beneath",
-    description: "Compilers, HTTP, databases, DevTools - the reality under the abstraction.",
-    status: "available",
-    exerciseLink: "/exercise/2/1",
-    exerciseLabel: "Start: The Compiler Moment",
-  },
-  {
-    number: 3,
-    title: "The Probabilistic Machine",
-    description: "Temperature, hallucination, cognitive surrender - why AI is confident and wrong.",
-    status: "locked",
-  },
-  {
-    number: 4,
-    title: "Specification",
-    description: "Writing specifications that constrain the machine's output.",
-    status: "locked",
-  },
-  {
-    number: 6,
-    title: "Building with Agents",
-    description: "Using AI agents to build from your specification.",
-    status: "locked",
-  },
-  {
-    number: 8,
-    title: "Verification & Sustainable Practice",
-    description: "Testing, acceptance, and maintaining human judgment over time.",
-    status: "locked",
-  },
-];
+interface SectionProgress {
+  section_id: string;
+  status: "not_started" | "in_progress" | "completed";
+  understanding_level?: string;
+  updated_at: string;
+}
+
+interface ModuleGroup {
+  module_id: string;
+  module_title: string;
+  sections: SectionSummary[];
+}
+
+function groupByModule(sections: SectionSummary[]): ModuleGroup[] {
+  const map = new Map<string, ModuleGroup>();
+  for (const sec of sections) {
+    let group = map.get(sec.module_id);
+    if (!group) {
+      group = {
+        module_id: sec.module_id,
+        module_title: sec.module_title,
+        sections: [],
+      };
+      map.set(sec.module_id, group);
+    }
+    group.sections.push(sec);
+  }
+  return Array.from(map.values());
+}
 
 export function Dashboard() {
+  const [profiles, setProfiles] = useState<CurriculumProfileSummary[]>([]);
+  const [expanded, setExpanded] = useState<LearnerProfile | null>(null);
+  const [modules, setModules] = useState<ModuleGroup[]>([]);
+  const [progressMap, setProgressMap] = useState<Map<string, SectionProgress>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+  const [loadingSections, setLoadingSections] = useState(false);
+
+  useEffect(() => {
+    apiClient
+      .get<CurriculumProfileSummary[]>("/api/curriculum")
+      .then(setProfiles)
+      .catch(() => setError("Failed to load tracks"));
+  }, []);
+
+  async function handleToggle(profile: LearnerProfile) {
+    if (expanded === profile) {
+      setExpanded(null);
+      setModules([]);
+      setProgressMap(new Map());
+      return;
+    }
+
+    setExpanded(profile);
+    setLoadingSections(true);
+    setProgressMap(new Map());
+    try {
+      const [sections, progress] = await Promise.all([
+        apiClient.get<SectionSummary[]>(`/api/curriculum/${profile}`),
+        apiClient.get<SectionProgress[]>(`/api/curriculum/${profile}/progress`).catch(() => [] as SectionProgress[]),
+      ]);
+
+      setModules(groupByModule(sections));
+      setError(null);
+
+      const map = new Map<string, SectionProgress>();
+      for (const p of progress) {
+        map.set(p.section_id, p);
+      }
+      setProgressMap(map);
+    } catch {
+      setError(`Failed to load sections`);
+      setModules([]);
+    } finally {
+      setLoadingSections(false);
+    }
+  }
+
+  function handleRetry() {
+    setError(null);
+    apiClient
+      .get<CurriculumProfileSummary[]>("/api/curriculum")
+      .then(setProfiles)
+      .catch(() => setError("Failed to load tracks"));
+  }
+
+  if (error && profiles.length === 0) {
+    return (
+      <div className="mx-auto max-w-4xl p-6">
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <p className="mb-4 text-destructive">{error}</p>
+          <Button variant="outline" onClick={handleRetry}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-8 text-2xl font-bold">Dashboard</h1>
-
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Curriculum Tracks</CardTitle>
-          <CardDescription>
-            Choose a learning track tailored to your experience level
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link to="/curriculum" className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
-            Browse Tracks
-          </Link>
-        </CardContent>
-      </Card>
-
-      <h2 className="mb-4 text-lg font-semibold">Modules</h2>
-
-      <div className="flex flex-col gap-4">
-        {MODULES.map((mod) => (
-          <ModuleCard key={mod.number} {...mod} />
+    <div className="mx-auto max-w-4xl p-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {profiles.map((profile) => (
+          <TrackCard
+            key={profile.profile}
+            profile={profile}
+            isExpanded={expanded === profile.profile}
+            onToggle={() => handleToggle(profile.profile)}
+          />
         ))}
       </div>
+
+      {expanded && (
+        <div className="mt-6">
+          {loadingSections ? (
+            <p className="text-center text-muted-foreground">Loading sections...</p>
+          ) : error ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center"
+            >
+              <p className="text-destructive">{error}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {modules.map((mod) => (
+                <ModuleTree
+                  key={mod.module_id}
+                  module={mod}
+                  profile={expanded}
+                  progressMap={progressMap}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function ModuleCard({ number, title, description, status, exerciseLink, exerciseLabel }: ModuleInfo) {
-  const isLocked = status === "locked";
-
+function TrackCard({
+  profile,
+  isExpanded,
+  onToggle,
+}: {
+  profile: CurriculumProfileSummary;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <Card className={isLocked ? "opacity-50" : ""}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-base">
-            Module {number}: {title}
-          </CardTitle>
-          {status === "completed" && (
-            <Badge variant="default" className="bg-success text-white">Completed</Badge>
-          )}
-        </div>
-        <CardDescription>{description}</CardDescription>
+    <Card
+      className={`cursor-pointer transition-shadow hover:shadow-md ${isExpanded ? "ring-2 ring-primary" : ""}`}
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+    >
+      <CardHeader>
+        <CardTitle>{profile.title}</CardTitle>
+        <CardDescription className="line-clamp-2">{profile.starting_position}</CardDescription>
       </CardHeader>
       <CardContent>
-        {exerciseLink && !isLocked && (
-          <Link to={exerciseLink} className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
-            {exerciseLabel || "Start Exercise"}
-          </Link>
-        )}
-        {isLocked && (
-          <p className="text-sm text-muted-foreground">
-            Complete previous modules to unlock
-          </p>
-        )}
+        <Badge variant="secondary">
+          {profile.section_count} sections
+        </Badge>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ModuleTree({
+  module: mod,
+  profile,
+  progressMap,
+}: {
+  module: ModuleGroup;
+  profile: LearnerProfile;
+  progressMap: Map<string, SectionProgress>;
+}) {
+  const completedCount = mod.sections.filter(
+    (sec) => progressMap.get(sec.id)?.status === "completed",
+  ).length;
+  const totalCount = mod.sections.length;
+  const hasProgress = progressMap.size > 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">
+          {mod.module_title}
+          {hasProgress && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {completedCount} of {totalCount} completed
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-col gap-1">
+          {mod.sections.map((sec) => {
+            const progress = progressMap.get(sec.id);
+            return (
+              <li key={sec.id}>
+                <Link
+                  to={`/curriculum/${profile}/${sec.id}`}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  {progress ? (
+                    <ProgressBadge
+                      status={progress.status}
+                      understandingLevel={progress.understanding_level}
+                    />
+                  ) : null}
+                  {sec.title}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );
