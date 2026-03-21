@@ -87,6 +87,15 @@ function ProfileMenu({ initial, displayName }: { initial: string; displayName?: 
               {displayName}
             </div>
           )}
+          <Link
+            to="/admin"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center px-3 py-2 text-sm"
+            style={{ color: "var(--text-primary)" }}
+            data-testid="admin-link"
+          >
+            Admin
+          </Link>
           <button
             onClick={handleSignOut}
             className="flex w-full cursor-pointer items-center px-3 py-2 text-sm"

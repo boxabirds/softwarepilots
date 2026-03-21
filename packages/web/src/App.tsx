@@ -18,6 +18,9 @@ const ProgressDashboard = lazy(() =>
     default: m.ProgressDashboard,
   }))
 );
+const Admin = lazy(() =>
+  import("./pages/Admin").then((m) => ({ default: m.Admin }))
+);
 
 function RouteLoader({ children }: { children: React.ReactNode }) {
   return (
@@ -92,6 +95,18 @@ export function App() {
               <AuthenticatedLayout>
                 <RouteLoader>
                   <SocraticSession />
+                </RouteLoader>
+              </AuthenticatedLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AuthGuard>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <Admin />
                 </RouteLoader>
               </AuthenticatedLayout>
             </AuthGuard>
