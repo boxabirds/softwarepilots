@@ -1,3 +1,5 @@
+[Source](https://youtu.be/kwSVtQ7dziU?si=XTNQL4FhLDAthg8x)
+
 ### Briefing: Andrej Karpathy’s View on Teaching for the Era of Software Pilotry
 
 Andrej Karpathy describes a fundamental shift in the nature of software engineering and education, moving from manual labor to a state of **"AI psychosis"** where the human acts as a high-level orchestrator—a concept that aligns closely with the emerging discipline of **software pilotry**. In this new paradigm, "coding" is no longer the primary verb; instead, the practitioner **"manifests their will"** through a swarm of agents.
