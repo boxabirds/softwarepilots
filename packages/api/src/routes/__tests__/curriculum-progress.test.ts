@@ -439,5 +439,106 @@ describe("concept tracking via updateSectionProgress", () => {
     // Should still produce output, using the section_id as fallback title
     expect(result).toContain("2.1");
     expect(result).toContain("developing understanding");
+  });
 });
+
+/* ---- Instruction progress logging ---- */
+
+describe("instruction progress logging via provide_instruction", () => {
+  it("stores needed_instruction=true and struggle_reason in concepts_json", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "provide_instruction",
+      concept: "recursion",
+      struggle_reason: "repeated_wrong_answer",
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.recursion).toBeTruthy();
+    expect(concepts.recursion.needed_instruction).toBe(true);
+    expect(concepts.recursion.struggle_reason).toBe("repeated_wrong_answer");
+    expect(concepts.recursion.level).toBe("emerging");
+  });
+
+  it("halves the spaced repetition interval for instructed concepts", async () => {
+    // First: create a normal concept entry for comparison
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["normal_concept"],
+      concept_levels: ["developing"],
+    });
+
+    // Then: create an instruction-triggered entry at the same level
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "provide_instruction",
+      concept: "instructed_concept",
+      struggle_reason: "no_progression",
+      concepts_demonstrated: ["instructed_concept"],
+      concept_levels: ["developing"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+
+    // Normal developing interval = 3 days, instruction halved = ~2 days (rounded)
+    const normalNext = new Date(concepts.normal_concept.next_review).getTime();
+    const normalLast = new Date(concepts.normal_concept.last_reviewed).getTime();
+    const normalInterval = normalNext - normalLast;
+
+    const instructedNext = new Date(concepts.instructed_concept.next_review).getTime();
+    const instructedLast = new Date(concepts.instructed_concept.last_reviewed).getTime();
+    const instructedInterval = instructedNext - instructedLast;
+
+    expect(instructedInterval).toBeLessThan(normalInterval);
+    expect(concepts.instructed_concept.needed_instruction).toBe(true);
+  });
+
+  it("stores instruction concept even without concepts_demonstrated", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "provide_instruction",
+      concept: "closures",
+      struggle_reason: "learner_asked",
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.closures).toBeTruthy();
+    expect(concepts.closures.needed_instruction).toBe(true);
+    expect(concepts.closures.struggle_reason).toBe("learner_asked");
+  });
+
+  it("handles provide_instruction in multi-tool response", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "provide_instruction+socratic_probe",
+      concept: "async_await",
+      struggle_reason: "low_confidence_sustained",
+      concepts_demonstrated: ["async_await"],
+      concept_levels: ["emerging"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.async_await).toBeTruthy();
+    expect(concepts.async_await.needed_instruction).toBe(true);
+    expect(concepts.async_await.struggle_reason).toBe("low_confidence_sustained");
+  });
 });
