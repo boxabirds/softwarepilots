@@ -23,9 +23,13 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     apiClient
-      .get<Learner>("/api/auth/me")
+      .get<Learner | null>("/api/auth/me")
       .then((learner) => {
-        setState({ isAuthenticated: true, isLoading: false, learner });
+        if (learner) {
+          setState({ isAuthenticated: true, isLoading: false, learner });
+        } else {
+          setState({ isAuthenticated: false, isLoading: false, learner: null });
+        }
       })
       .catch(() => {
         setState({ isAuthenticated: false, isLoading: false, learner: null });

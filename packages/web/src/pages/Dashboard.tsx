@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -76,9 +75,9 @@ export function Dashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild>
-            <Link to="/curriculum">Browse Tracks</Link>
-          </Button>
+          <Link to="/curriculum" className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
+            Browse Tracks
+          </Link>
         </CardContent>
       </Card>
 
@@ -111,9 +110,9 @@ function ModuleCard({ number, title, description, status, exerciseLink, exercise
       </CardHeader>
       <CardContent>
         {exerciseLink && !isLocked && (
-          <Button asChild>
-            <Link to={exerciseLink}>{exerciseLabel || "Start Exercise"}</Link>
-          </Button>
+          <Link to={exerciseLink} className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
+            {exerciseLabel || "Start Exercise"}
+          </Link>
         )}
         {isLocked && (
           <p className="text-sm text-muted-foreground">

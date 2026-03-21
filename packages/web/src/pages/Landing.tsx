@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, loginUrl } from "../lib/auth";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function Landing() {
@@ -39,9 +38,9 @@ export function Landing() {
               Authentication failed: {authError}. Please try again.
             </p>
           )}
-          <Button asChild className="w-full">
-            <a href={loginUrl()}>Sign in with GitHub</a>
-          </Button>
+          <a href={loginUrl()} className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-2.5 h-9 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
+            Sign in with GitHub
+          </a>
         </CardContent>
       </Card>
     </div>

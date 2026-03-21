@@ -23,20 +23,6 @@ app.route("/api/auth", auth);
 // All other /api/* routes require authentication
 app.use("/api/*", sessionValidation);
 
-app.get("/api/auth/me", async (c) => {
-  const learnerId = c.get("learnerId" as never) as string;
-  const learner = await c.env.DB.prepare(
-    "SELECT id, email, display_name, enrolled_at FROM learners WHERE id = ?"
-  )
-    .bind(learnerId)
-    .first();
-
-  if (!learner) {
-    return c.json({ error: "Learner not found" }, 404);
-  }
-  return c.json(learner);
-});
-
 app.route("/api/submissions", submissions);
 app.route("/api/chat", chat);
 app.route("/api/curriculum", curriculum);

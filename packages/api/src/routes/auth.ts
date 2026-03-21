@@ -1,7 +1,8 @@
 import { Hono } from "hono";
-import { sign } from "hono/jwt";
+import { sign, verify } from "hono/jwt";
 import type { Env } from "../env";
 import { SESSION_COOKIE_NAME } from "../middleware/session-validation";
+import type { SessionPayload } from "../middleware/session-validation";
 
 
 const FAKE_GITHUB_URL = "http://localhost:9999";
@@ -210,6 +211,31 @@ auth.post("/logout", (c) => {
       "Set-Cookie": cookieValue,
     },
   });
+});
+
+auth.get("/me", async (c) => {
+  const header = c.req.raw.headers.get("Cookie");
+  if (!header) {
+    return c.json(null);
+  }
+  const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]*)`));
+  const cookie = match ? decodeURIComponent(match[1]) : undefined;
+  if (!cookie) {
+    return c.json(null);
+  }
+
+  try {
+    const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as SessionPayload;
+    const learner = await c.env.DB.prepare(
+      "SELECT id, email, display_name, enrolled_at FROM learners WHERE id = ?"
+    )
+      .bind(payload.sub)
+      .first();
+
+    return c.json(learner || null);
+  } catch {
+    return c.json(null);
+  }
 });
 
 export { auth };
