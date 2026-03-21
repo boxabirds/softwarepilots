@@ -15,7 +15,7 @@ import type { GeminiFunctionCallResponse } from "../../lib/gemini";
 
 /* ---- Helpers ---- */
 
-const EXPECTED_TOOL_COUNT = 5;
+const EXPECTED_TOOL_COUNT = 6;
 
 const EXPECTED_TOOL_NAMES = [
   "socratic_probe",
@@ -23,6 +23,7 @@ const EXPECTED_TOOL_NAMES = [
   "evaluate_response",
   "surface_key_insight",
   "off_topic_detected",
+  "session_complete",
 ];
 
 const geminiResponse = (
@@ -55,9 +56,12 @@ describe("buildSocraticTools", () => {
     expect(names).toEqual(EXPECTED_TOOL_NAMES);
   });
 
-  it("includes section title in tool descriptions", () => {
+  it("includes section title in tool descriptions (except session_complete)", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
-    const descriptions = tools[0].functionDeclarations.map(
+    const contextualTools = tools[0].functionDeclarations.filter(
+      (d) => d.name !== "session_complete"
+    );
+    const descriptions = contextualTools.map(
       (d) => d.description as string
     );
     for (const desc of descriptions) {
@@ -185,6 +189,40 @@ describe("parseSocraticResponse", () => {
     );
     expect(result.tool_type).toBe("off_topic_detected");
     expect(result.reply).toContain("back to the code");
+  });
+
+  it("handles session_complete and extracts structured fields", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("session_complete", {
+        summary: "We covered variables, types, and scope.",
+        final_understanding: "solid",
+        concepts_covered: "variables, types, scope",
+        concepts_missed: "closures",
+        recommendation: "Move on to functions",
+      })
+    );
+    expect(result.tool_type).toBe("session_complete");
+    expect(result.reply).toContain("variables, types, and scope");
+    expect(result.final_understanding).toBe("solid");
+    expect(result.concepts_covered).toEqual(["variables", "types", "scope"]);
+    expect(result.concepts_missed).toEqual(["closures"]);
+    expect(result.recommendation).toBe("Move on to functions");
+  });
+
+  it("handles session_complete with minimal fields", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("session_complete", {
+        summary: "Good session!",
+        final_understanding: "developing",
+        concepts_covered: "basics",
+      })
+    );
+    expect(result.tool_type).toBe("session_complete");
+    expect(result.reply).toBe("Good session!");
+    expect(result.final_understanding).toBe("developing");
+    expect(result.concepts_covered).toEqual(["basics"]);
+    expect(result.concepts_missed).toEqual([]);
+    expect(result.recommendation).toBeUndefined();
   });
 
   it("throws on unexpected tool name", () => {

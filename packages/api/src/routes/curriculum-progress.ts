@@ -11,6 +11,7 @@ const STATUS_COMPLETED = "completed";
 
 const COMPLETION_TOOL_TYPE = "surface_key_insight";
 const COMPLETION_READINESS = "articulated";
+const SESSION_COMPLETE_TOOL_TYPE = "session_complete";
 
 /* ---- Types ---- */
 
@@ -19,6 +20,9 @@ export interface SocraticResponse {
   learner_readiness?: string;
   confidence_assessment?: string;
   understanding_level?: string;
+  final_understanding?: string;
+  concepts_covered?: string[];
+  concepts_missed?: string[];
 }
 
 interface ProgressRow {
@@ -37,6 +41,16 @@ export interface ProgressSummary {
   status: string;
   understanding_level?: string;
   updated_at: string;
+}
+
+/* ---- Helpers ---- */
+
+function isCompletionTrigger(response: SocraticResponse): boolean {
+  if (response.tool_type === SESSION_COMPLETE_TOOL_TYPE) return true;
+  return (
+    response.tool_type === COMPLETION_TOOL_TYPE &&
+    response.learner_readiness === COMPLETION_READINESS
+  );
 }
 
 /* ---- Core function ---- */
@@ -58,7 +72,7 @@ export async function updateSectionProgress(
 
   if (!existing) {
     // First interaction - create row
-    const understandingEntries: Array<Record<string, string>> = [];
+    const understandingEntries: Array<Record<string, string | string[]>> = [];
     if (response.confidence_assessment || response.understanding_level) {
       understandingEntries.push({
         ...(response.confidence_assessment
@@ -71,9 +85,16 @@ export async function updateSectionProgress(
       });
     }
 
-    const shouldComplete =
-      response.tool_type === COMPLETION_TOOL_TYPE &&
-      response.learner_readiness === COMPLETION_READINESS;
+    const shouldComplete = isCompletionTrigger(response);
+
+    if (shouldComplete && response.tool_type === SESSION_COMPLETE_TOOL_TYPE) {
+      understandingEntries.push({
+        final_understanding: response.final_understanding ?? "developing",
+        ...(response.concepts_covered ? { concepts_covered: response.concepts_covered } : {}),
+        ...(response.concepts_missed ? { concepts_missed: response.concepts_missed } : {}),
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     await db
       .prepare(
@@ -130,9 +151,16 @@ export async function updateSectionProgress(
     });
   }
 
-  const shouldComplete =
-    response.tool_type === COMPLETION_TOOL_TYPE &&
-    response.learner_readiness === COMPLETION_READINESS;
+  const shouldComplete = isCompletionTrigger(response);
+
+  if (shouldComplete && response.tool_type === SESSION_COMPLETE_TOOL_TYPE) {
+    entries.push({
+      final_understanding: response.final_understanding ?? "developing",
+      ...(response.concepts_covered ? { concepts_covered: response.concepts_covered } : {}),
+      ...(response.concepts_missed ? { concepts_missed: response.concepts_missed } : {}),
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   const newStatus = shouldComplete ? STATUS_COMPLETED : existing.status;
 

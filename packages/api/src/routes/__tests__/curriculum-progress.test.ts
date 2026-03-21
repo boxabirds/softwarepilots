@@ -203,6 +203,32 @@ describe("updateSectionProgress", () => {
     expect(row.status).toBe("completed");
     expect(row.completed_at).toBeTruthy();
   });
+  it("sets completed when tool_type is session_complete", async () => {
+    // Start with regular interaction
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    // Then complete via session_complete
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_complete",
+      final_understanding: "solid",
+      concepts_covered: ["variables", "types", "scope"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT status, completed_at, understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("completed");
+    expect(row.completed_at).toBeTruthy();
+
+    const entries = JSON.parse(row.understanding_json as string);
+    const sessionEntry = entries.find((e: Record<string, unknown>) => e.final_understanding);
+    expect(sessionEntry).toBeTruthy();
+    expect(sessionEntry.final_understanding).toBe("solid");
+    expect(sessionEntry.concepts_covered).toEqual(["variables", "types", "scope"]);
+  });
 });
 
 /* ---- getProgressForProfile ---- */

@@ -21,7 +21,7 @@ import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 const SOCRATIC_TEMPERATURE = 0.4;
-const SOCRATIC_TOOL_COUNT = 5;
+const SOCRATIC_TOOL_COUNT = 6;
 const MAX_RESPONSE_SENTENCES = 3;
 const RETRY_DELAY_MS = 1000;
 const MAX_RETRIES = 1;
@@ -44,6 +44,10 @@ export interface SocraticChatResponse {
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
+  final_understanding?: string;
+  concepts_covered?: string[];
+  concepts_missed?: string[];
+  recommendation?: string;
 }
 
 /* ---- Tool builder ---- */
@@ -172,6 +176,39 @@ export function buildSocraticTools(
         required: ["redirect_hint"],
       },
     },
+    {
+      name: "session_complete",
+      description:
+        "All key concepts in this section have been covered and the learner has demonstrated understanding. End the session with a summary.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          summary: {
+            type: "STRING",
+            description: "Summary of what was covered in this session",
+          },
+          final_understanding: {
+            type: "STRING",
+            enum: ["emerging", "developing", "solid", "strong"],
+            description: "Overall understanding level the learner demonstrated",
+          },
+          concepts_covered: {
+            type: "STRING",
+            description: "Comma-separated list of concepts that were covered",
+          },
+          concepts_missed: {
+            type: "STRING",
+            description:
+              "Comma-separated list of concepts that were not reached",
+          },
+          recommendation: {
+            type: "STRING",
+            description: "Suggestion for next section or review",
+          },
+        },
+        required: ["summary", "final_understanding", "concepts_covered"],
+      },
+    },
   ];
 
   return [{ functionDeclarations: declarations }];
@@ -206,6 +243,7 @@ export function buildSocraticSystemPrompt(
     "- Use evaluate_response when the learner provides an answer",
     "- Use surface_key_insight when the learner is approaching the key intuition",
     "- Use off_topic_detected to redirect off-topic messages",
+    "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
   ];
 
   if (conversation.length > 0) {
@@ -290,6 +328,22 @@ export function parseSocraticResponse(
           "That's interesting, but let's focus on the section. What part are you curious about?",
         tool_type: "off_topic_detected",
       };
+
+    case "session_complete": {
+      const splitCsv = (csv: string | undefined): string[] =>
+        csv ? csv.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+      const result: SocraticChatResponse = {
+        reply: fc.args.summary || "Great work - session complete!",
+        tool_type: "session_complete",
+        final_understanding: fc.args.final_understanding,
+        concepts_covered: splitCsv(fc.args.concepts_covered),
+        concepts_missed: splitCsv(fc.args.concepts_missed),
+      };
+      if (fc.args.recommendation) {
+        result.recommendation = fc.args.recommendation;
+      }
+      return result;
+    }
 
     default:
       throw new Error(`Unexpected tool: ${fc.name}`);
