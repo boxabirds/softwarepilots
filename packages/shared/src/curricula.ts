@@ -16,6 +16,7 @@ export interface SectionMeta {
   title: string;
   markdown: string;
   key_intuition: string;
+  concepts: string[];
 }
 
 /** Internal shape used by per-profile data files */
@@ -57,6 +58,21 @@ const curricula: Record<LearnerProfile, CurriculumData> = {
 
 /* ---- Helpers ---- */
 
+const BOLD_HEADER_RE = /\*\*(.+?)(?:\s*[-–:])?\*\*/gm;
+const EXCLUDED_CONCEPTS = ["Exercise", "Key intuition to develop"];
+
+export function extractConcepts(markdown: string): string[] {
+  const matches: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = BOLD_HEADER_RE.exec(markdown)) !== null) {
+    const label = match[1].trim();
+    if (!EXCLUDED_CONCEPTS.some((exc) => label.includes(exc))) {
+      matches.push(label);
+    }
+  }
+  return [...new Set(matches)];
+}
+
 function assertValidProfile(profile: string): asserts profile is LearnerProfile {
   if (!(profile in curricula)) {
     throw new Error(`Unknown learner profile: ${profile}`);
@@ -74,6 +90,7 @@ function flattenSections(data: CurriculumData): SectionMeta[] {
         title: sec.title,
         markdown: sec.markdown,
         key_intuition: sec.key_intuition,
+        concepts: extractConcepts(sec.markdown),
       });
     }
   }

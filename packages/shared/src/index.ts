@@ -19,6 +19,7 @@ export {
   getCurriculumMeta,
   getCurriculumSections,
   getSection,
+  extractConcepts,
 } from "./curricula";
 
 export type {
