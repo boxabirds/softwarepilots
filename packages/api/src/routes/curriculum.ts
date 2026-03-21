@@ -374,4 +374,42 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   return c.json({ reset: true });
 });
 
+/* POST /:profile/:sectionId/feedback - submit learner feedback on a tutor message */
+curriculum.post("/:profile/:sectionId/feedback", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+  const sectionId = c.req.param("sectionId");
+
+  const validationError = validateProfileAndSection(profile, sectionId);
+  if (validationError) {
+    return c.json({ error: validationError }, 400);
+  }
+
+  let body: { message_content?: string; message_index?: number; feedback_text?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const { message_content, message_index, feedback_text } = body;
+
+  if (
+    typeof message_content !== "string" || message_content.length === 0 ||
+    typeof message_index !== "number" ||
+    typeof feedback_text !== "string" || feedback_text.length === 0
+  ) {
+    return c.json({ error: "message_content, message_index, and feedback_text are required" }, 400);
+  }
+
+  await c.env.DB.prepare(
+    `INSERT INTO curriculum_feedback (learner_id, profile, section_id, message_content, message_index, feedback_text)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  )
+    .bind(learnerId, profile, sectionId, message_content, message_index, feedback_text)
+    .run();
+
+  return c.json({ saved: true });
+});
+
 export { curriculum };
