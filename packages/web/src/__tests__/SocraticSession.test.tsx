@@ -290,7 +290,7 @@ describe("SocraticSession pause card", () => {
     // Type a message and submit
     const input = screen.getByPlaceholderText("Type your response...");
     const user = userEvent.setup();
-    await user.type(input, "I need a break{Enter}");
+    await user.type(input, "I need a break{Shift>}{Enter}{/Shift}");
 
     // Wait for pause card to appear
     await waitFor(() => {
@@ -315,7 +315,7 @@ describe("SocraticSession pause card", () => {
 
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText("Type your response...");
-    await user.type(input, "I need a break{Enter}");
+    await user.type(input, "I need a break{Shift>}{Enter}{/Shift}");
 
     await waitFor(() => {
       expect(screen.getByTestId("session-pause-card")).toBeTruthy();
@@ -335,7 +335,7 @@ describe("SocraticSession pause card", () => {
 
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText("Type your response...");
-    await user.type(input, "I need a break{Enter}");
+    await user.type(input, "I need a break{Shift>}{Enter}{/Shift}");
 
     await waitFor(() => {
       expect(screen.getByTestId("session-pause-card")).toBeTruthy();
@@ -357,7 +357,7 @@ describe("SocraticSession pause card", () => {
 
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText("Type your response...");
-    await user.type(input, "I need a break{Enter}");
+    await user.type(input, "I need a break{Shift>}{Enter}{/Shift}");
 
     await waitFor(() => {
       expect(screen.getByTestId("session-pause-card")).toBeTruthy();
