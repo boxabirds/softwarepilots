@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import {
   updateSectionProgress,
   getProgressForProfile,
+  buildProgressContext,
 } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
 
@@ -235,5 +236,104 @@ describe("getProgressForProfile", () => {
   it("returns empty array for new learner with no progress", async () => {
     const progress = await getProgressForProfile(db, "nonexistent-learner", TEST_PROFILE);
     expect(progress).toEqual([]);
+  });
+});
+
+/* ---- buildProgressContext ---- */
+
+describe("buildProgressContext", () => {
+  it("returns empty string when no progress data exists", async () => {
+    const result = await buildProgressContext(db, "nonexistent-learner", TEST_PROFILE);
+    expect(result).toBe("");
+  });
+
+  it("returns empty string when all sections are not_started", async () => {
+    // Manually insert a not_started row (updateSectionProgress always creates in_progress)
+    sqliteDb
+      .prepare(
+        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, updated_at)
+         VALUES (?, ?, ?, 'not_started', '[]', datetime('now'))`
+      )
+      .run(TEST_LEARNER_ID, TEST_PROFILE, "1.1");
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
+    expect(result).toBe("");
+  });
+
+  it("includes completed sections with understanding level", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
+      understanding_level: "solid",
+    });
+    // Complete the section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
+      tool_type: "surface_key_insight",
+      learner_readiness: "articulated",
+    });
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
+    expect(result).toContain("== Learner Progress ==");
+    expect(result).toContain("Completed:");
+    expect(result).toContain("2.1");
+    expect(result).toContain("solid understanding");
+  });
+
+  it("includes in-progress sections", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.2", {
+      understanding_level: "emerging",
+    });
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
+    expect(result).toContain("In progress:");
+    expect(result).toContain("2.2");
+    expect(result).toContain("emerging understanding");
+  });
+
+  it("lists completed sections before in-progress sections", async () => {
+    // Create an in-progress section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.2", {
+      understanding_level: "emerging",
+    });
+
+    // Create a completed section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
+      tool_type: "surface_key_insight",
+      learner_readiness: "articulated",
+    });
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
+    const completedIdx = result.indexOf("Completed:");
+    const inProgressIdx = result.indexOf("In progress:");
+    expect(completedIdx).toBeGreaterThan(-1);
+    expect(inProgressIdx).toBeGreaterThan(-1);
+    expect(completedIdx).toBeLessThan(inProgressIdx);
+  });
+
+  it("resolves section titles for valid profiles", async () => {
+    // Use a real profile with real section IDs
+    const REAL_PROFILE = "new-grad";
+    sqliteDb
+      .prepare(
+        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, started_at, updated_at)
+         VALUES (?, ?, ?, 'in_progress', '[]', datetime('now'), datetime('now'))`
+      )
+      .run(TEST_LEARNER_ID, REAL_PROFILE, "1.1");
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, REAL_PROFILE);
+    // Should contain the actual title from the curriculum, not just the ID
+    expect(result).toContain("1.1");
+    expect(result).toContain('"'); // Title is quoted
+    expect(result).not.toContain('"1.1"'); // Title should be the actual name, not the ID
+  });
+
+  it("falls back to section IDs when profile is invalid for title lookup", async () => {
+    // TEST_PROFILE ("foundations") is not a real curriculum profile
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, "2.1", {
+      understanding_level: "developing",
+    });
+
+    const result = await buildProgressContext(db, TEST_LEARNER_ID, TEST_PROFILE);
+    // Should still produce output, using the section_id as fallback title
+    expect(result).toContain("2.1");
+    expect(result).toContain("developing understanding");
   });
 });

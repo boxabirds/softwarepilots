@@ -3,6 +3,8 @@
  * to update the learner's section-level progress.
  */
 
+import { getCurriculumSections } from "@softwarepilots/shared";
+
 /* ---- Constants ---- */
 
 const STATUS_NOT_STARTED = "not_started";
@@ -184,4 +186,65 @@ export async function getProgressForProfile(
     }
     return summary;
   });
+}
+
+/* ---- Cross-session progress context for tutor prompt ---- */
+
+/**
+ * Builds a structured text summary of the learner's progress across all
+ * sections in a curriculum profile, suitable for injection into the
+ * Socratic tutor system prompt so the LLM has cross-session context.
+ */
+export async function buildProgressContext(
+  db: D1Database,
+  learnerId: string,
+  profile: string
+): Promise<string> {
+  const { results } = await db
+    .prepare(
+      "SELECT section_id, status, understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND status != ?"
+    )
+    .bind(learnerId, profile, STATUS_NOT_STARTED)
+    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json">>();
+
+  if (!results || results.length === 0) {
+    return "";
+  }
+
+  // Build a lookup from section_id -> title using the curriculum registry
+  let sectionTitleMap: Map<string, string>;
+  try {
+    const sections = getCurriculumSections(profile);
+    sectionTitleMap = new Map(sections.map((s) => [s.id, s.title]));
+  } catch {
+    // If the profile is invalid, fall back to IDs only
+    sectionTitleMap = new Map();
+  }
+
+  const completed: string[] = [];
+  const inProgress: string[] = [];
+
+  for (const row of results) {
+    const title = sectionTitleMap.get(row.section_id) || row.section_id;
+    const entries = JSON.parse(row.understanding_json || "[]") as Array<
+      Record<string, string>
+    >;
+    const latest = entries.length > 0 ? entries[entries.length - 1] : null;
+    const level = latest?.understanding_level;
+
+    const label = level
+      ? `Section ${row.section_id} "${title}" (${level} understanding)`
+      : `Section ${row.section_id} "${title}"`;
+
+    if (row.status === STATUS_COMPLETED) {
+      completed.push(`Completed: ${label}`);
+    } else if (row.status === STATUS_IN_PROGRESS) {
+      inProgress.push(`In progress: ${label}`);
+    }
+  }
+
+  const lines = ["== Learner Progress =="];
+  lines.push(...completed, ...inProgress);
+
+  return lines.join("\n");
 }

@@ -14,7 +14,7 @@ import {
   getOrUploadFile,
   GEMINI_API_URL,
 } from "../lib/gemini";
-import { updateSectionProgress } from "./curriculum-progress";
+import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
@@ -182,7 +182,8 @@ export function buildSocraticTools(
 export function buildSocraticSystemPrompt(
   meta: CurriculumMeta,
   section: SectionMeta,
-  conversation: Array<{ role: "user" | "tutor"; content: string }>
+  conversation: Array<{ role: "user" | "tutor"; content: string }>,
+  progressContext?: string
 ): string {
   const lines = [
     `You are a Socratic tutor for "${section.title}" in the ${meta.profile} software pilotry curriculum.`,
@@ -207,6 +208,10 @@ export function buildSocraticSystemPrompt(
     "- Use surface_key_insight when the learner is approaching the key intuition",
     "- Use off_topic_detected to redirect off-topic messages",
   ];
+
+  if (progressContext) {
+    lines.push("", progressContext);
+  }
 
   if (conversation.length > 0) {
     lines.push(
@@ -341,7 +346,16 @@ socraticChat.post("/", async (c) => {
 
   // Build system prompt and tools
   const conversation = body.context?.conversation ?? [];
-  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation);
+  const learnerId = c.get("learnerId" as never) as string | undefined;
+  let progressContext = "";
+  if (learnerId) {
+    try {
+      progressContext = await buildProgressContext(c.env.DB, learnerId, body.profile);
+    } catch {
+      // Non-critical: proceed without progress context
+    }
+  }
+  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined);
   const tools = buildSocraticTools(section, meta);
 
   // Build Gemini contents from conversation history
@@ -385,7 +399,6 @@ socraticChat.post("/", async (c) => {
     const result = parseSocraticResponse(data!);
 
     // Update progress (fire-and-forget - don't block response)
-    const learnerId = c.get("learnerId" as never) as string;
     if (learnerId) {
       updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch(() => {});
     }
