@@ -16,6 +16,10 @@ import {
   generateNarrative,
 } from "../lib/narrative";
 import type { ProgressStats, SectionProgressData } from "../lib/narrative";
+import {
+  compressConversation,
+  persistSummary,
+} from "../lib/context-assembly";
 
 /* ---- Valid profiles and section ID pattern ---- */
 
@@ -332,6 +336,14 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
     return c.json({ error: validationError }, 400);
   }
 
+  // Load the conversation before archiving so we can compress it
+  const conv = await c.env.DB.prepare(
+    `SELECT id, messages_json FROM curriculum_conversations
+     WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
+  )
+    .bind(learnerId, profile, sectionId)
+    .first<{ id: string; messages_json: string }>();
+
   await c.env.DB.prepare(
     `UPDATE curriculum_conversations
      SET archived_at = datetime('now')
@@ -339,6 +351,24 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   )
     .bind(learnerId, profile, sectionId)
     .run();
+
+  // Fire-and-forget: compress the archived conversation
+  if (conv) {
+    let sectionTitle = sectionId;
+    try {
+      const sec = getSection(profile, sectionId);
+      sectionTitle = sec.title;
+    } catch { /* use sectionId as fallback */ }
+
+    const messages = JSON.parse(conv.messages_json) as Array<{ role: "user" | "tutor"; content: string }>;
+    compressConversation(c.env.GEMINI_API_KEY, c.env.GEMINI_MODEL || "gemini-2.0-flash", messages, sectionTitle)
+      .then((summary) => {
+        if (summary) {
+          persistSummary(c.env.DB, conv.id, summary).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }
 
   return c.json({ reset: true });
 });

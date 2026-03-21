@@ -14,7 +14,7 @@ import {
   GEMINI_API_URL,
 } from "../lib/gemini";
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
-import { buildCurriculumContext } from "../lib/context-assembly";
+import { buildCurriculumContext, compressConversation, persistSummary } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
@@ -619,6 +619,30 @@ socraticChat.post("/", async (c) => {
     // Update progress (fire-and-forget - don't block response)
     if (learnerId) {
       updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch(() => {});
+    }
+
+    // Fire-and-forget: compress conversation on session_complete
+    if (result.tool_type?.includes("session_complete") && learnerId) {
+      const allMessages = [
+        ...conversation,
+        { role: "user" as const, content: body.message },
+        { role: "tutor" as const, content: result.reply },
+      ];
+      const model = c.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+      compressConversation(c.env.GEMINI_API_KEY, model, allMessages, section.title)
+        .then(async (summary) => {
+          if (!summary) return;
+          // Find the active conversation to persist summary
+          const conv = await c.env.DB.prepare(
+            `SELECT id FROM curriculum_conversations WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
+          )
+            .bind(learnerId, body.profile, body.section_id)
+            .first<{ id: string }>();
+          if (conv) {
+            await persistSummary(c.env.DB, conv.id, summary);
+          }
+        })
+        .catch(() => {});
     }
 
     return c.json(result);

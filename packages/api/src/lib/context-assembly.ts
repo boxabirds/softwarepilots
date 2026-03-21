@@ -9,6 +9,7 @@ import {
   getCurriculumSections,
   getSection,
 } from "@softwarepilots/shared";
+import { GEMINI_API_URL } from "./gemini";
 
 /* ---- Constants ---- */
 
@@ -114,4 +115,76 @@ export function buildCurriculumContext(
   }
 
   return lines.join("\n");
+}
+
+/* ---- Conversation compression ---- */
+
+const SUMMARIZATION_PROMPT = `You are summarizing a tutoring conversation for future context.
+Preserve the following in your summary:
+- Topics discussed and key questions asked
+- Concepts the learner understood well
+- Concepts the learner struggled with
+- Key insights or breakthroughs
+- Where the conversation left off
+
+Write a concise paragraph (3-5 sentences). Do not use bullet points.`;
+
+const SUMMARIZATION_TEMPERATURE = 0.3;
+
+/**
+ * Compresses a conversation into a summary using Gemini text generation.
+ * Returns null on failure (non-critical operation).
+ */
+export async function compressConversation(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: "user" | "tutor"; content: string }>,
+  sectionTitle: string
+): Promise<string | null> {
+  if (!messages || messages.length === 0) return null;
+
+  const conversationText = messages
+    .map((m) => `${m.role === "user" ? "Learner" : "Tutor"}: ${m.content}`)
+    .join("\n");
+
+  const prompt = `${SUMMARIZATION_PROMPT}\n\nSection: "${sectionTitle}"\n\nConversation:\n${conversationText}`;
+
+  try {
+    const url = `${GEMINI_API_URL}/${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: SUMMARIZATION_TEMPERATURE },
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+    };
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persists a summary on a conversation row.
+ */
+export async function persistSummary(
+  db: D1Database,
+  conversationId: string,
+  summary: string
+): Promise<void> {
+  await db
+    .prepare("UPDATE curriculum_conversations SET summary = ? WHERE id = ?")
+    .bind(summary, conversationId)
+    .run();
 }
