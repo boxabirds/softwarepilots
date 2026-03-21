@@ -146,33 +146,32 @@ test.describe("Socratic session page", () => {
     ).toBeVisible();
   });
 
-  test("struggle detection: learner confusion triggers instruction with distinct rendering", async ({ page }) => {
-    let requestCount = 0;
-
+  test("pause and resume: learner says 'I need a break', tutor pauses, input hidden, Resume Later shown", async ({ page }) => {
+    let socraticCallCount = 0;
     await page.route("**/api/socratic", async (route) => {
-      requestCount++;
-
-      if (requestCount === 1) {
+      socraticCallCount++;
+      if (socraticCallCount === 1) {
         // Opening probe
         await route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            reply: "What do you think software pilotry means?",
+            reply: "Welcome! What do you think software pilotry means?",
             tool_type: "socratic_probe",
             topic: "introduction",
           }),
         });
       } else {
-        // Learner sends confused message -> tutor provides instruction
+        // Pause response
         await route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            reply: "Software pilotry is the practice of guiding software through its lifecycle with human judgment and automated systems working together.",
-            tool_type: "provide_instruction",
-            concept: "Software Pilotry",
-            struggle_reason: "learner_asked",
+            reply: "Great work today! Take a well-deserved break.",
+            tool_type: "session_pause",
+            pause_reason: "learner_requested",
+            concepts_covered_so_far: "software pilotry basics",
+            resume_suggestion: "We'll continue with the next concept next time.",
           }),
         });
       }
@@ -180,31 +179,32 @@ test.describe("Socratic session page", () => {
 
     await page.goto(SESSION_URL);
 
-    // Wait for opening probe
+    // Wait for tutor opening message
     await expect(
-      page.getByText("What do you think software pilotry means?"),
+      page.getByText("Welcome! What do you think software pilotry means?"),
     ).toBeVisible();
 
-    // Learner sends confused message
+    // Type "I need a break" and submit
     const input = page.locator('textarea[placeholder="Type your response..."]');
-    await input.fill("I really don't know, can you just explain it?");
+    await input.fill("I need a break");
     await input.press("Enter");
 
-    // Instruction card should appear with distinct rendering
-    const instructionCard = page.locator('[data-testid="instruction-card"]');
-    await expect(instructionCard).toBeVisible();
+    // Pause card should appear
+    const pauseCard = page.locator('[data-testid="session-pause-card"]');
+    await expect(pauseCard).toBeVisible();
 
-    // Concept label should be shown
-    const conceptLabel = page.locator('[data-testid="instruction-concept"]');
-    await expect(conceptLabel).toBeVisible();
-    await expect(conceptLabel).toHaveText("Software Pilotry");
+    // Acknowledgment text visible in pause card
+    await expect(pauseCard.getByText("Great work today! Take a well-deserved break.")).toBeVisible();
 
-    // The "Direct Instruction" label should be visible
-    await expect(page.getByText("Direct Instruction")).toBeVisible();
+    // Input bar should be hidden
+    await expect(input).not.toBeVisible();
 
-    // The instruction content should be visible
-    await expect(
-      page.getByText(/Software pilotry is the practice/),
-    ).toBeVisible();
+    // Resume Later button should be visible
+    const resumeLater = page.locator('[data-testid="resume-later-button"]');
+    await expect(resumeLater).toBeVisible();
+
+    // Continue Session button should be visible
+    const continueSession = page.locator('[data-testid="continue-session-button"]');
+    await expect(continueSession).toBeVisible();
   });
 });

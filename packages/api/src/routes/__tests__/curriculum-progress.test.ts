@@ -442,6 +442,7 @@ describe("concept tracking via updateSectionProgress", () => {
   });
 });
 
+<<<<<<< HEAD
 /* ---- Instruction progress logging ---- */
 
 describe("instruction progress logging via provide_instruction", () => {
@@ -450,10 +451,26 @@ describe("instruction progress logging via provide_instruction", () => {
       tool_type: "provide_instruction",
       concept: "recursion",
       struggle_reason: "repeated_wrong_answer",
+=======
+/* ---- Pause status transitions ---- */
+
+describe("pause status transitions", () => {
+  it("transitions in_progress -> paused on session_pause tool_type", async () => {
+    // Start with regular interaction to get in_progress
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    // Pause the session
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "fatigue_detected",
+      concepts_covered_so_far: "variables, scope",
+      resume_suggestion: "Pick up with closures next time",
+>>>>>>> worktree-agent-acfd851b
     });
 
     const row = sqliteDb
       .prepare(
+<<<<<<< HEAD
         "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
       )
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
@@ -479,10 +496,42 @@ describe("instruction progress logging via provide_instruction", () => {
       struggle_reason: "no_progression",
       concepts_demonstrated: ["instructed_concept"],
       concept_levels: ["developing"],
+=======
+        "SELECT status, paused_at, understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("paused");
+    expect(row.paused_at).toBeTruthy();
+
+    const entries = JSON.parse(row.understanding_json as string);
+    const pauseEntry = entries.find((e: Record<string, string>) => e.pause_reason);
+    expect(pauseEntry).toBeTruthy();
+    expect(pauseEntry.pause_reason).toBe("fatigue_detected");
+    expect(pauseEntry.concepts_covered_so_far).toBe("variables, scope");
+    expect(pauseEntry.resume_suggestion).toBe("Pick up with closures next time");
+  });
+
+  it("blocks completed -> paused transition", async () => {
+    // Complete the section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_complete",
+      final_understanding: "solid",
+      concepts_covered: ["all concepts"],
+    });
+
+    // Try to pause - should not change status
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "learner_requested",
+      concepts_covered_so_far: "all",
+      resume_suggestion: "N/A",
+>>>>>>> worktree-agent-acfd851b
     });
 
     const row = sqliteDb
       .prepare(
+<<<<<<< HEAD
         "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
       )
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
@@ -507,10 +556,63 @@ describe("instruction progress logging via provide_instruction", () => {
       tool_type: "provide_instruction",
       concept: "closures",
       struggle_reason: "learner_asked",
+=======
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("completed");
+  });
+
+  it("transitions paused -> in_progress on next non-pause message", async () => {
+    // Set up in_progress
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    // Pause
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "learner_requested",
+      concepts_covered_so_far: "basics",
+      resume_suggestion: "Continue with advanced topics",
+    });
+
+    // Verify paused
+    let row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("paused");
+
+    // Resume with regular interaction
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "socratic_probe",
+      confidence_assessment: "medium",
+    });
+
+    row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("in_progress");
+  });
+
+  it("sets paused_at timestamp when pausing", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    const beforePause = new Date().toISOString();
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "frustration_detected",
+      concepts_covered_so_far: "testing",
+      resume_suggestion: "Review fundamentals",
+>>>>>>> worktree-agent-acfd851b
     });
 
     const row = sqliteDb
       .prepare(
+<<<<<<< HEAD
         "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
       )
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
@@ -528,10 +630,32 @@ describe("instruction progress logging via provide_instruction", () => {
       struggle_reason: "low_confidence_sustained",
       concepts_demonstrated: ["async_await"],
       concept_levels: ["emerging"],
+=======
+        "SELECT paused_at FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.paused_at).toBeTruthy();
+    // paused_at should be at or after the time we recorded before the pause
+    expect(new Date(row.paused_at as string).getTime()).toBeGreaterThanOrEqual(
+      new Date(beforePause).getTime() - 1000
+    );
+  });
+
+  it("stores concepts_covered_so_far in understanding_json", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "fatigue_detected",
+      concepts_covered_so_far: "variables, loops, conditionals",
+      resume_suggestion: "Start with functions next time",
+>>>>>>> worktree-agent-acfd851b
     });
 
     const row = sqliteDb
       .prepare(
+<<<<<<< HEAD
         "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
       )
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
@@ -540,5 +664,37 @@ describe("instruction progress logging via provide_instruction", () => {
     expect(concepts.async_await).toBeTruthy();
     expect(concepts.async_await.needed_instruction).toBe(true);
     expect(concepts.async_await.struggle_reason).toBe("low_confidence_sustained");
+=======
+        "SELECT understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const entries = JSON.parse(row.understanding_json as string);
+    const pauseEntry = entries.find((e: Record<string, string>) => e.concepts_covered_so_far);
+    expect(pauseEntry).toBeTruthy();
+    expect(pauseEntry.concepts_covered_so_far).toBe("variables, loops, conditionals");
+    expect(pauseEntry.resume_suggestion).toBe("Start with functions next time");
+  });
+
+  it("handles session_pause with multi-tool type string", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "track_concepts+session_pause",
+      pause_reason: "learner_requested",
+      concepts_covered_so_far: "all basics",
+      resume_suggestion: "Advanced topics",
+      concepts_demonstrated: ["variables"],
+      concept_levels: ["solid"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("paused");
+>>>>>>> worktree-agent-acfd851b
   });
 });

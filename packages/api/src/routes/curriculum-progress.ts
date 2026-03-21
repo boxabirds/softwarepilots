@@ -15,11 +15,16 @@ import { getCurriculumSections } from "@softwarepilots/shared";
 const STATUS_NOT_STARTED = "not_started";
 const STATUS_IN_PROGRESS = "in_progress";
 const STATUS_COMPLETED = "completed";
+export const STATUS_PAUSED = "paused";
 
 const COMPLETION_TOOL_TYPE = "surface_key_insight";
 const COMPLETION_READINESS = "articulated";
 const SESSION_COMPLETE_TOOL_TYPE = "session_complete";
+<<<<<<< HEAD
 const PROVIDE_INSTRUCTION_TOOL_TYPE = "provide_instruction";
+=======
+const SESSION_PAUSE_TOOL_TYPE = "session_pause";
+>>>>>>> worktree-agent-acfd851b
 
 /* ---- Types ---- */
 
@@ -33,8 +38,14 @@ export interface SocraticResponse {
   final_understanding?: string;
   concepts_covered?: string[];
   concepts_missed?: string[];
+<<<<<<< HEAD
   struggle_reason?: string;
   concept?: string;
+=======
+  pause_reason?: string;
+  concepts_covered_so_far?: string;
+  resume_suggestion?: string;
+>>>>>>> worktree-agent-acfd851b
 }
 
 interface ProgressRow {
@@ -46,6 +57,7 @@ interface ProgressRow {
   concepts_json: string | null;
   started_at: string | null;
   completed_at: string | null;
+  paused_at: string | null;
   updated_at: string;
 }
 
@@ -66,6 +78,12 @@ function isCompletionTrigger(response: SocraticResponse): boolean {
     response.tool_type === COMPLETION_TOOL_TYPE &&
     response.learner_readiness === COMPLETION_READINESS
   );
+}
+
+function isPauseTrigger(response: SocraticResponse): boolean {
+  if (!response.tool_type) return false;
+  return response.tool_type === SESSION_PAUSE_TOOL_TYPE ||
+    response.tool_type.includes(SESSION_PAUSE_TOOL_TYPE);
 }
 
 /* ---- Concept tracking helper ---- */
@@ -173,7 +191,7 @@ export async function updateSectionProgress(
     return;
   }
 
-  // Status never regresses
+  // Status never regresses from completed (pause also blocked from completed)
   if (existing.status === STATUS_COMPLETED) {
     // Still accumulate understanding and concept data even if completed
     const hasUnderstanding =
@@ -211,7 +229,44 @@ export async function updateSectionProgress(
     return;
   }
 
-  // Update existing in-progress row
+  // Resume from paused: any non-pause interaction transitions back to in_progress
+  if (existing.status === STATUS_PAUSED && !isPauseTrigger(response)) {
+    const entries = JSON.parse(existing.understanding_json || "[]");
+    if (response.confidence_assessment || response.understanding_level) {
+      entries.push({
+        ...(response.confidence_assessment
+          ? { confidence_assessment: response.confidence_assessment }
+          : {}),
+        ...(response.understanding_level
+          ? { understanding_level: response.understanding_level }
+          : {}),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
+
+    await db
+      .prepare(
+        `UPDATE curriculum_progress
+         SET status = ?, understanding_json = ?, concepts_json = ?, updated_at = datetime('now')
+         WHERE learner_id = ? AND profile = ? AND section_id = ?`
+      )
+      .bind(
+        STATUS_IN_PROGRESS,
+        JSON.stringify(entries),
+        conceptsMap
+          ? JSON.stringify(conceptsMap)
+          : existing.concepts_json ?? "{}",
+        learnerId,
+        profile,
+        sectionId
+      )
+      .run();
+    return;
+  }
+
+  // Update existing in-progress (or paused) row
   const entries = JSON.parse(existing.understanding_json || "[]");
   if (response.confidence_assessment || response.understanding_level) {
     entries.push({
@@ -227,6 +282,7 @@ export async function updateSectionProgress(
 
   const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
   const shouldComplete = isCompletionTrigger(response);
+  const shouldPause = isPauseTrigger(response);
 
   if (shouldComplete && response.tool_type?.includes(SESSION_COMPLETE_TOOL_TYPE)) {
     entries.push({
@@ -237,12 +293,32 @@ export async function updateSectionProgress(
     });
   }
 
-  const newStatus = shouldComplete ? STATUS_COMPLETED : existing.status;
+  if (shouldPause) {
+    entries.push({
+      pause_reason: response.pause_reason ?? "learner_requested",
+      ...(response.concepts_covered_so_far
+        ? { concepts_covered_so_far: response.concepts_covered_so_far }
+        : {}),
+      ...(response.resume_suggestion
+        ? { resume_suggestion: response.resume_suggestion }
+        : {}),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  let newStatus: string;
+  if (shouldComplete) {
+    newStatus = STATUS_COMPLETED;
+  } else if (shouldPause && existing.status === STATUS_IN_PROGRESS) {
+    newStatus = STATUS_PAUSED;
+  } else {
+    newStatus = existing.status;
+  }
 
   await db
     .prepare(
       `UPDATE curriculum_progress
-       SET status = ?, understanding_json = ?, concepts_json = ?, completed_at = ?, updated_at = datetime('now')
+       SET status = ?, understanding_json = ?, concepts_json = ?, completed_at = ?, paused_at = ?, updated_at = datetime('now')
        WHERE learner_id = ? AND profile = ? AND section_id = ?`
     )
     .bind(
@@ -252,6 +328,7 @@ export async function updateSectionProgress(
         ? JSON.stringify(conceptsMap)
         : existing.concepts_json ?? "{}",
       shouldComplete ? new Date().toISOString() : existing.completed_at,
+      shouldPause ? new Date().toISOString() : existing.paused_at,
       learnerId,
       profile,
       sectionId
@@ -327,6 +404,7 @@ export async function buildProgressContext(
 
   const completed: string[] = [];
   const inProgress: string[] = [];
+  const paused: string[] = [];
 
   for (const row of results) {
     const title = sectionTitleMap.get(row.section_id) || row.section_id;
@@ -342,13 +420,15 @@ export async function buildProgressContext(
 
     if (row.status === STATUS_COMPLETED) {
       completed.push(`Completed: ${label}`);
+    } else if (row.status === STATUS_PAUSED) {
+      paused.push(`Paused: ${label}`);
     } else if (row.status === STATUS_IN_PROGRESS) {
       inProgress.push(`In progress: ${label}`);
     }
   }
 
   const lines = ["== Learner Progress =="];
-  lines.push(...completed, ...inProgress);
+  lines.push(...completed, ...inProgress, ...paused);
 
   return lines.join("\n");
 }

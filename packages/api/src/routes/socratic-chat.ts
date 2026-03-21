@@ -53,6 +53,7 @@ export interface SocraticChatResponse {
   concepts_missed?: string[];
   recommendation?: string;
   pause_reason?: string;
+  concepts_covered_so_far?: string;
   resume_suggestion?: string;
 }
 
@@ -244,6 +245,34 @@ export function buildSocraticTools(
         required: ["summary", "final_understanding", "concepts_covered"],
       },
     },
+    {
+      name: "session_pause",
+      description:
+        "Gracefully pause the session when the learner requests a break, shows frustration, or appears fatigued.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          acknowledgment: {
+            type: "STRING",
+            description: "A warm closing message acknowledging the learner's effort",
+          },
+          pause_reason: {
+            type: "STRING",
+            enum: ["learner_requested", "frustration_detected", "fatigue_detected"],
+            description: "The reason for pausing the session",
+          },
+          concepts_covered_so_far: {
+            type: "STRING",
+            description: "Comma-separated list of concepts covered before the pause",
+          },
+          resume_suggestion: {
+            type: "STRING",
+            description: "Suggestion for where to pick up next time",
+          },
+        },
+        required: ["acknowledgment", "pause_reason", "concepts_covered_so_far", "resume_suggestion"],
+      },
+    },
   ];
 
   if (section.concepts && section.concepts.length > 0) {
@@ -308,6 +337,7 @@ export function buildSocraticSystemPrompt(
     "- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. After providing instruction, follow up with a question to check understanding.",
     "- Use off_topic_detected to redirect off-topic messages",
     "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
+    "- Use session_pause when the learner explicitly asks to stop or take a break, shows signs of frustration, or appears fatigued. Be warm and encouraging. Never say 'you seem tired'. If the learner declines a pause offer, do not offer again for at least 5 more exchanges.",
   ];
 
   if (section.concepts && section.concepts.length > 0) {
@@ -389,7 +419,7 @@ function extractReplyText(fc: { name: string; args: Record<string, string> }): s
       return fc.args.summary || fc.args.response || null;
 
     case "session_pause":
-      return fc.args.message || fc.args.response || null;
+      return fc.args.acknowledgment || fc.args.message || fc.args.response || null;
 
     default:
       return null;
@@ -415,6 +445,8 @@ function extractMetadata(
     result.concept = fc.args.concept;
   if (fc.args.pause_reason)
     result.pause_reason = fc.args.pause_reason;
+  if (fc.args.concepts_covered_so_far)
+    result.concepts_covered_so_far = fc.args.concepts_covered_so_far;
   if (fc.args.resume_suggestion)
     result.resume_suggestion = fc.args.resume_suggestion;
 }

@@ -28,6 +28,9 @@ interface SocraticResponse {
   concepts_covered?: string[];
   concepts_missed?: string[];
   recommendation?: string;
+  pause_reason?: string;
+  concepts_covered_so_far?: string;
+  resume_suggestion?: string;
 }
 
 interface SectionMetadata {
@@ -41,6 +44,7 @@ interface SectionMetadata {
 
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const OPENING_MESSAGE = "I'm ready to begin.";
+const RESUME_MESSAGE = "I'd like to continue where we left off.";
 
 /* ---- Component ---- */
 
@@ -59,6 +63,7 @@ export function SocraticSession() {
   const [sending, setSending] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
+  const [sessionPaused, setSessionPaused] = useState<SocraticResponse | null>(null);
 
   // Mobile layout
   const isMobile = useIsMobile();
@@ -220,6 +225,9 @@ export function SocraticSession() {
       if (response.tool_type === "session_complete") {
         setSessionComplete(response);
       }
+      if (response.tool_type?.includes("session_pause")) {
+        setSessionPaused(response);
+      }
     } catch {
       setConversation((prev) => [
         ...prev,
@@ -286,6 +294,41 @@ export function SocraticSession() {
     const cancelled = { current: false };
     await sendOpeningProbe(cancelled);
   }, [conversationUrl, profile, sectionId, sendOpeningProbe]);
+
+  /* ---- Continue from pause ---- */
+
+  const handleContinueSession = useCallback(async () => {
+    if (!profile || !sectionId) return;
+
+    setSessionPaused(null);
+    setSending(true);
+
+    const resumeMsg: ConversationMessage = { role: "user", content: RESUME_MESSAGE };
+    const updatedConversation = [...conversation, resumeMsg];
+    setConversation(updatedConversation);
+
+    try {
+      const response = await apiClient.post<SocraticResponse>("/api/socratic", {
+        profile,
+        section_id: sectionId,
+        message: RESUME_MESSAGE,
+        context: {
+          conversation: updatedConversation.map(({ role, content }) => ({ role, content })),
+        },
+      });
+      const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
+      setConversation(withReply);
+      saveConversation(withReply);
+    } catch {
+      setConversation((prev) => [
+        ...prev,
+        { role: "tutor", content: "Failed to reach the tutor. Please try again." },
+      ]);
+    } finally {
+      setSending(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [profile, sectionId, conversation, saveConversation]);
 
   /* ---- Context panel content ---- */
 
@@ -441,6 +484,50 @@ export function SocraticSession() {
     );
   }
 
+  /* ---- Pause card ---- */
+
+  function renderPauseCard() {
+    if (!sessionPaused) return null;
+
+    return (
+      <div
+        className="mx-4 my-4 rounded-xl border-2 border-amber-500 bg-amber-50 p-5 dark:border-amber-400 dark:bg-amber-950/30"
+        data-testid="session-pause-card"
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-lg">&#9208;</span>
+          <h3 className="text-base font-semibold text-amber-800 dark:text-amber-300">
+            Session Paused
+          </h3>
+        </div>
+        <p className="text-sm leading-relaxed text-amber-900 dark:text-amber-200">
+          {sessionPaused.reply}
+        </p>
+        {sessionPaused.resume_suggestion && (
+          <p className="mt-2 text-xs italic text-amber-700 dark:text-amber-400">
+            {sessionPaused.resume_suggestion}
+          </p>
+        )}
+        <div className="mt-4 flex gap-3">
+          <Link
+            to={`/curriculum/${profile}`}
+            className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            data-testid="resume-later-button"
+          >
+            Resume Later
+          </Link>
+          <button
+            onClick={handleContinueSession}
+            className="cursor-pointer rounded-md border border-amber-500 bg-transparent px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30"
+            data-testid="continue-session-button"
+          >
+            Continue Session
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- Input bar ---- */
 
   function renderInputBar() {
@@ -508,6 +595,7 @@ export function SocraticSession() {
         <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4">
           {renderConversation()}
           {renderCompletionCard()}
+          {renderPauseCard()}
         </div>
 
         {/* Scroll-to-bottom */}
@@ -522,7 +610,7 @@ export function SocraticSession() {
         )}
 
         {/* Input */}
-        {!sessionComplete && (
+        {!sessionComplete && !sessionPaused && (
           <div className="bg-muted px-4 pb-4 pt-3">
             {renderInputBar()}
           </div>
@@ -545,6 +633,7 @@ export function SocraticSession() {
         <div ref={chatRef} className="flex-1 overflow-y-auto px-5 py-4">
           {renderConversation()}
           {renderCompletionCard()}
+          {renderPauseCard()}
         </div>
 
         {/* Scroll-to-bottom */}
@@ -559,7 +648,7 @@ export function SocraticSession() {
         )}
 
         {/* Input */}
-        {!sessionComplete && (
+        {!sessionComplete && !sessionPaused && (
           <div className="bg-muted px-5 pb-4 pt-3">
             {renderInputBar()}
           </div>
