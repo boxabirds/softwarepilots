@@ -345,16 +345,10 @@ export function SocraticSession() {
     }
     if (!section) return null;
 
-    const trackLabel = profile?.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "";
-
     return (
       <div className="p-5">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {trackLabel}
-        </span>
-        <p className="mt-1 text-xs text-muted-foreground">{section.module_title}</p>
-        <h2 className="mt-2 text-lg font-bold text-foreground">{section.title}</h2>
-        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+        <h2 className="text-lg font-bold text-foreground">{section.title}</h2>
+        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
           The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.
         </p>
         <div className="mt-4">

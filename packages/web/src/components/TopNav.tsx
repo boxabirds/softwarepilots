@@ -19,15 +19,13 @@ export function TopNav() {
       data-testid="top-nav"
     >
       {/* Left: Logo */}
-      <a
-        href="https://softwarepilotry.com"
-        target="_blank"
-        rel="noopener noreferrer"
+      <Link
+        to="/dashboard"
         className="flex shrink-0 items-center"
         data-testid="nav-logo"
       >
         <img src="/logo-blue-circle.png" alt="Software Pilots" className="h-14 w-auto" />
-      </a>
+      </Link>
 
       {/* Center: breadcrumb trail */}
       <div className="mx-4 flex min-w-0 flex-1 items-center" data-testid="breadcrumbs">

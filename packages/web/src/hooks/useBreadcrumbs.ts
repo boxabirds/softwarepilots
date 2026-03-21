@@ -81,16 +81,15 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
 
   const progress = useProfileProgress(profile);
 
-  // /dashboard
+  // /dashboard - logo handles home navigation
   if (pathname === "/dashboard") {
-    return [{ label: "Home" }];
+    return [];
   }
 
   // /curriculum (no profile)
   if (pathname === "/curriculum") {
     return [
-      { label: "Home", href: "/dashboard" },
-      { label: "Curriculum" },
+            { label: "Curriculum" },
     ];
   }
 
@@ -104,8 +103,7 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
     // /curriculum/:profile/progress
     if (pathname.endsWith("/progress")) {
       return [
-        { label: "Home", href: "/dashboard" },
-        { label: profileLabel, href: "/curriculum" },
+                { label: profileLabel, href: "/curriculum" },
         { label: "Progress" },
       ];
     }
@@ -113,29 +111,33 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
     // /curriculum/:profile/:sectionId
     if (sectionId) {
       let sectionTitle = sectionId;
+      let moduleTitle = "";
       try {
         const section = getSection(profile, sectionId);
         sectionTitle = section.title;
+        moduleTitle = section.module_title;
       } catch {
         // Fall back to sectionId if getSection fails
       }
 
-      return [
-        { label: "Home", href: "/dashboard" },
-        { label: profileLabel, href: "/curriculum" },
-        { label: sectionTitle },
+      const segments: BreadcrumbSegment[] = [
+                { label: profileLabel, href: "/curriculum" },
       ];
+      if (moduleTitle) {
+        segments.push({ label: moduleTitle, href: "/curriculum" });
+      }
+      segments.push({ label: sectionTitle });
+      return segments;
     }
   }
 
   // /exercise/:moduleId/:exerciseId
   if (params.moduleId && params.exerciseId) {
     return [
-      { label: "Home", href: "/dashboard" },
-      { label: "Exercise" },
+            { label: "Exercise" },
     ];
   }
 
   // Fallback
-  return [{ label: "Home", href: "/dashboard" }];
+  return [];
 }
