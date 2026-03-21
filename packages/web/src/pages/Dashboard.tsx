@@ -179,7 +179,8 @@ export function Dashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-5xl p-6">
+      {/* Track cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {profiles.map((profile) => (
           <TrackCard
@@ -191,10 +192,11 @@ export function Dashboard() {
         ))}
       </div>
 
+      {/* Expanded section area */}
       {expanded && (
-        <div className="mt-6">
+        <div className="mt-6 rounded-xl border border-[var(--border-light)] bg-[var(--bg-subtle)] p-5">
           {loadingSections ? (
-            <p className="text-center text-muted-foreground">Loading sections...</p>
+            <p className="text-center text-[var(--text-muted)]">Loading sections...</p>
           ) : error ? (
             <div
               role="alert"
@@ -203,7 +205,14 @@ export function Dashboard() {
               <p className="text-destructive">{error}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
+              {/* Level 0 notice */}
+              {expanded === "level-0" && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  UNDER CONSTRUCTION
+                </div>
+              )}
+
               {modules.map((mod) => (
                 <ModuleTree
                   key={mod.module_id}
@@ -213,18 +222,15 @@ export function Dashboard() {
                 />
               ))}
 
-              {/* Level 0 notice + interactive exercises */}
-              {expanded === "level-0" && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  UNDER CONSTRUCTION
-                </div>
-              )}
+              {/* Level 0 interactive exercises */}
               {expanded === "level-0" && (
                 <>
-                  <h3 className="mt-4 text-sm font-semibold text-muted-foreground">Interactive Exercises</h3>
-                  {LEVEL_0_EXERCISES.map((ex) => (
-                    <ExerciseCard key={ex.number} {...ex} />
-                  ))}
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Interactive Exercises</h3>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {LEVEL_0_EXERCISES.map((ex) => (
+                      <ExerciseCard key={ex.number} {...ex} />
+                    ))}
+                  </div>
                 </>
               )}
             </div>
@@ -245,8 +251,12 @@ function TrackCard({
   onToggle: () => void;
 }) {
   return (
-    <Card
-      className={`cursor-pointer transition-shadow hover:shadow-md ${isExpanded ? "ring-2 ring-primary" : ""}`}
+    <div
+      className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${
+        isExpanded
+          ? "border-[var(--pilot-blue)] bg-[var(--pilot-50)] shadow-md"
+          : "border-[var(--border-light)] bg-white hover:border-[var(--pilot-cyan)]"
+      }`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
@@ -257,16 +267,18 @@ function TrackCard({
         }
       }}
     >
-      <CardHeader>
-        <CardTitle>{profile.title}</CardTitle>
-        <CardDescription className="line-clamp-2">{profile.starting_position}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Badge variant="secondary">
+      <h2 className={`text-lg font-bold ${isExpanded ? "text-[var(--pilot-blue)]" : "text-[var(--text-primary)]"}`}>
+        {profile.title}
+      </h2>
+      <p className="mt-1 line-clamp-2 text-xs text-[var(--text-tertiary)]">
+        {profile.starting_position}
+      </p>
+      <div className="mt-3">
+        <span className="rounded-full bg-[var(--pilot-100)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--pilot-700)]">
           {profile.section_count} sections
-        </Badge>
-      </CardContent>
-    </Card>
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -286,41 +298,36 @@ function ModuleTree({
   const hasProgress = progressMap.size > 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">
-          {mod.module_title}
-          {hasProgress && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {completedCount} of {totalCount} completed
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="flex flex-col gap-1">
-          {mod.sections.map((sec) => {
-            const progress = progressMap.get(sec.id);
-            return (
-              <li key={sec.id}>
-                <Link
-                  to={`/curriculum/${profile}/${sec.id}`}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                >
-                  {progress ? (
-                    <ProgressBadge
-                      status={progress.status}
-                      understandingLevel={progress.understanding_level}
-                    />
-                  ) : null}
-                  {sec.title}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
+    <div>
+      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        {mod.module_title}
+        {hasProgress && (
+          <span className="font-normal normal-case tracking-normal">
+            ({completedCount}/{totalCount})
+          </span>
+        )}
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {mod.sections.map((sec) => {
+          const progress = progressMap.get(sec.id);
+          return (
+            <Link
+              key={sec.id}
+              to={`/curriculum/${profile}/${sec.id}`}
+              className="flex items-center gap-2 rounded-lg border border-[var(--border-light)] bg-white px-4 py-3 text-sm transition-all hover:border-[var(--pilot-cyan)] hover:shadow-sm"
+            >
+              {progress ? (
+                <ProgressBadge
+                  status={progress.status}
+                  understandingLevel={progress.understanding_level}
+                />
+              ) : null}
+              <span className="text-[var(--text-secondary)]">{sec.title}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
