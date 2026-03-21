@@ -1,6 +1,6 @@
 /* ---- Step rendering derivation ---- */
 /* Derives all presentation behavior from semantic step types. */
-/* No per-exercise authoring — step type alone determines rendering. */
+/* No per-exercise authoring - step type alone determines rendering. */
 
 import type { PyodideStepType } from "@softwarepilots/shared";
 
@@ -22,7 +22,7 @@ export interface StepRendering {
 }
 
 /**
- * Static lookup — every Pyodide step type maps to exactly one rendering config.
+ * Static lookup - every Pyodide step type maps to exactly one rendering config.
  *
  * predict:          Learner types a prediction → runs code → sees comparison
  * experiment:       Learner edits code → runs it (no text input)

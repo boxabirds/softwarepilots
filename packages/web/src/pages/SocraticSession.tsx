@@ -238,7 +238,7 @@ export function SocraticSession() {
         <p className="mt-1 text-xs text-muted-foreground">{section.module_title}</p>
         <h2 className="mt-2 text-lg font-bold text-foreground">{section.title}</h2>
         <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-          The tutor will guide you through this section using Socratic questioning — probing your understanding rather than lecturing.
+          The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.
         </p>
       </div>
     );

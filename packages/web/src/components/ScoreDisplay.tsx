@@ -79,7 +79,7 @@ export function ScoreDisplay({ submissionId }: ScoreDisplayProps) {
       }
 
       if (!cancelled) {
-        setError("Scoring is taking longer than expected. Your submission is saved — check back later.");
+        setError("Scoring is taking longer than expected. Your submission is saved - check back later.");
         setLoading(false);
       }
     };

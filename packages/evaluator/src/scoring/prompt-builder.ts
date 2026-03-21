@@ -41,7 +41,7 @@ You are scoring exercise "${rubric.title}" (${rubric.id}).
 
 CONTEXT: ${rubric.step_summary}
 
-The learner's descriptions under "Modifications" explain what THEY CHANGED and why — not the original code. Evaluate them in that context.
+The learner's descriptions under "Modifications" explain what THEY CHANGED and why - not the original code. Evaluate them in that context.
 
 ${guidanceBlocks}
 

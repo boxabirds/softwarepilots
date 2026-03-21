@@ -57,7 +57,7 @@ test.describe("Exercise unified input flow", () => {
     await page.getByText("Next").first().click();
     await readyButton.click();
 
-    // Should now be on predict step — type prediction in the unified input
+    // Should now be on predict step - type prediction in the unified input
     const input = page.locator("textarea");
     await input.fill("Total: 12.0 | Cheap? False");
     await input.press("Enter");
@@ -85,7 +85,7 @@ test.describe("Exercise unified input flow", () => {
     await page.getByText("Next").first().click();
     await page.getByText("I\u2019m ready").click();
 
-    // Ask a question — no step_answer in response, so step input stays pending
+    // Ask a question - no step_answer in response, so step input stays pending
     const input = page.locator("textarea");
     await input.fill("What does str() do?");
     await input.press("Enter");
@@ -142,7 +142,7 @@ test.describe("Exercise unified input flow", () => {
     await page.getByText("Next").first().click();
     await page.getByText("I\u2019m ready").click();
 
-    // Ask about Python — mentioned in intro messages
+    // Ask about Python - mentioned in intro messages
     const input = page.locator("textarea");
     await input.fill("What is Python?");
     await input.press("Enter");

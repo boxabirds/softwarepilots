@@ -52,12 +52,12 @@ interface ConversationMessage {
 
 const curriculum = new Hono<{ Bindings: Env }>();
 
-/* GET / — list all curriculum profiles */
+/* GET / - list all curriculum profiles */
 curriculum.get("/", (c) => {
   return c.json(getCurriculumProfiles());
 });
 
-/* GET /:profile — list sections for a profile */
+/* GET /:profile - list sections for a profile */
 curriculum.get("/:profile", (c) => {
   const profile = c.req.param("profile");
   try {
@@ -67,7 +67,7 @@ curriculum.get("/:profile", (c) => {
   }
 });
 
-/* GET /:profile/progress — learner's progress for all sections in a profile */
+/* GET /:profile/progress - learner's progress for all sections in a profile */
 curriculum.get("/:profile/progress", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");
@@ -75,7 +75,7 @@ curriculum.get("/:profile/progress", async (c) => {
   return c.json(progress);
 });
 
-/* GET /:profile/:sectionId — get section with markdown (must be before conversation routes) */
+/* GET /:profile/:sectionId - get section with markdown (must be before conversation routes) */
 curriculum.get("/:profile/:sectionId", (c) => {
   const profile = c.req.param("profile");
   const sectionId = c.req.param("sectionId");
@@ -89,7 +89,7 @@ curriculum.get("/:profile/:sectionId", (c) => {
   }
 });
 
-/* PUT /:profile/:sectionId/conversation — save (upsert) conversation */
+/* PUT /:profile/:sectionId/conversation - save (upsert) conversation */
 curriculum.put("/:profile/:sectionId/conversation", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");
@@ -123,7 +123,7 @@ curriculum.put("/:profile/:sectionId/conversation", async (c) => {
   return c.json({ saved: true });
 });
 
-/* GET /:profile/:sectionId/conversation — load conversation */
+/* GET /:profile/:sectionId/conversation - load conversation */
 curriculum.get("/:profile/:sectionId/conversation", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");
@@ -152,7 +152,7 @@ curriculum.get("/:profile/:sectionId/conversation", async (c) => {
   });
 });
 
-/* DELETE /:profile/:sectionId/conversation — reset conversation */
+/* DELETE /:profile/:sectionId/conversation - reset conversation */
 curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");

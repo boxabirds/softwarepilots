@@ -1,4 +1,4 @@
-# Evaluator Worker — rubric engine, AI scoring, calibration
+# Evaluator Worker - rubric engine, AI scoring, calibration
 name = "softwarepilots-evaluator"
 main = "src/index.ts"
 compatibility_date = "2026-03-09"

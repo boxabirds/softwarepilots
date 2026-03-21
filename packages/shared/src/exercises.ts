@@ -8,7 +8,7 @@ export interface PyodideStep {
   type: PyodideStepType;
   prompt: string;
   inputPlaceholder?: string;
-  /** Keywords describing what this step introduces — used to scope tutor topic matching */
+  /** Keywords describing what this step introduces - used to scope tutor topic matching */
   context?: string[];
 }
 
@@ -50,7 +50,7 @@ export interface PyodideExercise {
   rubric: ExerciseRubric;
 }
 
-// The union — only Pyodide for now
+// The union - only Pyodide for now
 export type ExerciseDefinition = PyodideExercise;
 // Future: = PyodideExercise | SqlExercise | DiagnosticExercise | MultiOutputExercise;
 

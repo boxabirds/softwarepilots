@@ -22,7 +22,7 @@ const MODULES: ModuleInfo[] = [
   {
     number: 2,
     title: "The Machine Beneath",
-    description: "Compilers, HTTP, databases, DevTools — the reality under the abstraction.",
+    description: "Compilers, HTTP, databases, DevTools - the reality under the abstraction.",
     status: "available",
     exerciseLink: "/exercise/2/1",
     exerciseLabel: "Start: The Compiler Moment",
@@ -30,7 +30,7 @@ const MODULES: ModuleInfo[] = [
   {
     number: 3,
     title: "The Probabilistic Machine",
-    description: "Temperature, hallucination, cognitive surrender — why AI is confident and wrong.",
+    description: "Temperature, hallucination, cognitive surrender - why AI is confident and wrong.",
     status: "locked",
   },
   {

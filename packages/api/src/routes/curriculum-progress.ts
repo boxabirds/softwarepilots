@@ -1,5 +1,5 @@
 /**
- * Curriculum progress tracking — called after each Socratic chat exchange
+ * Curriculum progress tracking - called after each Socratic chat exchange
  * to update the learner's section-level progress.
  */
 
@@ -57,7 +57,7 @@ export async function updateSectionProgress(
     .first<ProgressRow>();
 
   if (!existing) {
-    // First interaction — create row
+    // First interaction - create row
     const understandingEntries: Array<Record<string, string>> = [];
     if (response.confidence_assessment || response.understanding_level) {
       understandingEntries.push({

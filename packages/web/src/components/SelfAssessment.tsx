@@ -79,7 +79,7 @@ export function SelfAssessment({ dimensions, onSubmit, onSkip }: SelfAssessmentP
           }}
         >
           <option value="">Select...</option>
-          <option value="none">None — I'm confident in all three</option>
+          <option value="none">None - I'm confident in all three</option>
           {dimensions.map((dim) => (
             <option key={dim.key} value={dim.key}>{dim.label}</option>
           ))}

@@ -107,7 +107,7 @@ describe("CurriculumSelect", () => {
 
     renderPage();
 
-    // Wait for profiles to load — use getAllBy to tolerate React 19 double-effect
+    // Wait for profiles to load - use getAllBy to tolerate React 19 double-effect
     await waitFor(() => {
       expect(screen.getAllByText("New CS Graduate").length).toBeGreaterThan(0);
     });
@@ -186,7 +186,7 @@ describe("CurriculumSelect", () => {
     const retryButton = within(alert).getByRole("button", { name: "Retry" });
     expect(retryButton).toBeTruthy();
 
-    // Click retry and succeed — switch to success mocks
+    // Click retry and succeed - switch to success mocks
     setupSuccessMocks();
     const user = userEvent.setup();
     await user.click(retryButton);

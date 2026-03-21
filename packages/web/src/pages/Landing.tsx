@@ -29,7 +29,7 @@ export function Landing() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Software Pilotry</CardTitle>
           <CardDescription>
-            Foundation Course — learn to oversee, verify, and take responsibility for AI-generated software.
+            Foundation Course - learn to oversee, verify, and take responsibility for AI-generated software.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">

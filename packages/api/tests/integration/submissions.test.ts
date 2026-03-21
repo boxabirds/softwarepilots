@@ -82,7 +82,7 @@ describe("submission intake integration", () => {
     expect(second.attempts).toBe(2);
   });
 
-  it("submissions are append-only — re-submission creates new row", () => {
+  it("submissions are append-only - re-submission creates new row", () => {
     db.prepare(
       `INSERT INTO submissions (id, learner_id, module_id, exercise_id, content_json, rubric_version)
        VALUES ('sub-a', 'test-learner', '2', '2.1', '{"code":"v1"}', 'v1')`

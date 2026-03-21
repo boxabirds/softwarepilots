@@ -19,7 +19,7 @@ const TEST_GITHUB_CLIENT_SECRET = "test-client-secret";
  * We can't easily test the full OAuth redirect chain with real GitHub,
  * but we can test the D1 upsert + JWT issuance logic in isolation.
  */
-describe("auth integration — learner upsert and JWT issuance", () => {
+describe("auth integration - learner upsert and JWT issuance", () => {
   let db: InstanceType<typeof Database>;
 
   beforeAll(() => {

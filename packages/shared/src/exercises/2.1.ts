@@ -21,7 +21,7 @@ print(label, "| Cheap?", cheap)`,
       "TypeError when mixing types",
     ],
     module_description:
-      "The compiler moment — software is precise, literal, and layered. The learner experiences the machine executing exact instructions.",
+      "The compiler moment - software is precise, literal, and layered. The learner experiences the machine executing exact instructions.",
   },
   content: {
     intro: {

@@ -73,7 +73,7 @@ export function buildTutorTools(
   const declarations: Array<Record<string, unknown>> = [
     {
       name: "help_with_curriculum",
-      description: `Respond to a question about: ${topicList}. Use Socratic questioning — guide discovery, don't give answers directly. Keep responses to 2-3 sentences.`,
+      description: `Respond to a question about: ${topicList}. Use Socratic questioning - guide discovery, don't give answers directly. Keep responses to 2-3 sentences.`,
       parameters: {
         type: "OBJECT",
         properties: {
@@ -254,7 +254,7 @@ export function buildTutorSystemPrompt(
     "Your role:",
     "- Guide the learner to understand concepts through questions, not direct answers",
     "- Keep responses to 2-3 sentences maximum",
-    "- Never give away the solution — help them discover it",
+    "- Never give away the solution - help them discover it",
     "- Be encouraging but honest",
     "",
     `This exercise explores: ${(contextScope ?? meta.topics).join(", ")}`,
@@ -285,7 +285,7 @@ export function buildTutorSystemPrompt(
   if (currentStep) {
     const expectation =
       STEP_INPUT_EXPECTATIONS[currentStep.type] ||
-      "no text input — learner edits and runs code";
+      "no text input - learner edits and runs code";
 
     lines.push(
       "",

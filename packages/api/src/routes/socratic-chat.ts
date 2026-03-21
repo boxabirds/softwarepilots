@@ -199,7 +199,7 @@ export function buildSocraticSystemPrompt(
     "",
     "== Rules ==",
     `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response`,
-    "- Never lecture — always ask questions that guide the learner to discover insights",
+    "- Never lecture - always ask questions that guide the learner to discover insights",
     "- You MUST call exactly one of the provided functions",
     "- Use socratic_probe to ask probing questions",
     "- Use present_scenario to illustrate with realistic examples",
@@ -384,7 +384,7 @@ socraticChat.post("/", async (c) => {
 
     const result = parseSocraticResponse(data!);
 
-    // Update progress (fire-and-forget — don't block response)
+    // Update progress (fire-and-forget - don't block response)
     const learnerId = c.get("learnerId" as never) as string;
     if (learnerId) {
       updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch(() => {});

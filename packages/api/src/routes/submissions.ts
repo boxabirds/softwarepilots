@@ -68,7 +68,7 @@ submissions.post("/", async (c) => {
     .bind(learnerId, body.module_id, body.exercise_id)
     .run();
 
-  // Invoke evaluator — service binding in production, HTTP fallback for local dev
+  // Invoke evaluator - service binding in production, HTTP fallback for local dev
   try {
     const evaluateRequest = new Request(
       c.env.EVALUATOR_URL
