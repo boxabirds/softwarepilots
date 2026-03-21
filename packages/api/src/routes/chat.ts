@@ -2,13 +2,18 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { getExerciseMeta, getExerciseContent } from "@softwarepilots/shared";
 import type { PyodideStep, PyodideStepType, ExerciseMeta, ExerciseDefinition } from "@softwarepilots/shared";
+import {
+  buildGeminiContents,
+  callGeminiWithTools,
+  parseGeminiToolResponse,
+} from "../lib/gemini";
+
+// Re-export Gemini functions so existing consumers (tests, etc.) still work
+export { buildGeminiContents, callGeminiWithTools, parseGeminiToolResponse };
 
 /* ---- Constants ---- */
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const RETRY_DELAY_MS = 1000;
-const MAX_RETRIES = 1;
 const TUTOR_TEMPERATURE = 0.4;
 
 /* ---- Step-type to input expectation mapping ---- */
@@ -168,26 +173,8 @@ export interface ChatRequest {
   };
 }
 
-export interface ChatResponse {
-  reply: string;
-  on_topic: boolean;
-  topic?: string;
-  step_answer?: string;
-}
-
-export interface GeminiFunctionCallResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        functionCall?: {
-          name: string;
-          args: Record<string, string>;
-        };
-        text?: string;
-      }>;
-    };
-  }>;
-}
+// ChatResponse and GeminiFunctionCallResponse are re-exported from ../lib/gemini
+export type { ChatResponse, GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Route ---- */
 
@@ -236,7 +223,7 @@ chat.post("/", async (c) => {
   // Call Gemini with forced function calling
   try {
     const model = c.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-    const result = await callGeminiWithTools(c.env.GEMINI_API_KEY, model, systemPrompt, contents, tools);
+    const result = await callGeminiWithTools(c.env.GEMINI_API_KEY, model, systemPrompt, contents, tools, TUTOR_TEMPERATURE);
 
     return c.json(result);
   } catch {
@@ -316,139 +303,5 @@ export function buildTutorSystemPrompt(
   return lines.join("\n");
 }
 
-/* ---- Gemini conversation builder ---- */
-
-export function buildGeminiContents(
-  conversation: Array<{ role: "user" | "tutor"; content: string }>,
-  newMessage: string
-): Array<{ role: string; parts: Array<{ text: string }> }> {
-  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
-
-  for (const msg of conversation) {
-    contents.push({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    });
-  }
-
-  contents.push({ role: "user", parts: [{ text: newMessage }] });
-
-  return contents;
-}
-
-/* ---- Gemini caller with multi-tool routing ---- */
-
-export async function callGeminiWithTools(
-  apiKey: string,
-  model: string,
-  systemPrompt: string,
-  contents: Array<{ role: string; parts: Array<{ text: string }> }>,
-  tools: Array<{ functionDeclarations: Array<Record<string, unknown>> }>
-): Promise<ChatResponse> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const url = `${GEMINI_API_URL}/${model}:generateContent?key=${apiKey}`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          tools,
-          toolConfig: {
-            functionCallingConfig: { mode: "ANY" },
-          },
-          generationConfig: {
-            temperature: TUTOR_TEMPERATURE,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Gemini ${response.status}: ${errorBody}`);
-      }
-
-      const data = (await response.json()) as GeminiFunctionCallResponse;
-      return parseGeminiToolResponse(data);
-    } catch (err) {
-      if (attempt < MAX_RETRIES) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  throw new Error("Unreachable");
-}
-
-/* ---- Multi-tool response parser ---- */
-
-export function parseGeminiToolResponse(
-  data: GeminiFunctionCallResponse
-): ChatResponse {
-  const parts = data.candidates?.[0]?.content?.parts;
-
-  if (!parts || parts.length === 0) {
-    throw new Error("No parts in Gemini response");
-  }
-
-  const functionCalls = parts
-    .filter((p) => p.functionCall)
-    .map((p) => p.functionCall!);
-
-  if (functionCalls.length === 0) {
-    // Fallback to text response if no function calls
-    const textPart = parts.find((p) => p.text);
-    if (textPart?.text) {
-      return { reply: textPart.text, on_topic: true };
-    }
-    throw new Error("No function call in Gemini response");
-  }
-
-  let reply = "";
-  let onTopic = true;
-  let topic: string | undefined;
-  let stepAnswer: string | undefined;
-
-  for (const fc of functionCalls) {
-    switch (fc.name) {
-      case "provided_step_answer":
-        stepAnswer = fc.args.answer;
-        if (fc.args.coaching) {
-          reply = reply ? `${reply}\n\n${fc.args.coaching}` : fc.args.coaching;
-        }
-        break;
-      case "help_with_curriculum":
-        reply = reply
-          ? `${reply}\n\n${fc.args.response}`
-          : fc.args.response || "I'm not sure how to help with that.";
-        topic = fc.args.topic;
-        break;
-      case "off_topic_detected":
-        onTopic = false;
-        reply =
-          fc.args.redirect_hint ||
-          "That's an interesting question, but let's focus on the exercise. What part of the code are you curious about?";
-        break;
-      default:
-        throw new Error(`Unexpected tool: ${fc.name}`);
-    }
-  }
-
-  if (!reply && stepAnswer) {
-    reply = "Got it.";
-  }
-
-  if (!reply) {
-    reply = "I'm not sure how to help with that.";
-  }
-
-  const result: ChatResponse = { reply, on_topic: onTopic };
-  if (topic) result.topic = topic;
-  if (stepAnswer) result.step_answer = stepAnswer;
-
-  return result;
-}
+// buildGeminiContents, callGeminiWithTools, parseGeminiToolResponse
+// are imported from ../lib/gemini

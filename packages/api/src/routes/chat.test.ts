@@ -442,12 +442,12 @@ describe("parseGeminiToolResponse", () => {
     ).toThrow("No parts");
   });
 
-  it("throws on unexpected tool name", () => {
-    expect(() =>
-      parseGeminiToolResponse(
-        multiToolResponse({ name: "unknown_tool", args: {} })
-      )
-    ).toThrow("Unexpected tool: unknown_tool");
+  it("handles unknown tool name gracefully (returns raw args)", () => {
+    const result = parseGeminiToolResponse(
+      multiToolResponse({ name: "unknown_tool", args: { foo: "bar" } })
+    );
+    expect(result.reply).toBe(JSON.stringify({ foo: "bar" }));
+    expect(result.on_topic).toBe(true);
   });
 
   it("falls back to text when no function calls", () => {
