@@ -480,7 +480,7 @@ export function SocraticSession() {
             ) : (
               <TutorCard
                 content={msg.content}
-                onReply={isError ? undefined : () => handleReply(msg.content)}
+                onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
               />
             )}
             {isError && (

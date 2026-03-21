@@ -374,30 +374,30 @@ describe("TutorCard reply button", () => {
     cleanup();
   });
 
-  it("shows Reply button when onReply is provided", () => {
+  it("shows menu trigger when onReply is provided", () => {
     render(<TutorCard content="Some tutor message" onReply={() => {}} />);
-    expect(screen.getByTestId("reply-button")).toBeTruthy();
-    expect(screen.getByTestId("reply-button").textContent).toBe("Reply");
+    expect(screen.getByTestId("message-menu-trigger")).toBeTruthy();
   });
 
-  it("does not show Reply button when onReply is not provided", () => {
+  it("does not show menu trigger when onReply is not provided", () => {
     render(<TutorCard content="Some tutor message" />);
-    expect(screen.queryByTestId("reply-button")).toBeNull();
+    expect(screen.queryByTestId("message-menu-trigger")).toBeNull();
   });
 
-  it("calls onReply when Reply button is clicked", async () => {
+  it("calls onReply when menu trigger then Reply is clicked", async () => {
     const onReply = vi.fn();
     render(<TutorCard content="Some tutor message" onReply={onReply} />);
 
     const user = userEvent.setup();
+    await user.click(screen.getByTestId("message-menu-trigger"));
     await user.click(screen.getByTestId("reply-button"));
 
     expect(onReply).toHaveBeenCalledOnce();
   });
 
-  it("does not show Reply button on loading card", () => {
+  it("does not show menu trigger on loading card", () => {
     render(<TutorCard content="" loading onReply={() => {}} />);
-    expect(screen.queryByTestId("reply-button")).toBeNull();
+    expect(screen.queryByTestId("message-menu-trigger")).toBeNull();
   });
 });
 
@@ -415,6 +415,8 @@ describe("SocraticSession quote features", () => {
   function setupWithTutorMessage(tutorContent = "What do you think about this topic?") {
     const savedMessages = [
       { role: "tutor", content: tutorContent },
+      { role: "user", content: "I think it depends" },
+      { role: "tutor", content: "Can you elaborate on that?" },
     ];
 
     mockGet.mockImplementation((path: string) => {
@@ -445,9 +447,11 @@ describe("SocraticSession quote features", () => {
 
     const user = userEvent.setup();
 
-    // Click the Reply button on the tutor card (not the intro card)
-    const replyButtons = screen.getAllByTestId("reply-button");
-    await user.click(replyButtons[0]);
+    // Open menu then click Reply on the tutor card (not the intro card)
+    const menuTriggers = screen.getAllByTestId("message-menu-trigger");
+    await user.click(menuTriggers[0]);
+    const replyButton = screen.getByTestId("reply-button");
+    await user.click(replyButton);
 
     // Quote preview should appear
     await waitFor(() => {
@@ -468,9 +472,10 @@ describe("SocraticSession quote features", () => {
 
     const user = userEvent.setup();
 
-    // Click Reply to set the quote
-    const replyButtons = screen.getAllByTestId("reply-button");
-    await user.click(replyButtons[0]);
+    // Open menu then click Reply to set the quote
+    const menuTriggers = screen.getAllByTestId("message-menu-trigger");
+    await user.click(menuTriggers[0]);
+    await user.click(screen.getByTestId("reply-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("quote-preview")).toBeTruthy();
