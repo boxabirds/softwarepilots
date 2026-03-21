@@ -264,14 +264,30 @@ curriculum.put("/:profile/:sectionId/conversation", async (c) => {
     return c.json({ error: "messages must be a non-empty array" }, 400);
   }
 
-  await c.env.DB.prepare(
-    `INSERT INTO curriculum_conversations (learner_id, profile, section_id, messages_json, created_at, updated_at)
-     VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT (learner_id, profile, section_id) WHERE archived_at IS NULL
-     DO UPDATE SET messages_json = excluded.messages_json, updated_at = datetime('now')`
+  // Check for existing active (non-archived) conversation
+  const existing = await c.env.DB.prepare(
+    `SELECT id FROM curriculum_conversations
+     WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
   )
-    .bind(learnerId, profile, sectionId, JSON.stringify(body.messages))
-    .run();
+    .bind(learnerId, profile, sectionId)
+    .first<{ id: string }>();
+
+  if (existing) {
+    await c.env.DB.prepare(
+      `UPDATE curriculum_conversations
+       SET messages_json = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+      .bind(JSON.stringify(body.messages), existing.id)
+      .run();
+  } else {
+    await c.env.DB.prepare(
+      `INSERT INTO curriculum_conversations (learner_id, profile, section_id, messages_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
+    )
+      .bind(learnerId, profile, sectionId, JSON.stringify(body.messages))
+      .run();
+  }
 
   return c.json({ saved: true });
 });

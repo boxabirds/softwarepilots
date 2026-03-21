@@ -70,6 +70,7 @@ interface MockRow {
 
 function createMockDB() {
   const store = new Map<string, MockRow>();
+  let idCounter = 0;
 
   const mockFirst = vi.fn(async () => null as MockRow | null);
   const mockRun = vi.fn(async () => ({ success: true }));
@@ -80,38 +81,39 @@ function createMockDB() {
       bind: (...args: unknown[]) => {
         mockBind(...args);
 
-        // Derive the store key from learner_id + profile + section_id
-        // Convention: first 3 bind args are always (learnerId, profile, sectionId)
-        const key = `${args[0]}:${args[1]}:${args[2]}`;
-
         return {
           first: async <T = MockRow>() => {
-            if (sql.includes("SELECT")) {
+            if (sql.includes("SELECT") && sql.includes("curriculum_conversations")) {
+              // SELECT by (learner_id, profile, section_id) with archived_at IS NULL
+              const key = `${args[0]}:${args[1]}:${args[2]}`;
               const row = store.get(key);
-              // Filter out archived rows (GET queries include archived_at IS NULL)
               if (row && row.archived_at !== null) return null;
-              return (row as T) ?? null;
+              if (!row) return null;
+              // Return with id for the UPDATE path
+              return ({ ...row, id: key } as unknown as T) ?? null;
             }
             return null;
           },
           run: async () => {
-            if (sql.includes("INSERT")) {
-              const messagesJson = args[3] as string;
-              const existing = store.get(key);
-              if (existing && existing.archived_at === null) {
-                // Upsert: update active row
-                existing.messages_json = messagesJson;
-                existing.updated_at = new Date().toISOString();
-              } else {
-                // Insert new active row
-                store.set(key, {
-                  messages_json: messagesJson,
-                  updated_at: new Date().toISOString(),
-                  archived_at: null,
-                });
+            if (sql.includes("INSERT") && sql.includes("curriculum_conversations")) {
+              // INSERT new conversation: bind is (learner_id, profile, section_id, messages_json)
+              const key = `${args[0]}:${args[1]}:${args[2]}`;
+              store.set(key, {
+                messages_json: args[3] as string,
+                updated_at: new Date().toISOString(),
+                archived_at: null,
+              });
+            } else if (sql.includes("UPDATE") && sql.includes("messages_json") && sql.includes("WHERE id")) {
+              // UPDATE by id: bind is (messages_json, id)
+              const id = args[1] as string;
+              const row = store.get(id);
+              if (row) {
+                row.messages_json = args[0] as string;
+                row.updated_at = new Date().toISOString();
               }
             } else if (sql.includes("UPDATE") && sql.includes("archived_at")) {
-              // Archive (soft-delete)
+              // Archive: bind is (learner_id, profile, section_id)
+              const key = `${args[0]}:${args[1]}:${args[2]}`;
               const row = store.get(key);
               if (row && row.archived_at === null) {
                 row.archived_at = new Date().toISOString();
