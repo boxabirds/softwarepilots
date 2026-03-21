@@ -273,7 +273,7 @@ function TrackCard({
     >
       <h2
         className="text-xl font-bold"
-        style={{ color: isExpanded ? "#ffffff" : "#0D1526" }}
+        style={{ color: isExpanded ? "var(--text-on-brand)" : "var(--text-primary)" }}
       >
         {profile.title}
       </h2>
@@ -291,7 +291,7 @@ function TrackCard({
             color: "var(--text-on-brand)",
           } : {
             background: "var(--bg-muted)",
-            color: "var(--pilot-700)",
+            color: "var(--text-secondary)",
           }}
         >
           {profile.section_count} sections
@@ -384,11 +384,11 @@ function ExerciseCard({ number, title, description, status, exerciseLink, exerci
       </CardHeader>
       <CardContent>
         {exerciseLink && !isLocked ? (
-          <Link to={exerciseLink} className="inline-flex items-center justify-center rounded-lg bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80">
+          <Link to={exerciseLink} className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium transition-all" style={{ background: "var(--pilot-blue)", color: "var(--text-on-brand)" }}>
             {exerciseLabel || "Start Exercise"}
           </Link>
         ) : isLocked ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             Complete previous modules to unlock
           </p>
         ) : null}
