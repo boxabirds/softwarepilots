@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { getExerciseMeta, getExerciseContent } from "@softwarepilots/shared";
 import type { PyodideStep, PyodideStepType, ExerciseMeta, ExerciseDefinition } from "@softwarepilots/shared";
+import { updateSectionProgress } from "./curriculum-progress";
+import type { SocraticResponse } from "./curriculum-progress";
 
 /* ---- Constants ---- */
 
@@ -159,6 +161,9 @@ export function computeCodeDiff(starter: string, current: string): string {
 export interface ChatRequest {
   exercise_id: string;
   message: string;
+  /** Optional curriculum context for progress tracking */
+  profile?: string;
+  section_id?: string;
   context: {
     current_step: number;
     code: string;
@@ -237,6 +242,30 @@ chat.post("/", async (c) => {
   try {
     const model = c.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
     const result = await callGeminiWithTools(c.env.GEMINI_API_KEY, model, systemPrompt, contents, tools);
+
+    // Update curriculum progress if profile/section context is provided
+    if (body.profile && body.section_id) {
+      const learnerId = c.get("learnerId" as never) as string | undefined;
+      if (learnerId) {
+        const socraticResponse: SocraticResponse = {
+          tool_type: result.topic ? "help_with_curriculum" : undefined,
+          ...(result.step_answer
+            ? { tool_type: "provided_step_answer" }
+            : {}),
+        };
+        try {
+          await updateSectionProgress(
+            c.env.DB,
+            learnerId,
+            body.profile,
+            body.section_id,
+            socraticResponse
+          );
+        } catch {
+          // Progress tracking failure should not break the chat response
+        }
+      }
+    }
 
     return c.json(result);
   } catch {
