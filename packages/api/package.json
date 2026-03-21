@@ -2,6 +2,7 @@
   "name": "@softwarepilots/api",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev --persist-to ../../.wrangler/state --inspector-port 9229",
     "deploy": "wrangler deploy",
@@ -12,6 +13,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.5",
     "@cloudflare/workers-types": "^4.20260301.0",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.6.2",
