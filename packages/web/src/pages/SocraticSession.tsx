@@ -83,39 +83,81 @@ export function SocraticSession() {
     return () => { cancelled = true; };
   }, [profile, sectionId]);
 
-  /* ---- Send opening probe on mount ---- */
+  /* ---- Persistence helpers ---- */
 
-  useEffect(() => {
-    if (!profile || !sectionId) return;
+  const conversationUrl = profile && sectionId
+    ? `/api/curriculum/${profile}/${sectionId}/conversation`
+    : null;
 
-    let cancelled = false;
-    setSending(true);
+  /** Fire-and-forget save of the full conversation to the backend. */
+  const saveConversation = useCallback(
+    (messages: ConversationMessage[]) => {
+      if (!conversationUrl || messages.length === 0) return;
+      apiClient.put(conversationUrl, { messages }).catch(() => {
+        // Silent failure - persistence is best-effort
+      });
+    },
+    [conversationUrl],
+  );
 
-    apiClient
-      .post<SocraticResponse>("/api/socratic", {
-        profile,
-        section_id: sectionId,
-        message: OPENING_MESSAGE,
-        context: { conversation: [] },
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setConversation([{ role: "tutor", content: data.reply }]);
+  /** Send the opening probe and return the resulting conversation. */
+  const sendOpeningProbe = useCallback(
+    async (cancelled: { current: boolean }) => {
+      setSending(true);
+      try {
+        const data = await apiClient.post<SocraticResponse>("/api/socratic", {
+          profile,
+          section_id: sectionId,
+          message: OPENING_MESSAGE,
+          context: { conversation: [] },
+        });
+        if (!cancelled.current) {
+          const initial: ConversationMessage[] = [{ role: "tutor", content: data.reply }];
+          setConversation(initial);
+          saveConversation(initial);
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
+      } catch {
+        if (!cancelled.current) {
           setConversation([
             { role: "tutor", content: "Something went wrong connecting to the tutor. Please refresh to try again." },
           ]);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setSending(false);
-      });
+      } finally {
+        if (!cancelled.current) setSending(false);
+      }
+    },
+    [profile, sectionId, saveConversation],
+  );
 
-    return () => { cancelled = true; };
-  }, [profile, sectionId]);
+  /* ---- Load saved conversation or send opening probe ---- */
+
+  useEffect(() => {
+    if (!profile || !sectionId || !conversationUrl) return;
+
+    const cancelled = { current: false };
+
+    (async () => {
+      try {
+        const saved = await apiClient.get<{ messages: ConversationMessage[]; updated_at: string | null }>(
+          conversationUrl,
+        );
+        if (cancelled.current) return;
+
+        if (saved.messages.length > 0) {
+          setConversation(saved.messages);
+          return;
+        }
+      } catch {
+        // Failed to load saved conversation - fall through to opening probe
+      }
+
+      if (!cancelled.current) {
+        await sendOpeningProbe(cancelled);
+      }
+    })();
+
+    return () => { cancelled.current = true; };
+  }, [profile, sectionId, conversationUrl, sendOpeningProbe]);
 
   /* ---- Scrolling ---- */
 
@@ -164,7 +206,9 @@ export function SocraticSession() {
         },
       });
 
-      setConversation((prev) => [...prev, { role: "tutor", content: response.reply }]);
+      const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
+      setConversation(withReply);
+      saveConversation(withReply);
     } catch {
       setConversation((prev) => [
         ...prev,
@@ -200,7 +244,11 @@ export function SocraticSession() {
         },
       })
       .then((response) => {
-        setConversation((prev) => [...prev, { role: "tutor", content: response.reply }]);
+        setConversation((prev) => {
+          const updated = [...prev, { role: "tutor" as const, content: response.reply }];
+          saveConversation(updated);
+          return updated;
+        });
       })
       .catch(() => {
         setConversation((prev) => [
@@ -212,6 +260,21 @@ export function SocraticSession() {
         setSending(false);
       });
   };
+
+  /* ---- Start Over ---- */
+
+  const handleStartOver = useCallback(async () => {
+    if (!conversationUrl || !profile || !sectionId) return;
+    if (!window.confirm("Start over? This will clear the current conversation.")) return;
+
+    // Delete saved conversation on the backend (fire-and-forget)
+    apiClient.delete(conversationUrl).catch(() => {});
+
+    // Reset local state and send a fresh opening probe
+    setConversation([]);
+    const cancelled = { current: false };
+    await sendOpeningProbe(cancelled);
+  }, [conversationUrl, profile, sectionId, sendOpeningProbe]);
 
   /* ---- Context panel content ---- */
 
@@ -240,6 +303,14 @@ export function SocraticSession() {
         <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
           The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.
         </p>
+        {conversation.length > 0 && (
+          <button
+            onClick={handleStartOver}
+            className="mt-4 cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Start Over
+          </button>
+        )}
       </div>
     );
   }

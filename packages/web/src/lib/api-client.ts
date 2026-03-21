@@ -27,6 +27,30 @@ class ApiClient {
     }
     return res.json();
   }
+
+  async put<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new ApiError(res.status, await res.text());
+    }
+    return res.json();
+  }
+
+  async delete<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      throw new ApiError(res.status, await res.text());
+    }
+    return res.json();
+  }
 }
 
 export class ApiError extends Error {
