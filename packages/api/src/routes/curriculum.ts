@@ -6,6 +6,16 @@ import {
   getSection,
 } from "@softwarepilots/shared";
 import { getProgressForProfile } from "./curriculum-progress";
+import {
+  parseConceptsJson,
+  getConceptsDueForReview,
+} from "../lib/spaced-repetition";
+import type { ConceptsMap } from "../lib/spaced-repetition";
+import {
+  buildNarrativePrompt,
+  generateNarrative,
+} from "../lib/narrative";
+import type { ProgressStats, SectionProgressData } from "../lib/narrative";
 
 /* ---- Valid profiles and section ID pattern ---- */
 
@@ -73,6 +83,149 @@ curriculum.get("/:profile/progress", async (c) => {
   const profile = c.req.param("profile");
   const progress = await getProgressForProfile(c.env.DB, learnerId, profile);
   return c.json(progress);
+});
+
+/* ---- Narrative cache ---- */
+
+const NARRATIVE_CACHE_TTL_MS = 3_600_000; // 1 hour
+
+interface NarrativeCacheEntry {
+  narrative: string;
+  timestamp: number;
+}
+
+const narrativeCache = new Map<string, NarrativeCacheEntry>();
+
+function getNarrativeCacheKey(
+  learnerId: string,
+  profile: string,
+  latestUpdatedAt: string | null
+): string {
+  return `${learnerId}:${profile}:${latestUpdatedAt ?? "none"}`;
+}
+
+/** @internal Exposed for testing */
+export function _clearNarrativeCache(): void {
+  narrativeCache.clear();
+}
+
+/* GET /:profile/progress/summary - full progress summary with narrative */
+curriculum.get("/:profile/progress/summary", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+
+  if (!isValidProfile(profile)) {
+    return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  // Load all progress rows (with concepts_json for due-review calculation)
+  const { results: rawRows } = await c.env.DB.prepare(
+    `SELECT section_id, status, understanding_json, concepts_json, updated_at
+     FROM curriculum_progress
+     WHERE learner_id = ? AND profile = ?`
+  )
+    .bind(learnerId, profile)
+    .all<{
+      section_id: string;
+      status: string;
+      understanding_json: string;
+      concepts_json: string | null;
+      updated_at: string;
+    }>();
+
+  const rows = rawRows || [];
+
+  // Build section lookup from curriculum
+  let sectionLookup: Map<string, { title: string; module_id: string; module_title: string }>;
+  try {
+    const sections = getCurriculumSections(profile);
+    sectionLookup = new Map(
+      sections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
+    );
+  } catch {
+    sectionLookup = new Map();
+  }
+
+  // Map progress rows by section_id
+  const progressBySectionId = new Map(rows.map((r) => [r.section_id, r]));
+
+  // Compute stats
+  const totalSections = sectionLookup.size || rows.length;
+  const statusCounts = { completed: 0, in_progress: 0, paused: 0, not_started: 0 };
+  for (const row of rows) {
+    if (row.status === "completed") statusCounts.completed++;
+    else if (row.status === "in_progress") statusCounts.in_progress++;
+    else if (row.status === "paused") statusCounts.paused++;
+  }
+  statusCounts.not_started = totalSections - statusCounts.completed - statusCounts.in_progress - statusCounts.paused;
+  if (statusCounts.not_started < 0) statusCounts.not_started = 0;
+
+  const stats: ProgressStats = { ...statusCounts, total: totalSections };
+
+  // Build section progress data
+  const sectionProgressData: SectionProgressData[] = [];
+  for (const [sectionId, info] of sectionLookup) {
+    const row = progressBySectionId.get(sectionId);
+    const concepts: ConceptsMap = row ? parseConceptsJson(row.concepts_json) : {};
+    const entries = row ? JSON.parse(row.understanding_json || "[]") : [];
+    const latest = entries.length > 0 ? entries[entries.length - 1] : null;
+
+    sectionProgressData.push({
+      section_id: sectionId,
+      title: info.title,
+      status: row?.status ?? "not_started",
+      understanding_level: latest?.understanding_level,
+      concepts: Object.fromEntries(
+        Object.entries(concepts).map(([name, a]) => [
+          name,
+          { level: a.level, review_count: a.review_count },
+        ])
+      ),
+    });
+  }
+
+  // Concepts due for review
+  const dueConcepts = getConceptsDueForReview(
+    rows.map((r) => ({ section_id: r.section_id, concepts_json: r.concepts_json }))
+  );
+
+  // Generate or retrieve cached narrative
+  const latestUpdatedAt = rows.length > 0
+    ? rows.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), rows[0].updated_at)
+    : null;
+
+  let overallNarrative: string | null = null;
+
+  if (rows.length > 0) {
+    const cacheKey = getNarrativeCacheKey(learnerId, profile, latestUpdatedAt);
+    const cached = narrativeCache.get(cacheKey);
+    const now = Date.now();
+
+    if (cached && now - cached.timestamp < NARRATIVE_CACHE_TTL_MS) {
+      overallNarrative = cached.narrative;
+    } else {
+      try {
+        const prompt = buildNarrativePrompt(sectionProgressData, stats, dueConcepts.length);
+        const model = c.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+        overallNarrative = await generateNarrative(c.env.GEMINI_API_KEY, model, prompt);
+        narrativeCache.set(cacheKey, { narrative: overallNarrative, timestamp: now });
+      } catch {
+        // LLM failure is non-fatal
+        overallNarrative = null;
+      }
+    }
+  }
+
+  return c.json({
+    overall_narrative: overallNarrative,
+    sections: sectionProgressData,
+    stats,
+    concepts_due_for_review: dueConcepts.map((d) => ({
+      concept: d.concept,
+      section_id: d.section_id,
+      days_overdue: d.days_overdue,
+    })),
+  });
 });
 
 /* GET /:profile/:sectionId - get section with markdown (must be before conversation routes) */

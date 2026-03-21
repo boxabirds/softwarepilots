@@ -17,6 +17,11 @@ const CurriculumSelect = lazy(() =>
 const SocraticSession = lazy(() =>
   import("./pages/SocraticSession").then((m) => ({ default: m.SocraticSession }))
 );
+const ProgressDashboard = lazy(() =>
+  import("./pages/ProgressDashboard").then((m) => ({
+    default: m.ProgressDashboard,
+  }))
+);
 
 function RouteLoader({ children }: { children: React.ReactNode }) {
   return (
@@ -63,6 +68,16 @@ export function App() {
             <AuthGuard>
               <RouteLoader>
                 <Exercise />
+              </RouteLoader>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/curriculum/:profile/progress"
+          element={
+            <AuthGuard>
+              <RouteLoader>
+                <ProgressDashboard />
               </RouteLoader>
             </AuthGuard>
           }
