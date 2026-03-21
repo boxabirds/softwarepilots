@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, within, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SocraticSession } from "../pages/SocraticSession";
 
@@ -159,5 +160,139 @@ describe("SocraticSession", () => {
 
     // The opening probe should NOT have been called
     expect(mockPost).not.toHaveBeenCalled();
+  });
+});
+
+/* ---- Pause card UI ---- */
+
+const MOCK_PAUSE_RESPONSE = {
+  reply: "Great work today! Take a well-deserved break.",
+  tool_type: "session_pause",
+  pause_reason: "learner_requested",
+  concepts_covered_so_far: "variables, scope",
+  resume_suggestion: "We'll pick up with closures next time.",
+};
+
+describe("SocraticSession pause card", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  function setupPauseMocks() {
+    let postCallCount = 0;
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: [], updated_at: null });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    mockPost.mockImplementation(() => {
+      postCallCount++;
+      if (postCallCount === 1) {
+        // Opening probe
+        return Promise.resolve({ ...MOCK_TUTOR_RESPONSE });
+      }
+      // Second call: pause response
+      return Promise.resolve({ ...MOCK_PAUSE_RESPONSE });
+    });
+
+    mockPut.mockImplementation(() => Promise.resolve({ saved: true }));
+    mockDelete.mockImplementation(() => Promise.resolve({ reset: true }));
+  }
+
+  it("renders pause card with acknowledgment text when session is paused", async () => {
+    setupPauseMocks();
+    renderSession();
+
+    // Wait for tutor opening message
+    await waitFor(() => {
+      expect(screen.getByText("Welcome! Let's explore this topic together.")).toBeTruthy();
+    });
+
+    // Type a message and submit
+    const input = screen.getByPlaceholderText("Type your response...");
+    const user = userEvent.setup();
+    await user.type(input, "I need a break{Enter}");
+
+    // Wait for pause card to appear
+    await waitFor(() => {
+      expect(screen.getByTestId("session-pause-card")).toBeTruthy();
+    });
+
+    const pauseCard = screen.getByTestId("session-pause-card");
+    expect(within(pauseCard).getByText("Great work today! Take a well-deserved break.")).toBeTruthy();
+    expect(within(pauseCard).getByText("Session Paused")).toBeTruthy();
+  });
+
+  it("hides input bar when session is paused", async () => {
+    setupPauseMocks();
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Welcome! Let's explore this topic together.")).toBeTruthy();
+    });
+
+    // Verify input is visible before pause
+    expect(screen.getByPlaceholderText("Type your response...")).toBeTruthy();
+
+    const user = userEvent.setup();
+    const input = screen.getByPlaceholderText("Type your response...");
+    await user.type(input, "I need a break{Enter}");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session-pause-card")).toBeTruthy();
+    });
+
+    // Input bar should be hidden
+    expect(screen.queryByPlaceholderText("Type your response...")).toBeNull();
+  });
+
+  it("shows Resume Later and Continue Session buttons", async () => {
+    setupPauseMocks();
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Welcome! Let's explore this topic together.")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+    const input = screen.getByPlaceholderText("Type your response...");
+    await user.type(input, "I need a break{Enter}");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session-pause-card")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("resume-later-button")).toBeTruthy();
+    expect(screen.getByText("Resume Later")).toBeTruthy();
+    expect(screen.getByTestId("continue-session-button")).toBeTruthy();
+    expect(screen.getByText("Continue Session")).toBeTruthy();
+  });
+
+  it("shows resume suggestion text in pause card", async () => {
+    setupPauseMocks();
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Welcome! Let's explore this topic together.")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+    const input = screen.getByPlaceholderText("Type your response...");
+    await user.type(input, "I need a break{Enter}");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("session-pause-card")).toBeTruthy();
+    });
+
+    expect(screen.getByText("We'll pick up with closures next time.")).toBeTruthy();
   });
 });
