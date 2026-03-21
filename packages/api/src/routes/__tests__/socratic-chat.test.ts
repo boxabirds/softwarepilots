@@ -24,6 +24,7 @@ const BASE_TOOL_NAMES = [
   "off_topic_detected",
   "session_complete",
   "session_pause",
+  "lesson_query",
 ];
 
 const geminiResponse = (
@@ -76,7 +77,7 @@ describe("buildSocraticTools", () => {
   it("includes section title in base tool descriptions", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
     const baseDecls = tools[0].functionDeclarations.filter(
-      (d) => d.name !== "track_concepts" && d.name !== "session_complete" && d.name !== "session_pause"
+      (d) => d.name !== "track_concepts" && d.name !== "session_complete" && d.name !== "session_pause" && d.name !== "lesson_query"
     );
     const descriptions = baseDecls.map((d) => d.description as string);
     for (const desc of descriptions) {
@@ -498,8 +499,8 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 8;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 9;
+const EXPECTED_BASE_TOOL_COUNT = 9;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 10;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {
@@ -818,5 +819,80 @@ describe("session_pause system prompt guidance", () => {
     expect(prompt).toContain("frustration");
     expect(prompt).toContain("fatigued");
     expect(prompt).toContain("Never say 'you seem tired'");
+  });
+});
+
+/* ---- lesson_query tool ---- */
+
+describe("lesson_query tool declaration", () => {
+  it("is in tool declarations", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toContain("lesson_query");
+  });
+
+  it("has response and query_type as required parameters", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const queryTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "lesson_query"
+    );
+    expect(queryTool).toBeDefined();
+    const params = queryTool!.parameters as Record<string, unknown>;
+    const required = params.required as string[];
+    expect(required).toContain("response");
+    expect(required).toContain("query_type");
+  });
+
+  it("query_type enum has all 5 values", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const queryTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "lesson_query"
+    );
+    const params = queryTool!.parameters as Record<string, Record<string, Record<string, unknown>>>;
+    const queryTypeEnum = params.properties.query_type.enum as string[];
+    expect(queryTypeEnum).toEqual([
+      "objectives",
+      "remaining_topics",
+      "needs_attention",
+      "overall_assessment",
+      "general",
+    ]);
+  });
+});
+
+describe("lesson_query parser", () => {
+  it("extracts response and query_type", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("lesson_query", {
+        response: "This section covers three main concepts.",
+        query_type: "objectives",
+        topics_referenced: "variables, scope, closures",
+      })
+    );
+    expect(result.tool_type).toBe("lesson_query");
+    expect(result.reply).toBe("This section covers three main concepts.");
+    expect(result.query_type).toBe("objectives");
+    expect(result.topics_referenced).toBe("variables, scope, closures");
+  });
+
+  it("handles lesson_query without optional topics_referenced", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("lesson_query", {
+        response: "You've covered 3 out of 5 topics.",
+        query_type: "overall_assessment",
+      })
+    );
+    expect(result.reply).toBe("You've covered 3 out of 5 topics.");
+    expect(result.query_type).toBe("overall_assessment");
+    expect(result.topics_referenced).toBeUndefined();
+  });
+});
+
+describe("lesson_query system prompt guidance", () => {
+  it("includes lesson_query guidance in system prompt", () => {
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    expect(prompt).toContain("lesson_query");
+    expect(prompt).toContain("learning objectives");
+    expect(prompt).toContain("What topics haven't I covered");
   });
 });
