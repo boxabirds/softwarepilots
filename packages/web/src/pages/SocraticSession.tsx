@@ -392,11 +392,14 @@ export function SocraticSession() {
                       if (!isCurrent) navigate(`/curriculum/${profile}/${lesson.id}`);
                       setContextOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors ${
-                      isCurrent
-                        ? "bg-primary/10 font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    }`}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors"
+                    style={isCurrent ? {
+                      background: "rgba(26, 79, 209, 0.1)",
+                      color: "#1A4FD1",
+                      fontWeight: 600,
+                    } : {
+                      color: "#4A5A7A",
+                    }}
                   >
                     {status && (
                       <ProgressBadge
@@ -647,9 +650,9 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div className="flex h-[calc(100dvh-56px)] flex-col bg-muted">
+      <div className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "#FAFBFE" }}>
         {/* Header with lesson list toggle */}
-        <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-2">
+        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "#F4F6FD", borderBottom: "1px solid #E8EDFA" }}>
           <button
             onClick={() => setContextOpen(!contextOpen)}
             className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-foreground"
@@ -699,7 +702,7 @@ export function SocraticSession() {
 
           {/* Input - floats over conversation */}
           {!sessionComplete && !sessionPaused && (
-            <div className="absolute right-0 bottom-0 left-0 bg-muted/80 px-4 pb-4 pt-3 backdrop-blur-sm">
+            <div className="absolute right-0 bottom-0 left-0 px-4 pb-4 pt-3 backdrop-blur-sm" style={{ background: "rgba(250, 251, 254, 0.85)" }}>
               {renderInputBar()}
             </div>
           )}
@@ -710,9 +713,9 @@ export function SocraticSession() {
 
   // Desktop: two-column layout
   return (
-    <div className="flex h-[calc(100dvh-56px)] bg-muted">
-      {/* Left column: context panel */}
-      <div className="flex w-80 shrink-0 flex-col border-r border-border bg-background">
+    <div className="flex h-[calc(100dvh-56px)]" style={{ background: "#FAFBFE" }}>
+      {/* Left column: lesson list */}
+      <div className="flex w-80 shrink-0 flex-col" style={{ background: "#F4F6FD", borderRight: "1px solid #E8EDFA" }}>
         {renderLessonList()}
       </div>
 
@@ -738,7 +741,7 @@ export function SocraticSession() {
 
         {/* Input - floats over conversation */}
         {!sessionComplete && !sessionPaused && (
-          <div className="absolute right-0 bottom-0 left-0 bg-muted/80 px-5 pb-4 pt-3 backdrop-blur-sm">
+          <div className="absolute right-0 bottom-0 left-0 px-5 pb-4 pt-3 backdrop-blur-sm" style={{ background: "rgba(250, 251, 254, 0.85)" }}>
             {renderInputBar()}
           </div>
         )}
