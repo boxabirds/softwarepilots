@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SocraticSession } from "../pages/SocraticSession";
 import { TutorCard } from "../components/exercise/TutorCard";
+import { ChatInput } from "../components/ChatInput";
 
 /* ---- jsdom stubs ---- */
 
@@ -545,5 +546,137 @@ describe("SocraticSession quote features", () => {
 
     // No quote block should exist
     expect(screen.queryByTestId("user-quote-block")).toBeNull();
+  });
+});
+
+/* ---- TutorCard Feedback button ---- */
+
+describe("TutorCard feedback button", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows Feedback in menu when onFeedback is provided", async () => {
+    render(<TutorCard content="Some message" onFeedback={() => {}} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("message-menu-trigger"));
+
+    expect(screen.getByTestId("feedback-button")).toBeTruthy();
+    expect(screen.getByText("Feedback")).toBeTruthy();
+  });
+
+  it("does not show Feedback in menu when onFeedback is not provided", async () => {
+    render(<TutorCard content="Some message" onReply={() => {}} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("message-menu-trigger"));
+
+    expect(screen.queryByTestId("feedback-button")).toBeNull();
+  });
+
+  it("calls onFeedback when Feedback button is clicked", async () => {
+    const onFeedback = vi.fn();
+    render(<TutorCard content="Some message" onFeedback={onFeedback} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("message-menu-trigger"));
+    await user.click(screen.getByTestId("feedback-button"));
+
+    expect(onFeedback).toHaveBeenCalledOnce();
+  });
+});
+
+/* ---- ChatInput feedback mode ---- */
+
+describe("ChatInput feedback mode", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows yellow feedback bar when feedbackMode is true", () => {
+    render(
+      <ChatInput
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        feedbackMode={true}
+        feedbackMessage="What is recursion?"
+        onDismissFeedback={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("feedback-bar")).toBeTruthy();
+    expect(screen.getByText(/Feedback: what would you like to say/)).toBeTruthy();
+  });
+
+  it("shows feedback message as truncated quote", () => {
+    render(
+      <ChatInput
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        feedbackMode={true}
+        feedbackMessage="What is recursion?"
+        onDismissFeedback={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("feedback-quote")).toBeTruthy();
+    expect(screen.getByTestId("feedback-quote").textContent).toContain("What is recursion?");
+  });
+
+  it("uses feedback placeholder when in feedback mode", () => {
+    render(
+      <ChatInput
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        feedbackMode={true}
+        feedbackMessage="Test"
+        onDismissFeedback={() => {}}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("Share your feedback...")).toBeTruthy();
+  });
+
+  it("dismiss button calls onDismissFeedback", async () => {
+    const onDismiss = vi.fn();
+    render(
+      <ChatInput
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        feedbackMode={true}
+        feedbackMessage="Test"
+        onDismissFeedback={onDismiss}
+      />,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("feedback-dismiss"));
+
+    expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it("hides reply quote when feedback mode is active", () => {
+    render(
+      <ChatInput
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        feedbackMode={true}
+        feedbackMessage="Feedback msg"
+        onDismissFeedback={() => {}}
+        quotedMessage="Reply quote"
+        onDismissQuote={() => {}}
+      />,
+    );
+
+    // Feedback bar should show
+    expect(screen.getByTestId("feedback-bar")).toBeTruthy();
+    // Reply quote should not show
+    expect(screen.queryByTestId("quote-preview")).toBeNull();
   });
 });
