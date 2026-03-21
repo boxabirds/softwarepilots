@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect } from "react";
 
 const MAX_LINES = 7;
-const LINE_HEIGHT = 20; // matches leading-5 (1.25rem = 20px)
+const LINE_HEIGHT = 20;
 const MAX_HEIGHT = MAX_LINES * LINE_HEIGHT;
 const QUOTE_PREVIEW_LENGTH = 100;
 
@@ -26,16 +26,13 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Autofocus on mount
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
-  // Auto-grow: runs before paint so no flicker
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    // Collapse to measure natural content height
     el.style.height = "auto";
     const contentHeight = el.scrollHeight;
     if (contentHeight > MAX_HEIGHT) {
@@ -63,19 +60,23 @@ export function ChatInput({
     : null;
 
   return (
-    <div className="rounded-2xl border border-border bg-background px-4 py-3 shadow-sm">
-      {/* Quote preview */}
+    <div
+      className="rounded-2xl px-4 py-3 shadow-sm"
+      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}
+    >
       {truncatedQuote && (
         <div
-          className="mb-2 flex items-start gap-2 rounded border-l-2 border-primary/40 bg-muted/60 px-3 py-2"
+          className="mb-2 flex items-start gap-2 rounded px-3 py-2"
+          style={{ borderLeft: "2px solid var(--pilot-blue)", background: "var(--bg-muted)" }}
           data-testid="quote-preview"
         >
-          <span className="flex-1 text-[12px] italic text-muted-foreground">
+          <span className="flex-1 text-[12px] italic" style={{ color: "var(--text-muted)" }}>
             {truncatedQuote}
           </span>
           <button
             onClick={onDismissQuote}
-            className="shrink-0 cursor-pointer border-none bg-transparent text-sm leading-none text-muted-foreground hover:text-foreground"
+            className="shrink-0 cursor-pointer border-none bg-transparent text-sm leading-none"
+            style={{ color: "var(--text-muted)" }}
             aria-label="Dismiss quote"
             data-testid="quote-dismiss"
           >
@@ -84,7 +85,6 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Input row */}
       <div className="flex items-end gap-2">
         <textarea
           ref={textareaRef}
@@ -94,20 +94,20 @@ export function ChatInput({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm text-foreground outline-none"
-          style={{ lineHeight: LINE_HEIGHT + "px" }}
+          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm outline-none"
+          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)" }}
         />
         <button
           onClick={onSubmit}
           disabled={!canSubmit}
           className="flex size-8 shrink-0 items-center justify-center rounded-full border-none text-base transition-colors"
           style={canSubmit ? {
-            background: "#1A4FD1",
-            color: "#ffffff",
+            background: "var(--pilot-blue)",
+            color: "var(--text-on-brand)",
             cursor: "pointer",
           } : {
-            background: "#E8EDFA",
-            color: "#A8BBEB",
+            background: "var(--bg-muted)",
+            color: "var(--text-muted)",
             cursor: "default",
           }}
           aria-label="Submit"

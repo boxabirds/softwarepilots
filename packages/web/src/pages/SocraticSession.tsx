@@ -395,10 +395,10 @@ export function SocraticSession() {
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors"
                     style={isCurrent ? {
                       background: "rgba(26, 79, 209, 0.1)",
-                      color: "#1A4FD1",
+                      color: "var(--pilot-blue)",
                       fontWeight: 600,
                     } : {
-                      color: "#4A5A7A",
+                      color: "var(--text-tertiary)",
                     }}
                   >
                     {status && (
@@ -650,9 +650,9 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "#FAFBFE" }}>
+      <div className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
         {/* Header with lesson list toggle */}
-        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "#F4F6FD", borderBottom: "1px solid #E8EDFA" }}>
+        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--bg-subtle)", borderBottom: "1px solid var(--border-light)" }}>
           <button
             onClick={() => setContextOpen(!contextOpen)}
             className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-foreground"
@@ -702,7 +702,7 @@ export function SocraticSession() {
 
           {/* Input - floats over conversation */}
           {!sessionComplete && !sessionPaused && (
-            <div className="absolute right-0 bottom-0 left-0 px-4 pb-4 pt-3 backdrop-blur-sm" style={{ background: "rgba(250, 251, 254, 0.85)" }}>
+            <div className="absolute right-0 bottom-0 left-0 px-4 pb-4 pt-3 backdrop-blur-sm" style={{ background: "color-mix(in srgb, var(--bg-base) 85%, transparent)" }}>
               {renderInputBar()}
             </div>
           )}
@@ -713,9 +713,9 @@ export function SocraticSession() {
 
   // Desktop: two-column layout
   return (
-    <div className="flex h-[calc(100dvh-56px)]" style={{ background: "#FAFBFE" }}>
+    <div className="flex h-[calc(100dvh-56px)]" style={{ background: "var(--bg-base)" }}>
       {/* Left column: lesson list */}
-      <div className="flex w-80 shrink-0 flex-col" style={{ background: "#F4F6FD", borderRight: "1px solid #E8EDFA" }}>
+      <div className="flex w-80 shrink-0 flex-col" style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-light)" }}>
         {renderLessonList()}
       </div>
 
@@ -741,7 +741,7 @@ export function SocraticSession() {
 
         {/* Input - floats over conversation */}
         {!sessionComplete && !sessionPaused && (
-          <div className="absolute right-0 bottom-0 left-0 px-5 pb-4 pt-3 backdrop-blur-sm" style={{ background: "rgba(250, 251, 254, 0.85)" }}>
+          <div className="absolute right-0 bottom-0 left-0 px-5 pb-4 pt-3 backdrop-blur-sm" style={{ background: "color-mix(in srgb, var(--bg-base) 85%, transparent)" }}>
             {renderInputBar()}
           </div>
         )}

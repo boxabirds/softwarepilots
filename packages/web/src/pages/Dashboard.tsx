@@ -225,7 +225,7 @@ export function Dashboard() {
               {/* Level 0 interactive exercises */}
               {expanded === "level-0" && (
                 <>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#7A8BA8" }}>Interactive Exercises</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Interactive Exercises</h3>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {LEVEL_0_EXERCISES.map((ex) => (
                       <ExerciseCard key={ex.number} {...ex} />
@@ -254,12 +254,12 @@ function TrackCard({
     <div
       className="cursor-pointer rounded-xl p-5 transition-all"
       style={isExpanded ? {
-        background: "linear-gradient(135deg, #1A4FD1, #0F2C7E)",
+        background: "linear-gradient(135deg, var(--pilot-blue), var(--pilot-800))",
         color: "white",
-        boxShadow: "0 8px 24px rgba(26, 79, 209, 0.3)",
+        boxShadow: "var(--shadow-lg)",
       } : {
-        background: "#FAFBFE",
-        border: "1px solid #D1DBF5",
+        background: "var(--bg-base)",
+        border: "1px solid var(--border-light)",
       }}
       onClick={onToggle}
       role="button"
@@ -279,7 +279,7 @@ function TrackCard({
       </h2>
       <p
         className="mt-2 line-clamp-2 text-sm"
-        style={{ color: isExpanded ? "rgba(255,255,255,0.75)" : "#4A5A7A" }}
+        style={{ color: isExpanded ? "rgba(255,255,255,0.75)" : "var(--text-tertiary)" }}
       >
         {profile.starting_position}
       </p>
@@ -287,11 +287,11 @@ function TrackCard({
         <span
           className="rounded-full px-3 py-1 text-xs font-semibold"
           style={isExpanded ? {
-            background: "rgba(255,255,255,0.2)",
-            color: "#ffffff",
+            background: "rgba(255,255,255,0.15)",
+            color: "var(--text-on-brand)",
           } : {
-            background: "#E8EDFA",
-            color: "#13389E",
+            background: "var(--bg-muted)",
+            color: "var(--pilot-700)",
           }}
         >
           {profile.section_count} sections
@@ -320,7 +320,7 @@ function ModuleTree({
     <div>
       <h3
         className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"
-        style={{ color: "#7A8BA8" }}
+        style={{ color: "var(--text-muted)" }}
       >
         {mod.module_title}
         {hasProgress && (
@@ -338,17 +338,17 @@ function ModuleTree({
               to={`/curriculum/${profile}/${sec.id}`}
               className="flex items-center gap-2.5 rounded-lg px-4 py-3 text-sm no-underline transition-all hover:shadow-sm"
               style={{
-                background: "#F4F6FD",
-                border: "1px solid #E8EDFA",
-                color: "#2A3654",
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--border-light)",
+                color: "var(--text-secondary)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#00AAFF";
-                e.currentTarget.style.background = "#FAFBFE";
+                e.currentTarget.style.borderColor = "var(--pilot-cyan)";
+                e.currentTarget.style.background = "var(--bg-base)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#E8EDFA";
-                e.currentTarget.style.background = "#F4F6FD";
+                e.currentTarget.style.borderColor = "var(--border-light)";
+                e.currentTarget.style.background = "var(--bg-subtle)";
               }}
             >
               {progress ? (

@@ -15,7 +15,8 @@ export function TopNav() {
 
   return (
     <nav
-      className="fixed top-0 right-0 left-0 z-30 flex items-center border-b border-border bg-background px-4"
+      className="fixed top-0 right-0 left-0 z-30 flex items-center px-4"
+      style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-base)" }}
       style={{ height: NAV_HEIGHT_PX }}
       data-testid="top-nav"
     >
@@ -73,22 +74,23 @@ function ProfileMenu({ initial, displayName }: { initial: string; displayName?: 
       <button
         onClick={() => setOpen(!open)}
         className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors"
-        style={{ background: "#E8EDFA", color: "#1A4FD1" }}
+        style={{ background: "var(--bg-muted)", color: "var(--pilot-blue)" }}
         data-testid="nav-profile-icon"
         title={displayName ?? "Profile"}
       >
         {initial}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-40 rounded-md border border-border bg-background py-1 shadow-lg">
+        <div className="absolute right-0 top-full mt-1 w-40 rounded-md py-1 shadow-lg" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}>
           {displayName && (
-            <div className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+            <div className="px-3 py-2 text-xs" style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
               {displayName}
             </div>
           )}
           <button
             onClick={handleSignOut}
-            className="flex w-full cursor-pointer items-center px-3 py-2 text-sm text-foreground hover:bg-accent"
+            className="flex w-full cursor-pointer items-center px-3 py-2 text-sm"
+            style={{ color: "var(--text-primary)" }}
             data-testid="sign-out-button"
           >
             Sign out
