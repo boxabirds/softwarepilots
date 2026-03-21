@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import { isValidProfile, isValidSectionId, curriculum } from "../curriculum";
 import type { Env } from "../../env";
@@ -72,11 +72,11 @@ function createMockDB() {
   const store = new Map<string, MockRow>();
   let idCounter = 0;
 
-  const mockFirst = vi.fn(async () => null as MockRow | null);
-  const mockRun = vi.fn(async () => ({ success: true }));
-  const mockBind = vi.fn();
+  const mockFirst = mock(async () => null as MockRow | null);
+  const mockRun = mock(async () => ({ success: true }));
+  const mockBind = mock();
 
-  const mockPrepare = vi.fn((sql: string) => {
+  const mockPrepare = mock((sql: string) => {
     const statement = {
       bind: (...args: unknown[]) => {
         mockBind(...args);

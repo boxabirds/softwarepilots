@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, mock, afterEach } from "bun:test";
 import {
   assembleStepContext,
   buildTutorSystemPrompt,
@@ -475,7 +475,7 @@ describe("callGeminiWithTools (mocked fetch)", () => {
   });
 
   it("returns on_topic: true for help_with_curriculum tool call", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = mock(() => {}).mockResolvedValue({
       ok: true,
       json: async () =>
         helpCurriculumResponse("What type do you think price + tax is?", "type conversion"),
@@ -497,7 +497,7 @@ describe("callGeminiWithTools (mocked fetch)", () => {
   });
 
   it("returns step_answer for provided_step_answer tool call", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = mock(() => {}).mockResolvedValue({
       ok: true,
       json: async () =>
         stepAnswerResponse("Total: 12.0", "Nice prediction!"),
@@ -518,7 +518,7 @@ describe("callGeminiWithTools (mocked fetch)", () => {
   });
 
   it("throws on Gemini error response", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(errorFetchResponse(500, "Internal error"));
+    globalThis.fetch = mock(() => {}).mockResolvedValue(errorFetchResponse(500, "Internal error"));
 
     const { callGeminiWithTools } = await import("./chat");
     const tools = buildTutorTools(

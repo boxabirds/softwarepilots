@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, spyOn, mock } from "bun:test";
 import {
   buildGeminiContents,
   parseGeminiToolResponse,
@@ -178,7 +178,7 @@ describe("parseGeminiToolResponse", () => {
 describe("getOrUploadFile", () => {
   beforeEach(() => {
     _clearFileCache();
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it("returns cached URI on second call (no extra fetch)", async () => {
@@ -195,8 +195,7 @@ describe("getOrUploadFile", () => {
         }),
     };
 
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
+    const fetchSpy = spyOn(globalThis, "fetch")
       .mockResolvedValue(mockResponse as unknown as Response);
 
     const uri1 = await getOrUploadFile(
@@ -232,8 +231,7 @@ describe("getOrUploadFile", () => {
         }),
     });
 
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
+    const fetchSpy = spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         mockResponse("gs://bucket/a") as unknown as Response,
       )
@@ -254,7 +252,7 @@ describe("getOrUploadFile", () => {
 
 describe("callGeminiWithTools", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it("retries on failure then succeeds", async () => {
@@ -275,8 +273,7 @@ describe("callGeminiWithTools", () => {
       ],
     };
 
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
+    const fetchSpy = spyOn(globalThis, "fetch")
       // First call: network error
       .mockRejectedValueOnce(new Error("network down"))
       // Second call: success
@@ -298,7 +295,7 @@ describe("callGeminiWithTools", () => {
   });
 
   it("throws after exhausting retries", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+    spyOn(globalThis, "fetch").mockRejectedValue(
       new Error("persistent failure"),
     );
 

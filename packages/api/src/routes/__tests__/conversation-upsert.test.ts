@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 
 /**
@@ -11,7 +11,7 @@ import { Hono } from "hono";
  * 0002 + 0003 to reproduce the error.
  */
 
-function createD1Shim(sqliteDb: ReturnType<typeof Database>): D1Database {
+function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
       let bindings: unknown[] = [];
@@ -49,7 +49,7 @@ function createD1Shim(sqliteDb: ReturnType<typeof Database>): D1Database {
   } as D1Database;
 }
 
-let sqliteDb: ReturnType<typeof Database>;
+let sqliteDb: InstanceType<typeof Database>;
 
 beforeEach(() => {
   sqliteDb = new Database(":memory:");

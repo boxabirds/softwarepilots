@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, mock, spyOn } from "bun:test";
 import { sign } from "hono/jwt";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import app from "../../index";
 import { _clearNarrativeCache } from "../curriculum";
 
-/* ---- D1Database shim using better-sqlite3 ---- */
+/* ---- D1Database shim using bun:sqlite ---- */
 
-function createD1Shim(sqliteDb: ReturnType<typeof Database>): D1Database {
+function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
       let bindings: unknown[] = [];
@@ -77,7 +77,7 @@ async function authCookie(): Promise<string> {
 
 /* ---- DB setup ---- */
 
-let sqliteDb: ReturnType<typeof Database>;
+let sqliteDb: InstanceType<typeof Database>;
 let db: D1Database;
 
 function buildTestEnv() {
@@ -149,9 +149,8 @@ beforeEach(() => {
   db = createD1Shim(sqliteDb);
 
   // Mock fetch globally so Gemini calls don't go out
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
+  const mockFetch = mock(() =>
+    Promise.resolve(
       new Response(
         JSON.stringify({
           candidates: [
@@ -166,6 +165,7 @@ beforeEach(() => {
       )
     )
   );
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
 /* ---- Tests ---- */
@@ -283,10 +283,8 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
       .run(TEST_LEARNER_ID, "new-grad", "1.1");
 
     // Override fetch to fail
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("Network error"))
-    );
+    const failFetch = mock(() => Promise.reject(new Error("Network error")));
+    globalThis.fetch = failFetch as unknown as typeof fetch;
 
     const cookie = await authCookie();
     const res = await app.request(

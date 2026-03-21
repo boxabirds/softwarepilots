@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { Database } from "bun:sqlite";
 import {
   updateSectionProgress,
   getProgressForProfile,
@@ -7,9 +7,9 @@ import {
 } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
 
-/* ---- D1Database shim using better-sqlite3 ---- */
+/* ---- D1Database shim using bun:sqlite ---- */
 
-function createD1Shim(sqliteDb: ReturnType<typeof Database>): D1Database {
+function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
       let bindings: unknown[] = [];
@@ -70,7 +70,7 @@ const TEST_LEARNER_ID = "test-learner-001";
 const TEST_PROFILE = "foundations";
 const TEST_SECTION = "2.1";
 
-let sqliteDb: ReturnType<typeof Database>;
+let sqliteDb: InstanceType<typeof Database>;
 let db: D1Database;
 
 beforeEach(() => {
