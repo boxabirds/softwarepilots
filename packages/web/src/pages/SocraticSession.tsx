@@ -724,29 +724,31 @@ export function SocraticSession() {
         )}
 
         {/* Conversation */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4">
-          {renderConversation()}
-          {renderCompletionCard()}
-          {renderPauseCard()}
-        </div>
-
-        {/* Scroll-to-bottom */}
-        {!isAtBottom && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-24 left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"
-            aria-label="Scroll to bottom"
-          >
-            &#8595;
-          </button>
-        )}
-
-        {/* Input */}
-        {!sessionComplete && !sessionPaused && (
-          <div className="bg-muted px-4 pb-4 pt-3">
-            {renderInputBar()}
+        <div className="relative flex-1">
+          <div ref={chatRef} className="absolute inset-0 overflow-y-auto px-4 py-4 pb-24">
+            {renderConversation()}
+            {renderCompletionCard()}
+            {renderPauseCard()}
           </div>
-        )}
+
+          {/* Scroll-to-bottom */}
+          {!isAtBottom && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-24 left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"
+              aria-label="Scroll to bottom"
+            >
+              &#8595;
+            </button>
+          )}
+
+          {/* Input - floats over conversation */}
+          {!sessionComplete && !sessionPaused && (
+            <div className="absolute right-0 bottom-0 left-0 bg-muted/80 px-4 pb-4 pt-3 backdrop-blur-sm">
+              {renderInputBar()}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -762,7 +764,7 @@ export function SocraticSession() {
       {/* Right column: conversation */}
       <div className="relative flex flex-1 flex-col">
         {/* Conversation */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto px-5 py-4">
+        <div ref={chatRef} className="flex-1 overflow-y-auto px-5 py-4 pb-24">
           {renderConversation()}
           {renderCompletionCard()}
           {renderPauseCard()}
@@ -779,9 +781,9 @@ export function SocraticSession() {
           </button>
         )}
 
-        {/* Input */}
+        {/* Input - floats over conversation */}
         {!sessionComplete && !sessionPaused && (
-          <div className="bg-muted px-5 pb-4 pt-3">
+          <div className="absolute right-0 bottom-0 left-0 bg-muted/80 px-5 pb-4 pt-3 backdrop-blur-sm">
             {renderInputBar()}
           </div>
         )}
