@@ -22,6 +22,7 @@ const BASE_TOOL_NAMES = [
   "surface_key_insight",
   "off_topic_detected",
   "session_complete",
+  "session_pause",
 ];
 
 const geminiResponse = (
@@ -74,7 +75,7 @@ describe("buildSocraticTools", () => {
   it("includes section title in base tool descriptions", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
     const baseDecls = tools[0].functionDeclarations.filter(
-      (d) => d.name !== "track_concepts" && d.name !== "session_complete"
+      (d) => d.name !== "track_concepts" && d.name !== "session_complete" && d.name !== "session_pause"
     );
     const descriptions = baseDecls.map((d) => d.description as string);
     for (const desc of descriptions) {
@@ -395,15 +396,17 @@ describe("parseSocraticResponse multi-tool", () => {
         {
           name: "session_pause",
           args: {
-            message: "Let's take a break.",
-            pause_reason: "learner fatigue",
+            acknowledgment: "Great work today! Let's take a break.",
+            pause_reason: "fatigue_detected",
+            concepts_covered_so_far: "variables, scope",
             resume_suggestion: "Try again after reviewing the docs",
           },
         },
       ])
     );
-    expect(result.reply).toBe("Let's take a break.");
-    expect(result.pause_reason).toBe("learner fatigue");
+    expect(result.reply).toBe("Great work today! Let's take a break.");
+    expect(result.pause_reason).toBe("fatigue_detected");
+    expect(result.concepts_covered_so_far).toBe("variables, scope");
     expect(result.resume_suggestion).toBe("Try again after reviewing the docs");
   });
 });
@@ -494,8 +497,8 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 6;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 7;
+const EXPECTED_BASE_TOOL_COUNT = 7;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 8;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {
