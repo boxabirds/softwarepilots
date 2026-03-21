@@ -20,11 +20,8 @@ export const STATUS_PAUSED = "paused";
 const COMPLETION_TOOL_TYPE = "surface_key_insight";
 const COMPLETION_READINESS = "articulated";
 const SESSION_COMPLETE_TOOL_TYPE = "session_complete";
-<<<<<<< HEAD
 const PROVIDE_INSTRUCTION_TOOL_TYPE = "provide_instruction";
-=======
 const SESSION_PAUSE_TOOL_TYPE = "session_pause";
->>>>>>> worktree-agent-acfd851b
 
 /* ---- Types ---- */
 
@@ -38,14 +35,11 @@ export interface SocraticResponse {
   final_understanding?: string;
   concepts_covered?: string[];
   concepts_missed?: string[];
-<<<<<<< HEAD
   struggle_reason?: string;
   concept?: string;
-=======
   pause_reason?: string;
   concepts_covered_so_far?: string;
   resume_suggestion?: string;
->>>>>>> worktree-agent-acfd851b
 }
 
 interface ProgressRow {

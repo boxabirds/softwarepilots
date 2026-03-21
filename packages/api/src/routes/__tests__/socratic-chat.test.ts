@@ -498,8 +498,8 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 7;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 8;
+const EXPECTED_BASE_TOOL_COUNT = 8;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 9;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {
@@ -635,7 +635,6 @@ describe("parseSocraticResponse with track_concepts", () => {
   });
 });
 
-<<<<<<< HEAD
 /* ---- provide_instruction tool ---- */
 
 describe("provide_instruction tool", () => {
@@ -702,7 +701,17 @@ describe("provide_instruction tool", () => {
             response: "Can you think of when you might use a loop?",
             topic: "loops",
             confidence_assessment: "low",
-=======
+          },
+        },
+      ])
+    );
+
+    expect(result.reply).toContain("A loop repeats a block of code.");
+    expect(result.reply).toContain("Can you think of when you might use a loop?");
+    expect(result.tool_type).toBe("provide_instruction+socratic_probe");
+  });
+});
+
 /* ---- session_pause tool ---- */
 
 describe("session_pause tool declaration", () => {
@@ -787,19 +796,11 @@ describe("session_pause parser", () => {
             pause_reason: "frustration_detected",
             concepts_covered_so_far: "variables, scope",
             resume_suggestion: "We'll pick up with closures",
->>>>>>> worktree-agent-acfd851b
           },
         },
       ])
     );
-<<<<<<< HEAD
 
-    expect(result.reply).toContain("A loop repeats a block of code.");
-    expect(result.reply).toContain("Can you think of when you might use a loop?");
-    expect(result.tool_type).toBe("provide_instruction+socratic_probe");
-    expect(result.concept).toBe("loops");
-    expect(result.struggle_reason).toBe("no_progression");
-=======
     expect(result.tool_type).toBe("track_concepts+session_pause");
     expect(result.reply).toBe("Great progress! Let's pause here.");
     expect(result.pause_reason).toBe("frustration_detected");
@@ -817,6 +818,5 @@ describe("session_pause system prompt guidance", () => {
     expect(prompt).toContain("frustration");
     expect(prompt).toContain("fatigued");
     expect(prompt).toContain("Never say 'you seem tired'");
->>>>>>> worktree-agent-acfd851b
   });
 });
