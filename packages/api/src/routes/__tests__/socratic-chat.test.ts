@@ -118,7 +118,7 @@ describe("buildSocraticSystemPrompt", () => {
 
   it("includes Socratic instruction to never lecture", () => {
     const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
-    expect(prompt).toContain("Never lecture");
+    expect(prompt).toContain("Default to Socratic questioning");
   });
 
   it("includes conversation context when history exists", () => {
@@ -494,8 +494,8 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 6;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 7;
+const EXPECTED_BASE_TOOL_COUNT = 7;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 8;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {

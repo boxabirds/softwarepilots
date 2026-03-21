@@ -21,7 +21,7 @@ import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 const SOCRATIC_TEMPERATURE = 0.4;
-const SOCRATIC_TOOL_COUNT = 6;
+const SOCRATIC_TOOL_COUNT = 7;
 const MAX_RESPONSE_SENTENCES = 3;
 const RETRY_DELAY_MS = 1000;
 const MAX_RETRIES = 1;
@@ -41,6 +41,7 @@ export interface SocraticChatResponse {
   reply: string;
   tool_type: string;
   topic?: string;
+  concept?: string;
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
@@ -166,6 +167,35 @@ export function buildSocraticTools(
       },
     },
     {
+      name: "provide_instruction",
+      description:
+        `Provide a direct explanation when Socratic questioning has demonstrably failed. ${sectionContext}`,
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          instruction: {
+            type: "STRING",
+            description: "Clear explanation of the concept",
+          },
+          concept: {
+            type: "STRING",
+            description: "Which concept is being taught",
+          },
+          struggle_reason: {
+            type: "STRING",
+            enum: [
+              "repeated_wrong_answer",
+              "no_progression",
+              "learner_asked",
+              "low_confidence_sustained",
+            ],
+            description: "Why the learner is struggling",
+          },
+        },
+        required: ["instruction", "concept", "struggle_reason"],
+      },
+    },
+    {
       name: "off_topic_detected",
       description:
         `The message is unrelated to "${section.title}" or software pilotry. Gently redirect.`,
@@ -269,12 +299,13 @@ export function buildSocraticSystemPrompt(
     "",
     "== Rules ==",
     `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response`,
-    "- Never lecture - always ask questions that guide the learner to discover insights",
+    "- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.",
     "- You MUST call one or more of the provided functions",
     "- Use socratic_probe to ask probing questions",
     "- Use present_scenario to illustrate with realistic examples",
     "- Use evaluate_response when the learner provides an answer",
     "- Use surface_key_insight when the learner is approaching the key intuition",
+    "- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. After providing instruction, follow up with a question to check understanding.",
     "- Use off_topic_detected to redirect off-topic messages",
     "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
   ];
@@ -378,6 +409,10 @@ function extractMetadata(
     result.learner_readiness = fc.args.learner_readiness;
   if (fc.args.final_understanding)
     result.final_understanding = fc.args.final_understanding;
+  if (fc.args.struggle_reason && !result.struggle_reason)
+    result.struggle_reason = fc.args.struggle_reason;
+  if (fc.args.concept && !result.concept)
+    result.concept = fc.args.concept;
   if (fc.args.pause_reason)
     result.pause_reason = fc.args.pause_reason;
   if (fc.args.resume_suggestion)
