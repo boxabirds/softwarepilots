@@ -7,7 +7,7 @@ export function TutorCard({ content, loading }: { content: string; loading?: boo
           <span className="text-[13px] text-muted-foreground">Thinking...</span>
         </div>
       ) : (
-        <div className="text-[13px] leading-relaxed text-foreground">{content}</div>
+        <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{content}</div>
       )}
     </div>
   );

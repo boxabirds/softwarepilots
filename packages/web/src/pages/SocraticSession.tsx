@@ -439,7 +439,7 @@ export function SocraticSession() {
                     {msg.concept}
                   </span>
                 )}
-                <div className="text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+                <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{msg.content}</div>
               </div>
             ) : (
               <TutorCard content={msg.content} />
@@ -457,7 +457,7 @@ export function SocraticSession() {
       } else {
         elements.push(
           <ChatCard key={i} align="right">
-            <div className="text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{msg.content}</div>
           </ChatCard>
         );
       }
