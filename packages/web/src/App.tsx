@@ -14,6 +14,9 @@ const CurriculumSelect = lazy(() =>
     default: m.CurriculumSelect,
   }))
 );
+const SocraticSession = lazy(() =>
+  import("./pages/SocraticSession").then((m) => ({ default: m.SocraticSession }))
+);
 
 function RouteLoader({ children }: { children: React.ReactNode }) {
   return (
@@ -60,6 +63,16 @@ export function App() {
             <AuthGuard>
               <RouteLoader>
                 <Exercise />
+              </RouteLoader>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/curriculum/:profile/:sectionId"
+          element={
+            <AuthGuard>
+              <RouteLoader>
+                <SocraticSession />
               </RouteLoader>
             </AuthGuard>
           }
