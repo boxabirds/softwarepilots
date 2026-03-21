@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 interface TutorCardProps {
   content: string;
   loading?: boolean;
@@ -7,25 +5,13 @@ interface TutorCardProps {
 }
 
 export function TutorCard({ content, loading, onReply }: TutorCardProps) {
-  const [tapped, setTapped] = useState(false);
-
-  const handleCardClick = () => {
-    if (onReply) setTapped((prev) => !prev);
-  };
-
-  const handleReplyClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onReply?.();
-  };
-
   return (
     <div
-      className="group relative mr-10 mt-3 rounded-xl p-4"
+      className="mr-10 mt-3 rounded-xl p-4"
       style={{
         background: "var(--tutor-card-bg)",
         borderLeft: "3px solid var(--pilot-blue)",
       }}
-      onClick={handleCardClick}
       data-testid="tutor-card"
     >
       {loading ? (
@@ -46,11 +32,12 @@ export function TutorCard({ content, loading, onReply }: TutorCardProps) {
       )}
       {onReply && !loading && (
         <button
-          onClick={handleReplyClick}
-          className={`absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-[11px] font-medium transition-opacity ${
-            tapped ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          }`}
-          style={{ color: "var(--pilot-blue)", background: "var(--bg-muted)" }}
+          onClick={(e) => { e.stopPropagation(); onReply?.(); }}
+          className="mt-2 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
+          style={{
+            color: "var(--text-on-brand)",
+            background: "var(--pilot-blue)",
+          }}
           data-testid="reply-button"
         >
           Reply
