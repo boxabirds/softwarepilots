@@ -3,7 +3,7 @@ import type { CurriculumData } from "../curricula";
 export const seniorLeaderCurriculum: CurriculumData = {
   meta: {
     profile: "senior-leader",
-    title: "Senior Tech Leader",
+    title: "Level 20",
     starting_position:
       "Owns outcomes for teams, systems, and organizations. May or may not still write code regularly. Strong judgment about people and systems, but potentially disconnected from the day-to-day reality of agent-assisted development. Risk: treats the transition as a tooling upgrade rather than a fundamental shift in how software quality is assured, or delegates the entire paradigm shift to their teams without understanding it themselves.",
     tutor_guidance:
