@@ -47,6 +47,7 @@ interface SectionMetadata {
 const SCROLL_BOTTOM_THRESHOLD = 50;
 const OPENING_MESSAGE = "I'm ready to begin.";
 const RESUME_MESSAGE = "I'd like to continue where we left off.";
+const QUOTE_TRUNCATE_LENGTH = 100;
 
 /* ---- Component ---- */
 
@@ -66,6 +67,7 @@ export function SocraticSession() {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
   const [sessionPaused, setSessionPaused] = useState<SocraticResponse | null>(null);
+  const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
 
   // Mobile layout
   const isMobile = useIsMobile();
@@ -232,17 +234,22 @@ export function SocraticSession() {
     const text = inputText.trim();
     if (!text || sending || !profile || !sectionId) return;
 
-    const userMsg: ConversationMessage = { role: "user", content: text };
+    const messageContent = quotedMessage
+      ? `> ${quotedMessage}\n\n${text}`
+      : text;
+
+    const userMsg: ConversationMessage = { role: "user", content: messageContent };
     const updatedConversation = [...conversation, userMsg];
     setConversation(updatedConversation);
     setInputText("");
+    setQuotedMessage(null);
     setSending(true);
 
     try {
       const response = await apiClient.post<SocraticResponse>("/api/socratic", {
         profile,
         section_id: sectionId,
-        message: text,
+        message: messageContent,
         context: {
           conversation: updatedConversation.map(({ role, content }) => ({ role, content })),
         },
@@ -359,6 +366,11 @@ export function SocraticSession() {
     }
   }, [profile, sectionId, conversation, saveConversation]);
 
+  const handleReply = useCallback((content: string) => {
+    setQuotedMessage(content);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
   /* ---- Lesson list sidebar ---- */
 
   function renderLessonList() {
@@ -442,7 +454,10 @@ export function SocraticSession() {
                 <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{msg.content}</div>
               </div>
             ) : (
-              <TutorCard content={msg.content} />
+              <TutorCard
+                content={msg.content}
+                onReply={isError ? undefined : () => handleReply(msg.content)}
+              />
             )}
             {isError && (
               <button
@@ -570,31 +585,53 @@ export function SocraticSession() {
   /* ---- Input bar ---- */
 
   function renderInputBar() {
+    const truncatedQuote = quotedMessage && quotedMessage.length > QUOTE_TRUNCATE_LENGTH
+      ? quotedMessage.slice(0, QUOTE_TRUNCATE_LENGTH) + "..."
+      : quotedMessage;
+
     return (
       <InputPill>
-        <textarea
-          ref={inputRef}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type your response..."
-          rows={1}
-          className="flex-1 resize-none overflow-hidden border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
-          style={{ maxHeight: "7.5rem" }}
-          onInput={(e) => {
-            const el = e.currentTarget;
-            el.style.height = "auto";
-            el.style.height = Math.min(el.scrollHeight, 120) + "px";
-            if (el.scrollHeight > 120) el.style.overflow = "auto";
-            else el.style.overflow = "hidden";
-          }}
-          disabled={sending}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-        />
+        <div className="flex flex-1 flex-col">
+          {quotedMessage && (
+            <div
+              className="mb-2 flex w-full items-start gap-2 rounded border-l-2 border-primary/40 bg-muted/60 px-3 py-2"
+              data-testid="quote-preview"
+            >
+              <span className="flex-1 text-[12px] italic text-muted-foreground">{truncatedQuote}</span>
+              <button
+                onClick={() => setQuotedMessage(null)}
+                className="shrink-0 cursor-pointer border-none bg-transparent text-[14px] leading-none text-muted-foreground hover:text-foreground"
+                aria-label="Dismiss quote"
+                data-testid="quote-dismiss"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+          <textarea
+            ref={inputRef}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Type your response..."
+            rows={1}
+            className="flex-1 resize-none overflow-hidden border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
+            style={{ maxHeight: "7.5rem" }}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = Math.min(el.scrollHeight, 120) + "px";
+              if (el.scrollHeight > 120) el.style.overflow = "auto";
+              else el.style.overflow = "hidden";
+            }}
+            disabled={sending}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+          />
+        </div>
         <SubmitArrow active={!!inputText.trim() && !sending} onClick={handleSubmit} />
       </InputPill>
     );
