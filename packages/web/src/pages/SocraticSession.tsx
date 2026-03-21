@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../lib/api-client";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -234,12 +234,14 @@ export function SocraticSession() {
 
   /* ---- Textarea auto-grow ---- */
   const TEXTAREA_MAX_HEIGHT = 140; // ~7 lines
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = inputRef.current;
     if (!el) return;
-    el.style.height = "0";
-    el.style.height = Math.min(el.scrollHeight, TEXTAREA_MAX_HEIGHT) + "px";
-    el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+    // Reset to min-content so scrollHeight reflects actual content
+    el.style.height = "auto";
+    const scrollH = el.scrollHeight;
+    el.style.height = Math.min(scrollH, TEXTAREA_MAX_HEIGHT) + "px";
+    el.style.overflowY = scrollH > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
   }, [inputText]);
 
   /* ---- Submit message ---- */
@@ -670,7 +672,7 @@ export function SocraticSession() {
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Type your response..."
             rows={1}
-            className="flex-1 resize-none border-none bg-transparent font-sans text-sm leading-5 text-foreground outline-none"
+            className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-5 text-foreground outline-none"
             disabled={sending}
             onKeyDown={(e) => {
               if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
