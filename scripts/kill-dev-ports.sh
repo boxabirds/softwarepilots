@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Kill any processes occupying the dev ports before launching
 
-# App ports: web (3000), API (8787), evaluator (8788)
+# App ports: web (3000), API (8787), evaluator (8788), fake GitHub (9999)
 # Inspector ports: API (9229), evaluator (9230)
-PORTS=(3000 8787 8788 9229 9230)
+PORTS=(3000 8787 8788 9229 9230 9999)
 
 for port in "${PORTS[@]}"; do
   pid=$(lsof -ti :"$port" 2>/dev/null || true)

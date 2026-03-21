@@ -14,7 +14,7 @@
     "evaluator:dev": "bun run --filter @softwarepilots/evaluator dev",
     "web:dev": "bun run --filter @softwarepilots/web dev",
     "setup": "bash scripts/setup-local.sh",
-    "dev:platform": "bash scripts/kill-dev-ports.sh && bun run --filter '@softwarepilots/*' dev",
+    "dev:platform": "bash scripts/kill-dev-ports.sh && bun run scripts/start-fake-github.ts & bun run --filter '@softwarepilots/*' dev",
     "test": "bun run --filter '@softwarepilots/*' test",
     "typecheck": "bun run --filter '@softwarepilots/*' typecheck"
   },
