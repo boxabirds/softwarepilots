@@ -220,10 +220,17 @@ function TrackCard({
         <CardTitle>{profile.title}</CardTitle>
         <CardDescription>{profile.starting_position}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex items-center gap-3">
         <Badge variant="secondary">
           {profile.section_count} sections
         </Badge>
+        <Link
+          to={`/curriculum/${profile.profile}/progress`}
+          className="text-xs text-primary underline hover:no-underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          View Progress
+        </Link>
       </CardContent>
     </Card>
   );

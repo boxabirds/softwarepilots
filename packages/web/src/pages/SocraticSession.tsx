@@ -357,14 +357,28 @@ export function SocraticSession() {
         <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
           The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.
         </p>
-        {conversation.length > 0 && (
-          <button
-            onClick={handleStartOver}
-            className="mt-4 cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <div className="mt-4 flex flex-col gap-2">
+          <Link
+            to={`/curriculum/${profile}/progress`}
+            className="text-xs text-primary underline hover:no-underline"
           >
-            Start Over
-          </button>
-        )}
+            View Progress
+          </Link>
+          <Link
+            to="/curriculum"
+            className="text-xs text-muted-foreground underline hover:no-underline"
+          >
+            Back to Curriculum
+          </Link>
+          {conversation.length > 0 && (
+            <button
+              onClick={handleStartOver}
+              className="mt-1 cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Start Over
+            </button>
+          )}
+        </div>
       </div>
     );
   }
