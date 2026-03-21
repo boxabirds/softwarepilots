@@ -3,7 +3,7 @@ import { useAuth } from "../lib/auth";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useBreadcrumbs } from "../hooks/useBreadcrumbs";
 
-const NAV_HEIGHT_PX = 48;
+const NAV_HEIGHT_PX = 56;
 
 export function TopNav() {
   const { learner } = useAuth();
@@ -19,13 +19,15 @@ export function TopNav() {
       data-testid="top-nav"
     >
       {/* Left: Logo */}
-      <Link
-        to="/dashboard"
-        className="flex shrink-0 items-center gap-2 font-semibold text-foreground no-underline"
+      <a
+        href="https://softwarepilotry.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex shrink-0 items-center"
         data-testid="nav-logo"
       >
-        <img src="/logo-blue-circle.png" alt="Software Pilots" className="h-7 w-auto" />
-      </Link>
+        <img src="/logo-blue-circle.png" alt="Software Pilots" className="h-14 w-auto" />
+      </a>
 
       {/* Center: breadcrumb trail */}
       <div className="mx-4 flex min-w-0 flex-1 items-center" data-testid="breadcrumbs">
