@@ -121,12 +121,11 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
       }
 
       const segments: BreadcrumbSegment[] = [
-                { label: profileLabel, href: "/curriculum" },
+        { label: profileLabel, href: "/curriculum" },
       ];
       if (moduleTitle) {
-        segments.push({ label: moduleTitle, href: "/curriculum" });
+        segments.push({ label: moduleTitle });
       }
-      segments.push({ label: sectionTitle });
       return segments;
     }
   }

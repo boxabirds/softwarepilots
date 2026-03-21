@@ -99,7 +99,7 @@ describe("SocraticSession", () => {
     expect(document.body).toBeTruthy();
   });
 
-  it("shows loading state initially", () => {
+  it("shows no intro card while section is still loading", () => {
     // Make section fetch hang so loading state persists
     mockGet.mockImplementation((path: string) => {
       if (path.endsWith("/conversation")) {
@@ -110,16 +110,19 @@ describe("SocraticSession", () => {
 
     renderSession();
 
-    expect(screen.getByText("Loading section...")).toBeTruthy();
+    // The intro TutorCard should not render until section metadata loads
+    expect(screen.queryByText(/Welcome to/)).toBeNull();
   });
 
-  it("shows section title after metadata loads", async () => {
+  it("shows section title in intro tutor card after metadata loads", async () => {
     setupSuccessMocks();
 
     renderSession();
 
     await waitFor(() => {
-      expect(screen.getByText("Understanding Software Pilots")).toBeTruthy();
+      expect(
+        screen.getByText(/Welcome to "Understanding Software Pilots"/),
+      ).toBeTruthy();
     });
   });
 

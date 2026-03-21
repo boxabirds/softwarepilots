@@ -85,18 +85,12 @@ describe("TopNav", () => {
     expect(logo.getAttribute("href")).toBe("/dashboard");
   });
 
-  it("shows full 'Software Pilots' text on desktop", () => {
-    mockIsMobile = false;
+  it("logo renders as an img tag", () => {
     renderTopNavAtRoute("/dashboard");
-    expect(screen.getByText("Software Pilots")).toBeTruthy();
-  });
-
-  it("hides 'Software Pilots' text on mobile (icon only)", () => {
-    mockIsMobile = true;
-    renderTopNavAtRoute("/dashboard");
-    expect(screen.queryByText("Software Pilots")).toBeNull();
-    // SP icon still present
-    expect(screen.getByText("SP")).toBeTruthy();
+    const logo = screen.getByTestId("nav-logo");
+    const img = logo.querySelector("img");
+    expect(img).toBeTruthy();
+    expect(img!.getAttribute("alt")).toBe("Software Pilots");
   });
 
   it("profile icon shows first initial of learner name", () => {
@@ -118,62 +112,65 @@ describe("TopNav", () => {
 });
 
 describe("Breadcrumbs", () => {
-  it("shows 'Home' on /dashboard", () => {
+  it("shows no breadcrumbs on /dashboard (logo handles home)", () => {
     renderTopNavAtRoute("/dashboard");
-    expect(screen.getByText("Home")).toBeTruthy();
+    const breadcrumbs = screen.getByTestId("breadcrumbs");
+    // No breadcrumb segments rendered
+    expect(breadcrumbs.textContent).toBe("");
   });
 
-  it("shows 'Home > Curriculum' on /curriculum", () => {
+  it("shows 'Curriculum' on /curriculum", () => {
     renderTopNavAtRoute("/curriculum");
     const breadcrumbs = screen.getByTestId("breadcrumbs");
-    expect(breadcrumbs.textContent).toContain("Home");
     expect(breadcrumbs.textContent).toContain("Curriculum");
   });
 
-  it("Home is a link on /curriculum, Curriculum is not", () => {
+  it("Curriculum is the current (non-link) segment on /curriculum", () => {
     renderTopNavAtRoute("/curriculum");
-    const homeLink = screen.getByTestId("breadcrumb-link-0");
-    expect(homeLink.getAttribute("href")).toBe("/dashboard");
-    // Current segment is not a link
-    const current = screen.getByTestId("breadcrumb-current-1");
+    const current = screen.getByTestId("breadcrumb-current-0");
     expect(current.tagName).toBe("SPAN");
     expect(current.textContent).toBe("Curriculum");
   });
 
-  it("shows full path on session page", () => {
+  it("shows profile and module title on session page", () => {
     renderTopNavAtRoute(
       "/curriculum/new-grad/1.1",
       "/curriculum/:profile/:sectionId",
     );
     const breadcrumbs = screen.getByTestId("breadcrumbs");
-    expect(breadcrumbs.textContent).toContain("Home");
     expect(breadcrumbs.textContent).toContain("New Grad");
+    // Should not contain "Home"
+    expect(breadcrumbs.textContent).not.toContain("Home");
   });
 
-  it("shows progress page breadcrumb", () => {
+  it("shows progress page breadcrumb without Home", () => {
     renderTopNavAtRoute(
       "/curriculum/senior-leader/progress",
       "/curriculum/:profile/progress",
     );
     const breadcrumbs = screen.getByTestId("breadcrumbs");
-    expect(breadcrumbs.textContent).toContain("Home");
+    expect(breadcrumbs.textContent).not.toContain("Home");
     expect(breadcrumbs.textContent).toContain("Senior Leader");
     expect(breadcrumbs.textContent).toContain("Progress");
   });
 
-  it("current segment (last) is not a link", () => {
-    renderTopNavAtRoute("/dashboard");
-    const current = screen.getByTestId("breadcrumb-current-0");
+  it("profile is a link on progress page, Progress is current", () => {
+    renderTopNavAtRoute(
+      "/curriculum/senior-leader/progress",
+      "/curriculum/:profile/progress",
+    );
+    const profileLink = screen.getByTestId("breadcrumb-link-0");
+    expect(profileLink.getAttribute("href")).toBe("/curriculum");
+    const current = screen.getByTestId("breadcrumb-current-1");
     expect(current.tagName).toBe("SPAN");
+    expect(current.textContent).toBe("Progress");
   });
 
-  it("mobile shows only current segment with back chevron", () => {
+  it("mobile shows only current segment", () => {
     mockIsMobile = true;
     renderTopNavAtRoute("/curriculum");
     const current = screen.getByTestId("breadcrumb-current-mobile");
     expect(current.textContent).toBe("Curriculum");
-    // Back chevron should be present
-    expect(screen.getByLabelText("Back")).toBeTruthy();
   });
 
   it("mobile dashboard has no back chevron", () => {

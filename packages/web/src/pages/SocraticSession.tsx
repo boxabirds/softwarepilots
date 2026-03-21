@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../lib/api-client";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { TutorCard } from "../components/exercise/TutorCard";
 import { ChatCard } from "../components/exercise/ChatCard";
 import { InputPill } from "../components/exercise/InputPill";
 import { SubmitArrow } from "../components/exercise/SubmitArrow";
+import { getCurriculumSections } from "@softwarepilots/shared";
+import { ProgressBadge } from "../components/ProgressBadge";
 
 /* ---- Types ---- */
 
@@ -68,6 +70,33 @@ export function SocraticSession() {
   // Mobile layout
   const isMobile = useIsMobile();
   const [contextOpen, setContextOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Module sections for the lesson list sidebar
+  interface LessonItem { id: string; title: string; module_id: string; }
+  const moduleSections = useMemo<LessonItem[]>(() => {
+    if (!profile || !section) return [];
+    try {
+      const all = getCurriculumSections(profile);
+      return all.filter((s) => s.module_id === section.module_id);
+    } catch {
+      return [];
+    }
+  }, [profile, section]);
+
+  // Fetch progress for lesson list badges
+  const [lessonProgress, setLessonProgress] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!profile) return;
+    apiClient
+      .get<Array<{ section_id: string; status: string }>>(`/api/curriculum/${profile}/progress`)
+      .then((data) => {
+        const map = new Map<string, string>();
+        for (const p of data) map.set(p.section_id, p.status);
+        setLessonProgress(map);
+      })
+      .catch(() => {});
+  }, [profile]);
 
   /* ---- Fetch section metadata ---- */
 
@@ -330,37 +359,54 @@ export function SocraticSession() {
     }
   }, [profile, sectionId, conversation, saveConversation]);
 
-  /* ---- Context panel content ---- */
+  /* ---- Lesson list sidebar ---- */
 
-  function renderContextPanel() {
-    if (sectionLoading) {
-      return (
-        <div className="p-5 text-sm text-muted-foreground">Loading section...</div>
-      );
-    }
-    if (sectionError) {
-      return (
-        <div className="p-5 text-sm text-destructive">{sectionError}</div>
-      );
-    }
-    if (!section) return null;
-
+  function renderLessonList() {
     return (
-      <div className="p-5">
-        <h2 className="text-lg font-bold text-foreground">{section.title}</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-          The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.
-        </p>
-        <div className="mt-4">
-          {conversation.length > 0 && (
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-y-auto p-3">
+          <h3 className="mb-2 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Lessons
+          </h3>
+          <ul className="flex flex-col gap-0.5">
+            {moduleSections.map((lesson) => {
+              const isCurrent = lesson.id === sectionId;
+              const status = lessonProgress.get(lesson.id);
+              return (
+                <li key={lesson.id}>
+                  <button
+                    onClick={() => {
+                      if (!isCurrent) navigate(`/curriculum/${profile}/${lesson.id}`);
+                      setContextOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors ${
+                      isCurrent
+                        ? "bg-primary/10 font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    {status && (
+                      <ProgressBadge
+                        status={status as "not_started" | "in_progress" | "completed"}
+                      />
+                    )}
+                    <span className="truncate">{lesson.title}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        {conversation.length > 0 && (
+          <div className="border-t border-border p-3">
             <button
               onClick={handleStartOver}
-              className="cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="w-full cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               Start Over
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -369,6 +415,16 @@ export function SocraticSession() {
 
   function renderConversation() {
     const elements: React.ReactNode[] = [];
+
+    // Intro message as the first tutor card
+    if (section) {
+      elements.push(
+        <TutorCard
+          key="intro"
+          content={`Welcome to "${section.title}". The tutor will guide you through this section using Socratic questioning - probing your understanding rather than lecturing.`}
+        />,
+      );
+    }
 
     for (let i = 0; i < conversation.length; i++) {
       const msg = conversation[i];
@@ -554,21 +610,19 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div className="flex h-[calc(100dvh-48px)] flex-col bg-muted">
-        {/* Header with context toggle */}
-        <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-3">
+      <div className="flex h-[calc(100dvh-56px)] flex-col bg-muted">
+        {/* Header with lesson list toggle */}
+        <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-2">
           <button
             onClick={() => setContextOpen(!contextOpen)}
             className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-foreground"
-            aria-label="Toggle context panel"
+            aria-label="Toggle lesson list"
           >
             {contextOpen ? "\u2715" : "\u2630"}
           </button>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold text-foreground">
-              {section?.title ?? "Loading..."}
-            </h1>
-          </div>
+          <span className="truncate text-sm font-medium text-foreground">
+            {section?.title ?? "Loading..."}
+          </span>
         </div>
 
         {/* Slide-out drawer */}
@@ -581,7 +635,7 @@ export function SocraticSession() {
               className="h-full w-4/5 max-w-sm overflow-y-auto border-r border-border bg-background shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              {renderContextPanel()}
+              {renderLessonList()}
             </div>
             <div className="flex-1 bg-black/30" />
           </div>
@@ -617,10 +671,10 @@ export function SocraticSession() {
 
   // Desktop: two-column layout
   return (
-    <div className="flex h-[calc(100dvh-48px)] bg-muted">
+    <div className="flex h-[calc(100dvh-56px)] bg-muted">
       {/* Left column: context panel */}
       <div className="flex w-80 shrink-0 flex-col border-r border-border bg-background">
-        {renderContextPanel()}
+        {renderLessonList()}
       </div>
 
       {/* Right column: conversation */}
