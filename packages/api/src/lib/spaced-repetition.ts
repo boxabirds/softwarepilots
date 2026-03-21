@@ -87,6 +87,52 @@ export function updateConceptAssessment(
 /**
  * Parse a concepts_json string from the database into a ConceptsMap.
  */
+/* ---- Due-for-review query ---- */
+
+export interface DueConcept {
+  concept: string;
+  section_id: string;
+  days_overdue: number;
+}
+
+/**
+ * Scans all progress rows and returns concepts whose next_review date is
+ * at or before `now`. Each result includes the section_id and how many
+ * days overdue the review is.
+ */
+export function getConceptsDueForReview(
+  progressRows: Array<{ section_id: string; concepts_json: string | null }>,
+  now?: Date
+): DueConcept[] {
+  const timestamp = now ?? new Date();
+  const due: DueConcept[] = [];
+
+  for (const row of progressRows) {
+    const concepts = parseConceptsJson(row.concepts_json);
+    for (const [concept, assessment] of Object.entries(concepts)) {
+      const nextReview = new Date(assessment.next_review);
+      if (nextReview <= timestamp) {
+        const msPerDay = 86_400_000;
+        const daysOverdue = Math.floor(
+          (timestamp.getTime() - nextReview.getTime()) / msPerDay
+        );
+        due.push({
+          concept,
+          section_id: row.section_id,
+          days_overdue: daysOverdue,
+        });
+      }
+    }
+  }
+
+  // Sort by most overdue first
+  due.sort((a, b) => b.days_overdue - a.days_overdue);
+  return due;
+}
+
+/**
+ * Parse a concepts_json string from the database into a ConceptsMap.
+ */
 export function parseConceptsJson(raw: string | null | undefined): ConceptsMap {
   if (!raw) return {};
   try {
