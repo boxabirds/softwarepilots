@@ -44,6 +44,14 @@ export interface SocraticChatResponse {
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
+  concepts_demonstrated?: string[];
+  concept_levels?: string[];
+  struggle_reason?: string;
+  final_understanding?: string;
+  concepts_covered?: string[];
+  concepts_missed?: string[];
+  pause_reason?: string;
+  resume_suggestion?: string;
 }
 
 /* ---- Tool builder ---- */
@@ -200,7 +208,7 @@ export function buildSocraticSystemPrompt(
     "== Rules ==",
     `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response`,
     "- Never lecture - always ask questions that guide the learner to discover insights",
-    "- You MUST call exactly one of the provided functions",
+    "- You MUST call one or more of the provided functions",
     "- Use socratic_probe to ask probing questions",
     "- Use present_scenario to illustrate with realistic examples",
     "- Use evaluate_response when the learner provides an answer",
@@ -220,6 +228,106 @@ export function buildSocraticSystemPrompt(
 }
 
 /* ---- Response parser ---- */
+
+const REPLY_TOOLS = new Set([
+  "socratic_probe",
+  "evaluate_response",
+  "present_scenario",
+  "surface_key_insight",
+  "off_topic_detected",
+  "provide_instruction",
+  "session_complete",
+  "session_pause",
+]);
+
+const SIDE_EFFECT_TOOLS = new Set([
+  "track_concepts",
+]);
+
+function extractReplyText(fc: { name: string; args: Record<string, string> }): string | null {
+  switch (fc.name) {
+    case "socratic_probe":
+      return fc.args.response || "What do you think about that?";
+
+    case "present_scenario": {
+      return fc.args.question
+        ? `${fc.args.scenario}\n\n${fc.args.question}`
+        : fc.args.scenario || "Consider this scenario...";
+    }
+
+    case "evaluate_response": {
+      return fc.args.follow_up
+        ? `${fc.args.assessment}\n\n${fc.args.follow_up}`
+        : fc.args.assessment || "Let me evaluate that.";
+    }
+
+    case "surface_key_insight":
+      return fc.args.bridge || "You're getting close to something important.";
+
+    case "off_topic_detected":
+      return (
+        fc.args.redirect_hint ||
+        "That's interesting, but let's focus on the section. What part are you curious about?"
+      );
+
+    case "provide_instruction":
+      return fc.args.response || fc.args.instruction || null;
+
+    case "session_complete":
+      return fc.args.summary || fc.args.response || null;
+
+    case "session_pause":
+      return fc.args.message || fc.args.response || null;
+
+    default:
+      return null;
+  }
+}
+
+function extractMetadata(
+  fc: { name: string; args: Record<string, string> },
+  result: SocraticChatResponse
+): void {
+  if (fc.args.topic && !result.topic) result.topic = fc.args.topic;
+  if (fc.args.confidence_assessment && !result.confidence_assessment)
+    result.confidence_assessment = fc.args.confidence_assessment;
+  if (fc.args.understanding_level && !result.understanding_level)
+    result.understanding_level = fc.args.understanding_level;
+  if (fc.args.learner_readiness && !result.learner_readiness)
+    result.learner_readiness = fc.args.learner_readiness;
+  if (fc.args.final_understanding)
+    result.final_understanding = fc.args.final_understanding;
+  if (fc.args.pause_reason)
+    result.pause_reason = fc.args.pause_reason;
+  if (fc.args.resume_suggestion)
+    result.resume_suggestion = fc.args.resume_suggestion;
+}
+
+function extractTrackConcepts(
+  fc: { name: string; args: Record<string, string> },
+  result: SocraticChatResponse
+): void {
+  if (fc.name !== "track_concepts") return;
+  const parseJsonArray = (val: string | undefined): string[] | undefined => {
+    if (!val) return undefined;
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return val.split(",").map((s) => s.trim());
+    }
+  };
+  result.concepts_demonstrated =
+    parseJsonArray(fc.args.concepts_demonstrated) ?? result.concepts_demonstrated;
+  result.concept_levels =
+    parseJsonArray(fc.args.concept_levels) ?? result.concept_levels;
+  result.concepts_covered =
+    parseJsonArray(fc.args.concepts_covered) ?? result.concepts_covered;
+  result.concepts_missed =
+    parseJsonArray(fc.args.concepts_missed) ?? result.concepts_missed;
+  if (fc.args.struggle_reason)
+    result.struggle_reason = fc.args.struggle_reason;
+}
 
 export function parseSocraticResponse(
   data: GeminiFunctionCallResponse
@@ -242,58 +350,29 @@ export function parseSocraticResponse(
     throw new Error("No function call in Gemini response");
   }
 
-  const fc = functionCalls[0];
+  const replySegments: string[] = [];
+  const toolTypes: string[] = [];
+  const result: SocraticChatResponse = { reply: "", tool_type: "" };
 
-  switch (fc.name) {
-    case "socratic_probe":
-      return {
-        reply: fc.args.response || "What do you think about that?",
-        tool_type: "socratic_probe",
-        topic: fc.args.topic,
-        confidence_assessment: fc.args.confidence_assessment,
-      };
-
-    case "present_scenario": {
-      const scenarioReply = fc.args.question
-        ? `${fc.args.scenario}\n\n${fc.args.question}`
-        : fc.args.scenario || "Consider this scenario...";
-      return {
-        reply: scenarioReply,
-        tool_type: "present_scenario",
-        topic: fc.args.topic,
-      };
+  for (const fc of functionCalls) {
+    if (REPLY_TOOLS.has(fc.name)) {
+      const text = extractReplyText(fc);
+      if (text) replySegments.push(text);
+      toolTypes.push(fc.name);
+      extractMetadata(fc, result);
+    } else if (SIDE_EFFECT_TOOLS.has(fc.name)) {
+      extractTrackConcepts(fc, result);
+      if (!toolTypes.includes(fc.name)) toolTypes.push(fc.name);
+    } else {
+      // Unknown tool — skip gracefully, don't throw
+      toolTypes.push(fc.name);
     }
-
-    case "evaluate_response": {
-      const evalReply = fc.args.follow_up
-        ? `${fc.args.assessment}\n\n${fc.args.follow_up}`
-        : fc.args.assessment || "Let me evaluate that.";
-      return {
-        reply: evalReply,
-        tool_type: "evaluate_response",
-        topic: fc.args.topic,
-        understanding_level: fc.args.understanding_level,
-      };
-    }
-
-    case "surface_key_insight":
-      return {
-        reply: fc.args.bridge || "You're getting close to something important.",
-        tool_type: "surface_key_insight",
-        learner_readiness: fc.args.learner_readiness,
-      };
-
-    case "off_topic_detected":
-      return {
-        reply:
-          fc.args.redirect_hint ||
-          "That's interesting, but let's focus on the section. What part are you curious about?",
-        tool_type: "off_topic_detected",
-      };
-
-    default:
-      throw new Error(`Unexpected tool: ${fc.name}`);
   }
+
+  result.reply = replySegments.join("\n\n");
+  result.tool_type = toolTypes.join("+");
+
+  return result;
 }
 
 /* ---- Route ---- */
@@ -362,7 +441,6 @@ socraticChat.post("/", async (c) => {
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents,
             tools,
-            toolConfig: { functionCallingConfig: { mode: "ANY" } },
             generationConfig: { temperature: SOCRATIC_TEMPERATURE },
           }),
         });
