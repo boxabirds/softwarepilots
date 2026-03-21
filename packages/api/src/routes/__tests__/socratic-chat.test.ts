@@ -38,6 +38,18 @@ const geminiResponse = (
   ],
 });
 
+const geminiMultiResponse = (
+  calls: Array<{ name: string; args: Record<string, string> }>
+): GeminiFunctionCallResponse => ({
+  candidates: [
+    {
+      content: {
+        parts: calls.map((fc) => ({ functionCall: fc })),
+      },
+    },
+  ],
+});
+
 const TEST_PROFILE = "new-grad" as const;
 const TEST_META = getCurriculumMeta(TEST_PROFILE);
 const TEST_SECTIONS = getCurriculumSections(TEST_PROFILE);
@@ -187,12 +199,12 @@ describe("parseSocraticResponse", () => {
     expect(result.reply).toContain("back to the code");
   });
 
-  it("throws on unexpected tool name", () => {
-    expect(() =>
-      parseSocraticResponse(
-        geminiResponse("unknown_tool", { foo: "bar" })
-      )
-    ).toThrow("Unexpected tool: unknown_tool");
+  it("handles unknown tool name gracefully", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("unknown_tool", { foo: "bar" })
+    );
+    expect(result.tool_type).toBe("unknown_tool");
+    expect(result.reply).toBe("");
   });
 
   it("throws on empty parts", () => {
@@ -229,6 +241,165 @@ describe("parseSocraticResponse", () => {
       })
     );
     expect(result.reply).toBe("What do you think about that?");
+  });
+});
+
+/* ---- parseSocraticResponse multi-tool ---- */
+
+describe("parseSocraticResponse multi-tool", () => {
+  it("handles 2 reply tools: evaluate_response + socratic_probe -> concatenated reply", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "evaluate_response",
+          args: {
+            assessment: "Good thinking!",
+            follow_up: "Can you explain why?",
+            understanding_level: "developing",
+            topic: "variables",
+          },
+        },
+        {
+          name: "socratic_probe",
+          args: {
+            response: "What about edge cases?",
+            topic: "error handling",
+            confidence_assessment: "medium",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("evaluate_response+socratic_probe");
+    expect(result.reply).toContain("Good thinking!");
+    expect(result.reply).toContain("Can you explain why?");
+    expect(result.reply).toContain("What about edge cases?");
+    // Segments joined with paragraph break
+    expect(result.reply).toContain("\n\n");
+    // Metadata from first tool wins
+    expect(result.topic).toBe("variables");
+    expect(result.understanding_level).toBe("developing");
+    expect(result.confidence_assessment).toBe("medium");
+  });
+
+  it("handles track_concepts as side-effect (no reply text added)", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_demonstrated: '["variables", "scope"]',
+            concept_levels: '["solid", "emerging"]',
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("track_concepts");
+    expect(result.reply).toBe("");
+    expect(result.concepts_demonstrated).toEqual(["variables", "scope"]);
+    expect(result.concept_levels).toEqual(["solid", "emerging"]);
+  });
+
+  it("handles track_concepts + socratic_probe -> reply from probe, concepts extracted", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_demonstrated: '["closures"]',
+            concept_levels: '["developing"]',
+            struggle_reason: "confusing lexical scope",
+          },
+        },
+        {
+          name: "socratic_probe",
+          args: {
+            response: "What happens to the variable after the function returns?",
+            topic: "closures",
+            confidence_assessment: "low",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("track_concepts+socratic_probe");
+    expect(result.reply).toBe(
+      "What happens to the variable after the function returns?"
+    );
+    expect(result.concepts_demonstrated).toEqual(["closures"]);
+    expect(result.concept_levels).toEqual(["developing"]);
+    expect(result.struggle_reason).toBe("confusing lexical scope");
+    expect(result.topic).toBe("closures");
+    expect(result.confidence_assessment).toBe("low");
+  });
+
+  it("handles track_concepts with comma-separated fallback", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_demonstrated: "variables, scope",
+          },
+        },
+      ])
+    );
+    expect(result.concepts_demonstrated).toEqual(["variables", "scope"]);
+  });
+
+  it("preserves single-tool behavior for socratic_probe", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("socratic_probe", {
+        response: "What do you think?",
+        topic: "basics",
+        confidence_assessment: "high",
+      })
+    );
+    expect(result.tool_type).toBe("socratic_probe");
+    expect(result.reply).toBe("What do you think?");
+    expect(result.topic).toBe("basics");
+    expect(result.confidence_assessment).toBe("high");
+  });
+
+  it("handles session_complete fields", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_covered: '["variables", "types"]',
+            concepts_missed: '["generics"]',
+          },
+        },
+        {
+          name: "session_complete",
+          args: {
+            summary: "Great session!",
+            final_understanding: "solid",
+          },
+        },
+      ])
+    );
+    expect(result.reply).toBe("Great session!");
+    expect(result.concepts_covered).toEqual(["variables", "types"]);
+    expect(result.concepts_missed).toEqual(["generics"]);
+    expect(result.final_understanding).toBe("solid");
+  });
+
+  it("handles session_pause fields", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "session_pause",
+          args: {
+            message: "Let's take a break.",
+            pause_reason: "learner fatigue",
+            resume_suggestion: "Try again after reviewing the docs",
+          },
+        },
+      ])
+    );
+    expect(result.reply).toBe("Let's take a break.");
+    expect(result.pause_reason).toBe("learner fatigue");
+    expect(result.resume_suggestion).toBe("Try again after reviewing the docs");
   });
 });
 
