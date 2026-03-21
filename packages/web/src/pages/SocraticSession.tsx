@@ -668,7 +668,7 @@ export function SocraticSession() {
         {/* Slide-out drawer */}
         {contextOpen && (
           <div
-            className="absolute inset-0 z-20 flex"
+            className="absolute inset-0 top-[44px] z-20 flex"
             onClick={() => setContextOpen(false)}
           >
             <div
