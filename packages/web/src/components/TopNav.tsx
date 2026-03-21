@@ -24,9 +24,7 @@ export function TopNav() {
         className="flex shrink-0 items-center gap-2 font-semibold text-foreground no-underline"
         data-testid="nav-logo"
       >
-        <span className="flex size-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-          SP
-        </span>
+        <img src="/logo-blue-circle.png" alt="Software Pilots" className="h-7 w-auto" />
         {!isMobile && (
           <span className="text-sm">Software Pilots</span>
         )}
