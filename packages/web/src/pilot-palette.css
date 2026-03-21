@@ -77,6 +77,17 @@
   --interactive-active:  #1744B8;
   --interactive-focus:   rgba(26, 79, 209, 0.4);
 
+  /* Semantic component tokens */
+  --card-bg:             var(--bg-base);
+  --card-bg-selected:    linear-gradient(135deg, #1A4FD1, #0F2C7E);
+  --card-border:         var(--border-light);
+  --card-border-hover:   var(--pilot-cyan);
+  --input-bg:            var(--bg-subtle);
+  --input-border:        var(--border-light);
+  --tutor-card-bg:       var(--bg-subtle);
+  --sidebar-bg:          var(--bg-subtle);
+  --overlay-bg:          rgba(250, 251, 254, 0.85);
+
   /* Status colours (chosen for contrast against blue brand) */
   --status-success:     #22C55E;   /* Green */
   --status-success-bg:  rgba(34, 197, 94, 0.15);
@@ -166,19 +177,31 @@ body {
 @media (prefers-color-scheme: dark) {
   :root {
     --text-primary:    #E8EDFA;
-    --text-secondary:  #A8BBEB;
-    --text-tertiary:   #7A98E0;
-    --text-muted:      #4A5A7A;
+    --text-secondary:  #C4D0EC;
+    --text-tertiary:   #94A3C8;
+    --text-muted:      #7A8BA8;
+    --text-on-brand:   #FFFFFF;
 
-    --bg-base:         #0A0F1E;
-    --bg-subtle:       #0F1630;
-    --bg-muted:        #162040;
+    --bg-base:         #1C2333;
+    --bg-subtle:       #232B3F;
+    --bg-muted:        #2C364C;
 
-    --border-light:    #162040;
-    --border-default:  #2A3654;
-    --border-strong:   #4A5A7A;
+    --border-light:    #36425C;
+    --border-default:  #4A5878;
+    --border-strong:   #6478A0;
 
     --interactive-hover: #33BBFF;
+
+    /* Component tokens for dark mode */
+    --card-bg:             var(--bg-subtle);
+    --card-bg-selected:    linear-gradient(135deg, #2563EB, #1A4FD1);
+    --card-border:         var(--border-light);
+    --card-border-hover:   var(--pilot-cyan);
+    --input-bg:            var(--bg-muted);
+    --input-border:        var(--border-light);
+    --tutor-card-bg:       var(--bg-muted);
+    --sidebar-bg:          var(--bg-subtle);
+    --overlay-bg:          rgba(28, 35, 51, 0.85);
   }
 }
 
@@ -201,17 +224,17 @@ body {
 
 .dark {
   --text-primary:    #E8EDFA;
-  --text-secondary:  #A8BBEB;
-  --text-tertiary:   #7A98E0;
-  --text-muted:      #4A5A7A;
+  --text-secondary:  #C4D0EC;
+  --text-tertiary:   #94A3C8;
+  --text-muted:      #7A8BA8;
 
-  --bg-base:         #0A0F1E;
-  --bg-subtle:       #0F1630;
-  --bg-muted:        #162040;
+  --bg-base:         #1C2333;
+  --bg-subtle:       #232B3F;
+  --bg-muted:        #2C364C;
 
-  --border-light:    #162040;
-  --border-default:  #2A3654;
-  --border-strong:   #4A5A7A;
+  --border-light:    #36425C;
+  --border-default:  #4A5878;
+  --border-strong:   #6478A0;
 
   --interactive-hover: #33BBFF;
 }

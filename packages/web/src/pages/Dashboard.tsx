@@ -254,12 +254,12 @@ function TrackCard({
     <div
       className="cursor-pointer rounded-xl p-5 transition-all"
       style={isExpanded ? {
-        background: "linear-gradient(135deg, var(--pilot-blue), var(--pilot-800))",
+        background: "var(--card-bg-selected)",
         color: "white",
         boxShadow: "var(--shadow-lg)",
       } : {
-        background: "var(--bg-base)",
-        border: "1px solid var(--border-light)",
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
       }}
       onClick={onToggle}
       role="button"
@@ -343,12 +343,12 @@ function ModuleTree({
                 color: "var(--text-secondary)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--pilot-cyan)";
+                e.currentTarget.style.borderColor = "var(--card-border-hover)";
                 e.currentTarget.style.background = "var(--bg-base)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-light)";
-                e.currentTarget.style.background = "var(--bg-subtle)";
+                e.currentTarget.style.borderColor = "var(--card-border)";
+                e.currentTarget.style.background = "var(--card-bg)";
               }}
             >
               {progress ? (

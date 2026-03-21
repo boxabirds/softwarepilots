@@ -652,7 +652,7 @@ export function SocraticSession() {
     return (
       <div className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
         {/* Header with lesson list toggle */}
-        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--bg-subtle)", borderBottom: "1px solid var(--border-light)" }}>
+        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
           <button
             onClick={() => setContextOpen(!contextOpen)}
             className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-foreground"
@@ -702,7 +702,7 @@ export function SocraticSession() {
 
           {/* Input - floats over conversation */}
           {!sessionComplete && !sessionPaused && (
-            <div className="absolute right-0 bottom-0 left-0 px-4 pb-4 pt-3 backdrop-blur-sm" style={{ background: "color-mix(in srgb, var(--bg-base) 85%, transparent)" }}>
+            <div className="absolute right-0 bottom-0 left-0 px-4 pb-4 pt-3 backdrop-blur-sm" style={{ background: "var(--overlay-bg)" }}>
               {renderInputBar()}
             </div>
           )}
@@ -715,7 +715,7 @@ export function SocraticSession() {
   return (
     <div className="flex h-[calc(100dvh-56px)]" style={{ background: "var(--bg-base)" }}>
       {/* Left column: lesson list */}
-      <div className="flex w-80 shrink-0 flex-col" style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-light)" }}>
+      <div className="flex w-80 shrink-0 flex-col" style={{ background: "var(--sidebar-bg)", borderRight: "1px solid var(--border-light)" }}>
         {renderLessonList()}
       </div>
 
@@ -741,7 +741,7 @@ export function SocraticSession() {
 
         {/* Input - floats over conversation */}
         {!sessionComplete && !sessionPaused && (
-          <div className="absolute right-0 bottom-0 left-0 px-5 pb-4 pt-3 backdrop-blur-sm" style={{ background: "color-mix(in srgb, var(--bg-base) 85%, transparent)" }}>
+          <div className="absolute right-0 bottom-0 left-0 px-5 pb-4 pt-3 backdrop-blur-sm" style={{ background: "var(--overlay-bg)" }}>
             {renderInputBar()}
           </div>
         )}

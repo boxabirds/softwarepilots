@@ -22,7 +22,7 @@ export function TutorCard({ content, loading, onReply }: TutorCardProps) {
     <div
       className="group relative mr-10 mt-3 rounded-xl p-4"
       style={{
-        background: "var(--bg-subtle)",
+        background: "var(--tutor-card-bg)",
         borderLeft: "3px solid var(--pilot-blue)",
       }}
       onClick={handleCardClick}

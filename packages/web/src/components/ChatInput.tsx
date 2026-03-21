@@ -62,7 +62,7 @@ export function ChatInput({
   return (
     <div
       className="rounded-2xl px-4 py-3 shadow-sm"
-      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}
+      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
     >
       {truncatedQuote && (
         <div
