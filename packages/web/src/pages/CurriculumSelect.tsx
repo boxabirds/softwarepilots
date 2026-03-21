@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressBadge } from "@/components/ProgressBadge";
 import type {
   CurriculumProfileSummary,
   LearnerProfile,
@@ -22,6 +23,14 @@ interface SectionSummary {
   module_title: string;
   title: string;
   key_intuition: string;
+}
+
+/** Progress data returned by GET /api/curriculum/:profile/progress */
+interface SectionProgress {
+  section_id: string;
+  status: "not_started" | "in_progress" | "completed";
+  understanding_level?: string;
+  updated_at: string;
 }
 
 /** Sections grouped by module for display */
@@ -52,6 +61,9 @@ export function CurriculumSelect() {
   const [profiles, setProfiles] = useState<CurriculumProfileSummary[]>([]);
   const [expanded, setExpanded] = useState<LearnerProfile | null>(null);
   const [modules, setModules] = useState<ModuleGroup[]>([]);
+  const [progressMap, setProgressMap] = useState<
+    Map<string, SectionProgress>
+  >(new Map());
   const [error, setError] = useState<string | null>(null);
   const [loadingSections, setLoadingSections] = useState(false);
 
@@ -66,17 +78,33 @@ export function CurriculumSelect() {
     if (expanded === profile) {
       setExpanded(null);
       setModules([]);
+      setProgressMap(new Map());
       return;
     }
 
     setExpanded(profile);
     setLoadingSections(true);
+    setProgressMap(new Map());
     try {
       const sections = await apiClient.get<SectionSummary[]>(
         `/api/curriculum/${profile}`,
       );
       setModules(groupByModule(sections));
       setError(null);
+
+      // Fetch progress separately - failure is non-fatal
+      try {
+        const progress = await apiClient.get<SectionProgress[]>(
+          `/api/curriculum/${profile}/progress`,
+        );
+        const map = new Map<string, SectionProgress>();
+        for (const p of progress) {
+          map.set(p.section_id, p);
+        }
+        setProgressMap(map);
+      } catch {
+        // Progress fetch failed - sections still display without badges
+      }
     } catch {
       setError(`Failed to load sections for ${profile}`);
       setModules([]);
@@ -155,6 +183,7 @@ export function CurriculumSelect() {
                   key={mod.module_id}
                   module={mod}
                   profile={expanded}
+                  progressMap={progressMap}
                 />
               ))}
             </div>
@@ -203,29 +232,51 @@ function TrackCard({
 function ModuleTree({
   module: mod,
   profile,
+  progressMap,
 }: {
   module: ModuleGroup;
   profile: LearnerProfile;
+  progressMap: Map<string, SectionProgress>;
 }) {
+  const completedCount = mod.sections.filter(
+    (sec) => progressMap.get(sec.id)?.status === "completed",
+  ).length;
+  const totalCount = mod.sections.length;
+  const hasProgress = progressMap.size > 0;
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold">
           {mod.module_title}
+          {hasProgress && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {completedCount} of {totalCount} completed
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="flex flex-col gap-1">
-          {mod.sections.map((sec) => (
-            <li key={sec.id}>
-              <Link
-                to={`/curriculum/${profile}/${sec.id}`}
-                className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
-              >
-                {sec.title}
-              </Link>
-            </li>
-          ))}
+          {mod.sections.map((sec) => {
+            const progress = progressMap.get(sec.id);
+            return (
+              <li key={sec.id}>
+                <Link
+                  to={`/curriculum/${profile}/${sec.id}`}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  {progress && (
+                    <ProgressBadge
+                      status={progress.status}
+                      understandingLevel={progress.understanding_level}
+                    />
+                  )}
+                  {sec.title}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </CardContent>
     </Card>

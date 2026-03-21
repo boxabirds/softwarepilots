@@ -6,6 +6,25 @@ import { CurriculumSelect } from "../pages/CurriculumSelect";
 
 /* ---- Mock data ---- */
 
+const MOCK_PROGRESS = [
+  {
+    section_id: "ng-1-1",
+    status: "completed" as const,
+    understanding_level: "solid",
+    updated_at: "2026-03-20T10:00:00Z",
+  },
+  {
+    section_id: "ng-1-2",
+    status: "in_progress" as const,
+    updated_at: "2026-03-20T11:00:00Z",
+  },
+  {
+    section_id: "ng-2-1",
+    status: "not_started" as const,
+    updated_at: "2026-03-20T09:00:00Z",
+  },
+];
+
 const MOCK_PROFILES = [
   {
     profile: "new-grad" as const,
@@ -81,10 +100,16 @@ function renderPage() {
  * Configure mockGet to return profiles for /api/curriculum
  * and sections for /api/curriculum/:profile.
  */
-function setupSuccessMocks() {
+function setupSuccessMocks({ withProgress = true } = {}) {
   mockGet.mockImplementation((path: string) => {
     if (path === "/api/curriculum") {
       return Promise.resolve([...MOCK_PROFILES]);
+    }
+    if (path.endsWith("/progress")) {
+      if (withProgress) {
+        return Promise.resolve([...MOCK_PROGRESS]);
+      }
+      return Promise.reject(new Error("Progress unavailable"));
     }
     if (path.startsWith("/api/curriculum/")) {
       return Promise.resolve([...MOCK_SECTIONS]);
@@ -194,5 +219,84 @@ describe("CurriculumSelect", () => {
     await waitFor(() => {
       expect(screen.getAllByText("New CS Graduate").length).toBeGreaterThan(0);
     });
+  });
+
+  it("shows progress badges when progress data is fetched", async () => {
+    setupSuccessMocks({ withProgress: true });
+    const user = userEvent.setup();
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBe(3);
+    });
+
+    const cards = screen.getAllByRole("button");
+    await user.click(cards[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Section Alpha")).toBeTruthy();
+    });
+
+    // Wait for progress badges to appear
+    await waitFor(() => {
+      const circles = screen.getAllByTestId("progress-circle");
+      expect(circles.length).toBe(3);
+    });
+
+    // Check that the completed badge has correct aria-label
+    const circles = screen.getAllByTestId("progress-circle");
+    const labels = circles.map((c) => c.getAttribute("aria-label"));
+    expect(labels).toContain("Completed");
+    expect(labels).toContain("In progress");
+    expect(labels).toContain("Not started");
+  });
+
+  it("shows N of M completed in module headers", async () => {
+    setupSuccessMocks({ withProgress: true });
+    const user = userEvent.setup();
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBe(3);
+    });
+
+    const cards = screen.getAllByRole("button");
+    await user.click(cards[0]);
+
+    // Module A has 2 sections, 1 completed
+    await waitFor(() => {
+      expect(screen.getByText("1 of 2 completed")).toBeTruthy();
+    });
+
+    // Module B has 1 section, 0 completed
+    expect(screen.getByText("0 of 1 completed")).toBeTruthy();
+  });
+
+  it("renders sections without badges when progress fetch fails", async () => {
+    setupSuccessMocks({ withProgress: false });
+    const user = userEvent.setup();
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button").length).toBe(3);
+    });
+
+    const cards = screen.getAllByRole("button");
+    await user.click(cards[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Section Alpha")).toBeTruthy();
+    });
+
+    // Sections are visible but no progress badges
+    expect(screen.getByText("Section Beta")).toBeTruthy();
+    expect(screen.getByText("Section Gamma")).toBeTruthy();
+    expect(screen.queryAllByTestId("progress-circle").length).toBe(0);
+
+    // No "N of M completed" text
+    expect(screen.queryByText(/of \d+ completed/)).toBeNull();
   });
 });
