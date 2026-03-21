@@ -88,7 +88,7 @@ beforeEach(() => {
     )
   `);
 
-  // Create curriculum_progress table
+  // Create curriculum_progress table (includes 0004 migration columns)
   sqliteDb.exec(`
     CREATE TABLE curriculum_progress (
       learner_id TEXT NOT NULL REFERENCES learners(id),
@@ -96,8 +96,10 @@ beforeEach(() => {
       section_id TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'not_started',
       understanding_json TEXT DEFAULT '[]',
+      concepts_json TEXT DEFAULT '{}',
       started_at TEXT,
       completed_at TEXT,
+      paused_at TEXT,
       updated_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (learner_id, profile, section_id)
     )
@@ -235,5 +237,146 @@ describe("getProgressForProfile", () => {
   it("returns empty array for new learner with no progress", async () => {
     const progress = await getProgressForProfile(db, "nonexistent-learner", TEST_PROFILE);
     expect(progress).toEqual([]);
+  });
+});
+
+/* ---- Concept tracking ---- */
+
+describe("concept tracking via updateSectionProgress", () => {
+  it("stores concepts_json when concepts_demonstrated is provided", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["concurrency", "race conditions"],
+      concept_levels: ["emerging", "developing"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.concurrency).toBeTruthy();
+    expect(concepts.concurrency.level).toBe("emerging");
+    expect(concepts.concurrency.review_count).toBe(1);
+    expect(concepts["race conditions"]).toBeTruthy();
+    expect(concepts["race conditions"].level).toBe("developing");
+  });
+
+  it("accumulates concepts across multiple calls without overwriting", async () => {
+    // First call: one concept
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["concurrency"],
+      concept_levels: ["emerging"],
+    });
+
+    // Second call: different concept
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["testing"],
+      concept_levels: ["solid"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.concurrency).toBeTruthy();
+    expect(concepts.concurrency.level).toBe("emerging");
+    expect(concepts.testing).toBeTruthy();
+    expect(concepts.testing.level).toBe("solid");
+  });
+
+  it("updates existing concept level and increments review_count", async () => {
+    // First call
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["concurrency"],
+      concept_levels: ["emerging"],
+    });
+
+    // Second call: same concept, higher level
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["concurrency"],
+      concept_levels: ["solid"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.concurrency.level).toBe("solid");
+    expect(concepts.concurrency.review_count).toBe(2);
+  });
+
+  it("sets spaced repetition intervals correctly per concept level", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["a", "b", "c", "d"],
+      concept_levels: ["emerging", "developing", "solid", "strong"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+
+    // Verify each concept has a next_review set
+    for (const key of ["a", "b", "c", "d"]) {
+      expect(concepts[key].next_review).toBeTruthy();
+      expect(concepts[key].last_reviewed).toBeTruthy();
+    }
+
+    // Verify relative intervals: emerging < developing < solid < strong
+    const nextA = new Date(concepts.a.next_review).getTime();
+    const nextB = new Date(concepts.b.next_review).getTime();
+    const nextC = new Date(concepts.c.next_review).getTime();
+    const nextD = new Date(concepts.d.next_review).getTime();
+    expect(nextA).toBeLessThan(nextB);
+    expect(nextB).toBeLessThan(nextC);
+    expect(nextC).toBeLessThan(nextD);
+  });
+
+  it("tracks concepts even on completed sections", async () => {
+    // Complete the section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "surface_key_insight",
+      learner_readiness: "articulated",
+    });
+
+    // Track concepts on completed section
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["security"],
+      concept_levels: ["strong"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json, status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("completed");
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts.security).toBeTruthy();
+    expect(concepts.security.level).toBe("strong");
+  });
+
+  it("leaves concepts_json as empty object when no concepts provided", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {});
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(JSON.parse(row.concepts_json as string)).toEqual({});
   });
 });

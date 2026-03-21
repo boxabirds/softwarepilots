@@ -3,6 +3,12 @@
  * to update the learner's section-level progress.
  */
 
+import {
+  updateConceptAssessment,
+  parseConceptsJson,
+} from "../lib/spaced-repetition";
+import type { ConceptsMap } from "../lib/spaced-repetition";
+
 /* ---- Constants ---- */
 
 const STATUS_NOT_STARTED = "not_started";
@@ -19,6 +25,8 @@ export interface SocraticResponse {
   learner_readiness?: string;
   confidence_assessment?: string;
   understanding_level?: string;
+  concepts_demonstrated?: string[];
+  concept_levels?: string[];
 }
 
 interface ProgressRow {
@@ -27,6 +35,7 @@ interface ProgressRow {
   section_id: string;
   status: string;
   understanding_json: string;
+  concepts_json: string | null;
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
@@ -37,6 +46,26 @@ export interface ProgressSummary {
   status: string;
   understanding_level?: string;
   updated_at: string;
+}
+
+/* ---- Concept tracking helper ---- */
+
+function applyConceptUpdates(
+  existingJson: string | null | undefined,
+  response: SocraticResponse
+): ConceptsMap | null {
+  const concepts = response.concepts_demonstrated;
+  const levels = response.concept_levels;
+  if (!concepts || concepts.length === 0) return null;
+
+  let map = parseConceptsJson(existingJson);
+  const now = new Date();
+  for (let i = 0; i < concepts.length; i++) {
+    const concept = concepts[i];
+    const level = levels?.[i] ?? "emerging";
+    map = updateConceptAssessment(map, concept, level, now);
+  }
+  return map;
 }
 
 /* ---- Core function ---- */
@@ -75,10 +104,12 @@ export async function updateSectionProgress(
       response.tool_type === COMPLETION_TOOL_TYPE &&
       response.learner_readiness === COMPLETION_READINESS;
 
+    const conceptsMap = applyConceptUpdates(null, response);
+
     await db
       .prepare(
-        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, started_at, completed_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'))`
+        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, completed_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'))`
       )
       .bind(
         learnerId,
@@ -86,6 +117,7 @@ export async function updateSectionProgress(
         sectionId,
         shouldComplete ? STATUS_COMPLETED : STATUS_IN_PROGRESS,
         JSON.stringify(understandingEntries),
+        conceptsMap ? JSON.stringify(conceptsMap) : "{}",
         shouldComplete ? new Date().toISOString() : null
       )
       .run();
@@ -94,23 +126,37 @@ export async function updateSectionProgress(
 
   // Status never regresses
   if (existing.status === STATUS_COMPLETED) {
-    // Still accumulate understanding data even if completed
-    if (response.confidence_assessment || response.understanding_level) {
+    // Still accumulate understanding and concept data even if completed
+    const hasUnderstanding =
+      response.confidence_assessment || response.understanding_level;
+    const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
+
+    if (hasUnderstanding || conceptsMap) {
       const entries = JSON.parse(existing.understanding_json || "[]");
-      entries.push({
-        ...(response.confidence_assessment
-          ? { confidence_assessment: response.confidence_assessment }
-          : {}),
-        ...(response.understanding_level
-          ? { understanding_level: response.understanding_level }
-          : {}),
-        timestamp: new Date().toISOString(),
-      });
+      if (hasUnderstanding) {
+        entries.push({
+          ...(response.confidence_assessment
+            ? { confidence_assessment: response.confidence_assessment }
+            : {}),
+          ...(response.understanding_level
+            ? { understanding_level: response.understanding_level }
+            : {}),
+          timestamp: new Date().toISOString(),
+        });
+      }
       await db
         .prepare(
-          "UPDATE curriculum_progress SET understanding_json = ?, updated_at = datetime('now') WHERE learner_id = ? AND profile = ? AND section_id = ?"
+          "UPDATE curriculum_progress SET understanding_json = ?, concepts_json = ?, updated_at = datetime('now') WHERE learner_id = ? AND profile = ? AND section_id = ?"
         )
-        .bind(JSON.stringify(entries), learnerId, profile, sectionId)
+        .bind(
+          JSON.stringify(entries),
+          conceptsMap
+            ? JSON.stringify(conceptsMap)
+            : existing.concepts_json ?? "{}",
+          learnerId,
+          profile,
+          sectionId
+        )
         .run();
     }
     return;
@@ -130,6 +176,8 @@ export async function updateSectionProgress(
     });
   }
 
+  const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
+
   const shouldComplete =
     response.tool_type === COMPLETION_TOOL_TYPE &&
     response.learner_readiness === COMPLETION_READINESS;
@@ -139,12 +187,15 @@ export async function updateSectionProgress(
   await db
     .prepare(
       `UPDATE curriculum_progress
-       SET status = ?, understanding_json = ?, completed_at = ?, updated_at = datetime('now')
+       SET status = ?, understanding_json = ?, concepts_json = ?, completed_at = ?, updated_at = datetime('now')
        WHERE learner_id = ? AND profile = ? AND section_id = ?`
     )
     .bind(
       newStatus,
       JSON.stringify(entries),
+      conceptsMap
+        ? JSON.stringify(conceptsMap)
+        : existing.concepts_json ?? "{}",
       shouldComplete ? new Date().toISOString() : existing.completed_at,
       learnerId,
       profile,

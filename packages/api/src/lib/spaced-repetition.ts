@@ -1,122 +1,101 @@
-export interface ConceptAssessment {
-  understanding_level: string; // emerging, developing, solid, strong
-  last_assessed: string; // ISO timestamp
-  review_interval_days: number;
-  needed_instruction: boolean;
-}
+/**
+ * Spaced repetition logic for concept-level tracking.
+ *
+ * Each concept is stored as a ConceptAssessment in a JSON map keyed by concept label.
+ * When a learner demonstrates understanding at a given level, the assessment is
+ * updated with a new review timestamp and the next review interval is calculated.
+ */
 
-export interface ConceptReview {
-  concept: string;
-  last_assessed: string;
-  understanding_level: string;
-  days_overdue: number;
-}
+/* ---- Constants ---- */
 
-const LEVEL_INTERVALS: Record<string, number> = {
+/** Base intervals (in days) for each understanding level */
+const INTERVAL_DAYS: Record<string, number> = {
   emerging: 1,
   developing: 3,
   solid: 7,
-  strong: 14,
+  strong: 21,
 };
 
-const DEFAULT_INTERVAL_DAYS = 1;
-const INSTRUCTION_PENALTY_FACTOR = 0.5;
-const EASINESS_FACTOR = 2.0;
-const RESET_INTERVAL_DAYS = 1;
-const MS_PER_DAY = 86_400_000;
+const VALID_LEVELS = ["emerging", "developing", "solid", "strong"] as const;
+export type UnderstandingLevel = (typeof VALID_LEVELS)[number];
 
-const LEVEL_ORDER: Record<string, number> = {
-  emerging: 0,
-  developing: 1,
-  solid: 2,
-  strong: 3,
-};
+/* ---- Types ---- */
 
-/**
- * Returns interval in days until next review using simplified SM-2.
- * If needed_instruction is true, the interval is halved.
- * Unknown levels default to 1 day.
- */
-export function calculateNextReview(
-  understanding_level: string,
-  needed_instruction: boolean,
-): number {
-  const base = LEVEL_INTERVALS[understanding_level] ?? DEFAULT_INTERVAL_DAYS;
-  return needed_instruction ? base * INSTRUCTION_PENALTY_FACTOR : base;
+export interface ConceptAssessment {
+  level: UnderstandingLevel;
+  last_reviewed: string; // ISO 8601 timestamp
+  next_review: string; // ISO 8601 timestamp
+  review_count: number;
 }
 
-/**
- * Returns concepts past their review date, sorted by days_overdue descending.
- */
-export function getConceptsDueForReview(
-  conceptsJson: Record<string, ConceptAssessment>,
-  now: Date = new Date(),
-): ConceptReview[] {
-  const nowMs = now.getTime();
-  const due: ConceptReview[] = [];
+export type ConceptsMap = Record<string, ConceptAssessment>;
 
-  for (const [concept, assessment] of Object.entries(conceptsJson)) {
-    const lastAssessedMs = new Date(assessment.last_assessed).getTime();
-    const reviewDateMs =
-      lastAssessedMs + assessment.review_interval_days * MS_PER_DAY;
+/* ---- Helpers ---- */
 
-    if (reviewDateMs <= nowMs) {
-      const daysOverdue = Math.floor((nowMs - reviewDateMs) / MS_PER_DAY);
-      due.push({
-        concept,
-        last_assessed: assessment.last_assessed,
-        understanding_level: assessment.understanding_level,
-        days_overdue: daysOverdue,
-      });
-    }
-  }
-
-  due.sort((a, b) => b.days_overdue - a.days_overdue);
-  return due;
+function isValidLevel(level: string): level is UnderstandingLevel {
+  return VALID_LEVELS.includes(level as UnderstandingLevel);
 }
 
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+/* ---- Core function ---- */
+
 /**
- * Updates a concept's assessment data with SM-2 inspired logic.
- * - Regression resets interval to 1 day.
- * - Maintained or improved understanding doubles the interval.
- * - New concepts get their initial interval from calculateNextReview.
+ * Update a concepts map with a new assessment for a single concept.
+ * Returns a new map (does not mutate the input).
+ *
+ * If the concept already exists, the level is updated and the review count
+ * increments. If the new level is higher than the existing level, the interval
+ * resets to the new level's base interval. If same or lower, the interval
+ * still updates based on the reported level.
  */
 export function updateConceptAssessment(
-  conceptsJson: Record<string, ConceptAssessment>,
+  existing: ConceptsMap,
   concept: string,
-  understanding_level: string,
-  needed_instruction: boolean,
-): Record<string, ConceptAssessment> {
-  const updated = { ...conceptsJson };
-  const existing = updated[concept];
-  const now = new Date().toISOString();
-
-  if (existing) {
-    const oldOrder = LEVEL_ORDER[existing.understanding_level] ?? 0;
-    const newOrder = LEVEL_ORDER[understanding_level] ?? 0;
-
-    const regressed = newOrder < oldOrder;
-    const interval = regressed
-      ? RESET_INTERVAL_DAYS
-      : existing.review_interval_days * EASINESS_FACTOR;
-
-    updated[concept] = {
-      understanding_level,
-      last_assessed: now,
-      review_interval_days: interval,
-      needed_instruction,
-    };
-  } else {
-    updated[concept] = {
-      understanding_level,
-      last_assessed: now,
-      review_interval_days: calculateNextReview(
-        understanding_level,
-        needed_instruction,
-      ),
-      needed_instruction,
-    };
+  level: string,
+  now?: Date
+): ConceptsMap {
+  const normalizedLevel = level.trim().toLowerCase();
+  if (!isValidLevel(normalizedLevel)) {
+    // Skip invalid levels silently - LLM output can be noisy
+    return existing;
   }
 
-  return updated;
+  const timestamp = now ?? new Date();
+  const isoNow = timestamp.toISOString();
+  const intervalDays = INTERVAL_DAYS[normalizedLevel];
+  const nextReview = addDays(timestamp, intervalDays).toISOString();
+
+  const prev = existing[concept];
+  const reviewCount = prev ? prev.review_count + 1 : 1;
+
+  return {
+    ...existing,
+    [concept]: {
+      level: normalizedLevel,
+      last_reviewed: isoNow,
+      next_review: nextReview,
+      review_count: reviewCount,
+    },
+  };
+}
+
+/**
+ * Parse a concepts_json string from the database into a ConceptsMap.
+ */
+export function parseConceptsJson(raw: string | null | undefined): ConceptsMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed as ConceptsMap;
+  } catch {
+    return {};
+  }
 }

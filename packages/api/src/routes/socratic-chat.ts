@@ -182,6 +182,33 @@ export function buildSocraticTools(
     },
   ];
 
+  if (section.concepts && section.concepts.length > 0) {
+    const conceptList = section.concepts.join(", ");
+    declarations.push({
+      name: "track_concepts",
+      description:
+        `Report which concepts the learner has demonstrated understanding of. ` +
+        `Call alongside other tools to track coverage. ` +
+        `Available concepts for this section: ${conceptList}`,
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          concepts_demonstrated: {
+            type: "STRING",
+            description:
+              "Comma-separated concept labels the learner has shown understanding of",
+          },
+          concept_levels: {
+            type: "STRING",
+            description:
+              "Comma-separated understanding levels (emerging/developing/solid/strong) corresponding to each concept",
+          },
+        },
+        required: ["concepts_demonstrated", "concept_levels"],
+      },
+    });
+  }
+
   return [{ functionDeclarations: declarations }];
 }
 
@@ -215,6 +242,20 @@ export function buildSocraticSystemPrompt(
     "- Use surface_key_insight when the learner is approaching the key intuition",
     "- Use off_topic_detected to redirect off-topic messages",
   ];
+
+  if (section.concepts && section.concepts.length > 0) {
+    lines.push(
+      "",
+      "== Section Concepts ==",
+      "The following concepts are covered in this section:"
+    );
+    section.concepts.forEach((concept, i) => {
+      lines.push(`${i + 1}. ${concept}`);
+    });
+    lines.push(
+      "Track which concepts the learner demonstrates understanding of by calling track_concepts alongside your other tool calls."
+    );
+  }
 
   if (conversation.length > 0) {
     lines.push(
@@ -364,7 +405,7 @@ export function parseSocraticResponse(
       extractTrackConcepts(fc, result);
       if (!toolTypes.includes(fc.name)) toolTypes.push(fc.name);
     } else {
-      // Unknown tool — skip gracefully, don't throw
+      // Unknown tool - skip gracefully
       toolTypes.push(fc.name);
     }
   }
