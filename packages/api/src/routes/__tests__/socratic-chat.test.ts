@@ -633,3 +633,111 @@ describe("parseSocraticResponse with track_concepts", () => {
     expect(result.concept_levels).toBeUndefined();
   });
 });
+
+/* ---- session_pause tool ---- */
+
+describe("session_pause tool declaration", () => {
+  it("includes session_pause in base tool declarations", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toContain("session_pause");
+  });
+
+  it("has correct required parameters", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const pauseTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "session_pause"
+    );
+    expect(pauseTool).toBeTruthy();
+    const params = pauseTool!.parameters as Record<string, unknown>;
+    const required = params.required as string[];
+    expect(required).toContain("acknowledgment");
+    expect(required).toContain("pause_reason");
+    expect(required).toContain("concepts_covered_so_far");
+    expect(required).toContain("resume_suggestion");
+  });
+
+  it("has pause_reason enum with correct values", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const pauseTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "session_pause"
+    );
+    const params = pauseTool!.parameters as Record<string, Record<string, Record<string, unknown>>>;
+    const pauseReasonEnum = params.properties.pause_reason.enum as string[];
+    expect(pauseReasonEnum).toEqual([
+      "learner_requested",
+      "frustration_detected",
+      "fatigue_detected",
+    ]);
+  });
+});
+
+describe("session_pause parser", () => {
+  it("extracts acknowledgment, pause_reason, concepts_covered_so_far, and resume_suggestion", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("session_pause", {
+        acknowledgment: "You've done great work today!",
+        pause_reason: "learner_requested",
+        concepts_covered_so_far: "variables, functions, scope",
+        resume_suggestion: "Next time we can explore closures",
+      })
+    );
+    expect(result.tool_type).toBe("session_pause");
+    expect(result.reply).toBe("You've done great work today!");
+    expect(result.pause_reason).toBe("learner_requested");
+    expect(result.concepts_covered_so_far).toBe("variables, functions, scope");
+    expect(result.resume_suggestion).toBe("Next time we can explore closures");
+  });
+
+  it("falls back to message field when acknowledgment is missing", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("session_pause", {
+        message: "Take a break!",
+        pause_reason: "fatigue_detected",
+        concepts_covered_so_far: "basics",
+        resume_suggestion: "Review notes",
+      })
+    );
+    expect(result.reply).toBe("Take a break!");
+  });
+
+  it("handles session_pause + track_concepts combo", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_demonstrated: '["variables", "scope"]',
+            concept_levels: '["solid", "developing"]',
+          },
+        },
+        {
+          name: "session_pause",
+          args: {
+            acknowledgment: "Great progress! Let's pause here.",
+            pause_reason: "frustration_detected",
+            concepts_covered_so_far: "variables, scope",
+            resume_suggestion: "We'll pick up with closures",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("track_concepts+session_pause");
+    expect(result.reply).toBe("Great progress! Let's pause here.");
+    expect(result.pause_reason).toBe("frustration_detected");
+    expect(result.concepts_covered_so_far).toBe("variables, scope");
+    expect(result.resume_suggestion).toBe("We'll pick up with closures");
+    expect(result.concepts_demonstrated).toEqual(["variables", "scope"]);
+    expect(result.concept_levels).toEqual(["solid", "developing"]);
+  });
+});
+
+describe("session_pause system prompt guidance", () => {
+  it("includes session_pause guidance in system prompt", () => {
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    expect(prompt).toContain("session_pause");
+    expect(prompt).toContain("frustration");
+    expect(prompt).toContain("fatigued");
+    expect(prompt).toContain("Never say 'you seem tired'");
+  });
+});
