@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../lib/api-client";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { TutorCard } from "../components/exercise/TutorCard";
 import { ChatCard } from "../components/exercise/ChatCard";
-import { InputPill } from "../components/exercise/InputPill";
-import { SubmitArrow } from "../components/exercise/SubmitArrow";
+import { ChatInput } from "../components/ChatInput";
 import { getCurriculumSections } from "@softwarepilots/shared";
 import { ProgressBadge } from "../components/ProgressBadge";
 import { useTopicCoverage } from "../hooks/useTopicCoverage";
@@ -231,18 +230,6 @@ export function SocraticSession() {
   useEffect(() => {
     scrollToBottom();
   }, [conversation.length, sending, scrollToBottom]);
-
-  /* ---- Textarea auto-grow ---- */
-  const TEXTAREA_MAX_HEIGHT = 140; // ~7 lines
-  useLayoutEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    // Reset to min-content so scrollHeight reflects actual content
-    el.style.height = "auto";
-    const scrollH = el.scrollHeight;
-    el.style.height = Math.min(scrollH, TEXTAREA_MAX_HEIGHT) + "px";
-    el.style.overflowY = scrollH > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
-  }, [inputText]);
 
   /* ---- Submit message ---- */
 
@@ -643,47 +630,15 @@ export function SocraticSession() {
   /* ---- Input bar ---- */
 
   function renderInputBar() {
-    const truncatedQuote = quotedMessage && quotedMessage.length > QUOTE_TRUNCATE_LENGTH
-      ? quotedMessage.slice(0, QUOTE_TRUNCATE_LENGTH) + "..."
-      : quotedMessage;
-
     return (
-      <InputPill>
-        <div className="flex flex-1 flex-col">
-          {quotedMessage && (
-            <div
-              className="mb-2 flex w-full items-start gap-2 rounded border-l-2 border-primary/40 bg-muted/60 px-3 py-2"
-              data-testid="quote-preview"
-            >
-              <span className="flex-1 text-[12px] italic text-muted-foreground">{truncatedQuote}</span>
-              <button
-                onClick={() => setQuotedMessage(null)}
-                className="shrink-0 cursor-pointer border-none bg-transparent text-[14px] leading-none text-muted-foreground hover:text-foreground"
-                aria-label="Dismiss quote"
-                data-testid="quote-dismiss"
-              >
-                &times;
-              </button>
-            </div>
-          )}
-          <textarea
-            ref={inputRef}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Type your response..."
-            rows={1}
-            className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-5 text-foreground outline-none"
-            disabled={sending}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-          />
-        </div>
-        <SubmitArrow active={!!inputText.trim() && !sending} onClick={handleSubmit} />
-      </InputPill>
+      <ChatInput
+        value={inputText}
+        onChange={setInputText}
+        onSubmit={handleSubmit}
+        disabled={sending}
+        quotedMessage={quotedMessage}
+        onDismissQuote={() => setQuotedMessage(null)}
+      />
     );
   }
 
