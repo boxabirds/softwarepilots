@@ -15,9 +15,7 @@ import type { GeminiFunctionCallResponse } from "../../lib/gemini";
 
 /* ---- Helpers ---- */
 
-const EXPECTED_TOOL_COUNT = 5;
-
-const EXPECTED_TOOL_NAMES = [
+const BASE_TOOL_NAMES = [
   "socratic_probe",
   "present_scenario",
   "evaluate_response",
@@ -46,20 +44,26 @@ const TEST_SECTION = getSection(TEST_PROFILE, TEST_SECTIONS[0].id);
 /* ---- buildSocraticTools ---- */
 
 describe("buildSocraticTools", () => {
-  it("produces exactly 5 tools with correct names", () => {
+  it("produces base tools plus track_concepts when section has concepts", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
     const names = tools[0].functionDeclarations.map(
       (d) => d.name as string
     );
-    expect(names).toHaveLength(EXPECTED_TOOL_COUNT);
-    expect(names).toEqual(EXPECTED_TOOL_NAMES);
+    // TEST_SECTION has concepts extracted from markdown, so track_concepts is included
+    for (const baseName of BASE_TOOL_NAMES) {
+      expect(names).toContain(baseName);
+    }
+    if (TEST_SECTION.concepts.length > 0) {
+      expect(names).toContain("track_concepts");
+    }
   });
 
-  it("includes section title in tool descriptions", () => {
+  it("includes section title in base tool descriptions", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
-    const descriptions = tools[0].functionDeclarations.map(
-      (d) => d.description as string
+    const baseDecls = tools[0].functionDeclarations.filter(
+      (d) => d.name !== "track_concepts"
     );
+    const descriptions = baseDecls.map((d) => d.description as string);
     for (const desc of descriptions) {
       expect(desc).toContain(TEST_SECTION.title);
     }
@@ -301,5 +305,155 @@ describe("socratic-chat route validation", () => {
     expect(res.status).toBe(400);
     const json = await parseJson(res);
     expect(json.error).toContain("astronaut");
+  });
+});
+
+/* ---- track_concepts tool ---- */
+
+import type { SectionMeta, CurriculumMeta } from "@softwarepilots/shared";
+
+const SECTION_WITH_CONCEPTS: SectionMeta = {
+  ...TEST_SECTION,
+  concepts: ["concurrency", "race conditions", "deadlocks"],
+};
+
+const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
+  ...TEST_SECTION,
+  concepts: [],
+};
+
+const EXPECTED_BASE_TOOL_COUNT = 5;
+const EXPECTED_CONCEPTS_TOOL_COUNT = 6;
+
+describe("buildSocraticTools with concepts", () => {
+  it("adds track_concepts tool when section has concepts", () => {
+    const tools = buildSocraticTools(SECTION_WITH_CONCEPTS, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toHaveLength(EXPECTED_CONCEPTS_TOOL_COUNT);
+    expect(names).toContain("track_concepts");
+  });
+
+  it("does not add track_concepts when section has no concepts", () => {
+    const tools = buildSocraticTools(SECTION_WITHOUT_CONCEPTS, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toHaveLength(EXPECTED_BASE_TOOL_COUNT);
+    expect(names).not.toContain("track_concepts");
+  });
+
+  it("includes concept list in track_concepts description", () => {
+    const tools = buildSocraticTools(SECTION_WITH_CONCEPTS, TEST_META);
+    const trackTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "track_concepts"
+    );
+    expect(trackTool?.description).toContain("concurrency");
+    expect(trackTool?.description).toContain("race conditions");
+    expect(trackTool?.description).toContain("deadlocks");
+  });
+});
+
+describe("buildSocraticSystemPrompt with concepts", () => {
+  it("includes section concepts when present", () => {
+    const prompt = buildSocraticSystemPrompt(
+      TEST_META,
+      SECTION_WITH_CONCEPTS,
+      []
+    );
+    expect(prompt).toContain("Section Concepts");
+    expect(prompt).toContain("1. concurrency");
+    expect(prompt).toContain("2. race conditions");
+    expect(prompt).toContain("3. deadlocks");
+    expect(prompt).toContain("track_concepts");
+  });
+
+  it("does not include concepts section when concepts array is empty", () => {
+    const prompt = buildSocraticSystemPrompt(
+      TEST_META,
+      SECTION_WITHOUT_CONCEPTS,
+      []
+    );
+    expect(prompt).not.toContain("Section Concepts");
+    expect(prompt).not.toContain("track_concepts");
+  });
+});
+
+describe("parseSocraticResponse with track_concepts", () => {
+  it("extracts concepts from track_concepts called alongside primary tool", () => {
+    const response: GeminiFunctionCallResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                functionCall: {
+                  name: "evaluate_response",
+                  args: {
+                    assessment: "Good analysis!",
+                    follow_up: "What about edge cases?",
+                    understanding_level: "developing",
+                    topic: "concurrency",
+                  },
+                },
+              },
+              {
+                functionCall: {
+                  name: "track_concepts",
+                  args: {
+                    concepts_demonstrated: "concurrency, race conditions",
+                    concept_levels: "developing, emerging",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const result = parseSocraticResponse(response);
+    expect(result.tool_type).toBe("evaluate_response");
+    expect(result.concepts_demonstrated).toEqual([
+      "concurrency",
+      "race conditions",
+    ]);
+    expect(result.concept_levels).toEqual(["developing", "emerging"]);
+  });
+
+  it("handles track_concepts as the only tool call", () => {
+    const response: GeminiFunctionCallResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                functionCall: {
+                  name: "track_concepts",
+                  args: {
+                    concepts_demonstrated: "testing",
+                    concept_levels: "solid",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const result = parseSocraticResponse(response);
+    expect(result.tool_type).toBe("track_concepts");
+    expect(result.concepts_demonstrated).toEqual(["testing"]);
+    expect(result.concept_levels).toEqual(["solid"]);
+  });
+
+  it("returns no concepts when track_concepts is not called", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("socratic_probe", {
+        response: "Tell me more",
+        topic: "testing",
+        confidence_assessment: "medium",
+      })
+    );
+    expect(result.concepts_demonstrated).toBeUndefined();
+    expect(result.concept_levels).toBeUndefined();
   });
 });

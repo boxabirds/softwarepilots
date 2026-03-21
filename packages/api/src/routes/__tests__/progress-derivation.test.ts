@@ -99,8 +99,10 @@ beforeEach(() => {
       section_id TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'not_started',
       understanding_json TEXT DEFAULT '[]',
+      concepts_json TEXT DEFAULT '{}',
       started_at TEXT,
       completed_at TEXT,
+      paused_at TEXT,
       updated_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (learner_id, profile, section_id)
     )

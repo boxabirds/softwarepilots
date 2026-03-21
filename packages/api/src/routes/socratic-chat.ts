@@ -44,6 +44,8 @@ export interface SocraticChatResponse {
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
+  concepts_demonstrated?: string[];
+  concept_levels?: string[];
 }
 
 /* ---- Tool builder ---- */
@@ -174,6 +176,33 @@ export function buildSocraticTools(
     },
   ];
 
+  if (section.concepts && section.concepts.length > 0) {
+    const conceptList = section.concepts.join(", ");
+    declarations.push({
+      name: "track_concepts",
+      description:
+        `Report which concepts the learner has demonstrated understanding of. ` +
+        `Call alongside other tools to track coverage. ` +
+        `Available concepts for this section: ${conceptList}`,
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          concepts_demonstrated: {
+            type: "STRING",
+            description:
+              "Comma-separated concept labels the learner has shown understanding of",
+          },
+          concept_levels: {
+            type: "STRING",
+            description:
+              "Comma-separated understanding levels (emerging/developing/solid/strong) corresponding to each concept",
+          },
+        },
+        required: ["concepts_demonstrated", "concept_levels"],
+      },
+    });
+  }
+
   return [{ functionDeclarations: declarations }];
 }
 
@@ -207,6 +236,20 @@ export function buildSocraticSystemPrompt(
     "- Use surface_key_insight when the learner is approaching the key intuition",
     "- Use off_topic_detected to redirect off-topic messages",
   ];
+
+  if (section.concepts && section.concepts.length > 0) {
+    lines.push(
+      "",
+      "== Section Concepts ==",
+      "The following concepts are covered in this section:"
+    );
+    section.concepts.forEach((concept, i) => {
+      lines.push(`${i + 1}. ${concept}`);
+    });
+    lines.push(
+      "Track which concepts the learner demonstrates understanding of by calling track_concepts alongside your other tool calls."
+    );
+  }
 
   if (conversation.length > 0) {
     lines.push(
@@ -242,7 +285,38 @@ export function parseSocraticResponse(
     throw new Error("No function call in Gemini response");
   }
 
-  const fc = functionCalls[0];
+  // Extract track_concepts if present (may be alongside another tool)
+  const trackConceptsCall = functionCalls.find(
+    (f) => f.name === "track_concepts"
+  );
+  const primaryCall = functionCalls.find((f) => f.name !== "track_concepts");
+  const fc = primaryCall ?? functionCalls[0];
+
+  // Parse concept tracking data
+  let conceptsData: {
+    concepts_demonstrated?: string[];
+    concept_levels?: string[];
+  } = {};
+  if (trackConceptsCall?.args) {
+    const rawConcepts = trackConceptsCall.args.concepts_demonstrated as
+      | string
+      | undefined;
+    const rawLevels = trackConceptsCall.args.concept_levels as
+      | string
+      | undefined;
+    if (rawConcepts) {
+      conceptsData.concepts_demonstrated = rawConcepts
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+    if (rawLevels) {
+      conceptsData.concept_levels = rawLevels
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+  }
 
   switch (fc.name) {
     case "socratic_probe":
@@ -251,6 +325,7 @@ export function parseSocraticResponse(
         tool_type: "socratic_probe",
         topic: fc.args.topic,
         confidence_assessment: fc.args.confidence_assessment,
+        ...conceptsData,
       };
 
     case "present_scenario": {
@@ -261,6 +336,7 @@ export function parseSocraticResponse(
         reply: scenarioReply,
         tool_type: "present_scenario",
         topic: fc.args.topic,
+        ...conceptsData,
       };
     }
 
@@ -273,6 +349,7 @@ export function parseSocraticResponse(
         tool_type: "evaluate_response",
         topic: fc.args.topic,
         understanding_level: fc.args.understanding_level,
+        ...conceptsData,
       };
     }
 
@@ -281,6 +358,7 @@ export function parseSocraticResponse(
         reply: fc.args.bridge || "You're getting close to something important.",
         tool_type: "surface_key_insight",
         learner_readiness: fc.args.learner_readiness,
+        ...conceptsData,
       };
 
     case "off_topic_detected":
@@ -289,6 +367,15 @@ export function parseSocraticResponse(
           fc.args.redirect_hint ||
           "That's interesting, but let's focus on the section. What part are you curious about?",
         tool_type: "off_topic_detected",
+        ...conceptsData,
+      };
+
+    case "track_concepts":
+      // track_concepts called alone (no primary tool) - return a neutral reply
+      return {
+        reply: "I see you're making progress. What would you like to explore next?",
+        tool_type: "track_concepts",
+        ...conceptsData,
       };
 
     default:
