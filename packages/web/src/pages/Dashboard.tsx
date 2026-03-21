@@ -213,7 +213,12 @@ export function Dashboard() {
                 />
               ))}
 
-              {/* Level 0 interactive exercises (original POC) */}
+              {/* Level 0 notice + interactive exercises */}
+              {expanded === "level-0" && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  UNDER CONSTRUCTION
+                </div>
+              )}
               {expanded === "level-0" && (
                 <>
                   <h3 className="mt-4 text-sm font-semibold text-muted-foreground">Interactive Exercises</h3>
