@@ -16,6 +16,9 @@ const INTERVAL_DAYS: Record<string, number> = {
   strong: 21,
 };
 
+/** Multiplier to halve the spaced repetition interval when instruction was needed */
+const INSTRUCTION_INTERVAL_MULTIPLIER = 0.5;
+
 const VALID_LEVELS = ["emerging", "developing", "solid", "strong"] as const;
 export type UnderstandingLevel = (typeof VALID_LEVELS)[number];
 
@@ -26,6 +29,8 @@ export interface ConceptAssessment {
   last_reviewed: string; // ISO 8601 timestamp
   next_review: string; // ISO 8601 timestamp
   review_count: number;
+  needed_instruction?: boolean;
+  struggle_reason?: string;
 }
 
 export type ConceptsMap = Record<string, ConceptAssessment>;
@@ -53,11 +58,17 @@ function addDays(date: Date, days: number): Date {
  * resets to the new level's base interval. If same or lower, the interval
  * still updates based on the reported level.
  */
+export interface ConceptUpdateOptions {
+  needed_instruction?: boolean;
+  struggle_reason?: string;
+}
+
 export function updateConceptAssessment(
   existing: ConceptsMap,
   concept: string,
   level: string,
-  now?: Date
+  now?: Date,
+  options?: ConceptUpdateOptions
 ): ConceptsMap {
   const normalizedLevel = level.trim().toLowerCase();
   if (!isValidLevel(normalizedLevel)) {
@@ -67,7 +78,10 @@ export function updateConceptAssessment(
 
   const timestamp = now ?? new Date();
   const isoNow = timestamp.toISOString();
-  const intervalDays = INTERVAL_DAYS[normalizedLevel];
+  let intervalDays = INTERVAL_DAYS[normalizedLevel];
+  if (options?.needed_instruction) {
+    intervalDays = Math.max(1, Math.round(intervalDays * INSTRUCTION_INTERVAL_MULTIPLIER));
+  }
   const nextReview = addDays(timestamp, intervalDays).toISOString();
 
   const prev = existing[concept];
@@ -80,6 +94,8 @@ export function updateConceptAssessment(
       last_reviewed: isoNow,
       next_review: nextReview,
       review_count: reviewCount,
+      ...(options?.needed_instruction ? { needed_instruction: true } : {}),
+      ...(options?.struggle_reason ? { struggle_reason: options.struggle_reason } : {}),
     },
   };
 }

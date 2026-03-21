@@ -7,7 +7,7 @@ import {
   updateConceptAssessment,
   parseConceptsJson,
 } from "../lib/spaced-repetition";
-import type { ConceptsMap } from "../lib/spaced-repetition";
+import type { ConceptsMap, ConceptUpdateOptions } from "../lib/spaced-repetition";
 import { getCurriculumSections } from "@softwarepilots/shared";
 
 /* ---- Constants ---- */
@@ -19,6 +19,7 @@ const STATUS_COMPLETED = "completed";
 const COMPLETION_TOOL_TYPE = "surface_key_insight";
 const COMPLETION_READINESS = "articulated";
 const SESSION_COMPLETE_TOOL_TYPE = "session_complete";
+const PROVIDE_INSTRUCTION_TOOL_TYPE = "provide_instruction";
 
 /* ---- Types ---- */
 
@@ -32,6 +33,8 @@ export interface SocraticResponse {
   final_understanding?: string;
   concepts_covered?: string[];
   concepts_missed?: string[];
+  struggle_reason?: string;
+  concept?: string;
 }
 
 interface ProgressRow {
@@ -71,18 +74,40 @@ function applyConceptUpdates(
   existingJson: string | null | undefined,
   response: SocraticResponse
 ): ConceptsMap | null {
+  const needsInstruction = response.tool_type?.includes(PROVIDE_INSTRUCTION_TOOL_TYPE) ?? false;
+  const instructionConcept = response.concept;
+  const instructionOptions: ConceptUpdateOptions | undefined = needsInstruction
+    ? { needed_instruction: true, struggle_reason: response.struggle_reason }
+    : undefined;
+
+  // If provide_instruction was used but there are no tracked concepts,
+  // create an entry for the instruction concept itself
   const concepts = response.concepts_demonstrated;
   const levels = response.concept_levels;
-  if (!concepts || concepts.length === 0) return null;
 
   let map = parseConceptsJson(existingJson);
   const now = new Date();
-  for (let i = 0; i < concepts.length; i++) {
-    const concept = concepts[i];
-    const level = levels?.[i] ?? "emerging";
-    map = updateConceptAssessment(map, concept, level, now);
+
+  if (concepts && concepts.length > 0) {
+    for (let i = 0; i < concepts.length; i++) {
+      const concept = concepts[i];
+      const level = levels?.[i] ?? "emerging";
+      const isInstructedConcept = needsInstruction && concept === instructionConcept;
+      map = updateConceptAssessment(
+        map, concept, level, now,
+        isInstructedConcept ? instructionOptions : undefined
+      );
+    }
   }
-  return map;
+
+  // If instruction was provided for a concept not already tracked, add it
+  if (needsInstruction && instructionConcept && !map[instructionConcept]) {
+    map = updateConceptAssessment(map, instructionConcept, "emerging", now, instructionOptions);
+  }
+
+  // Return null only if no changes were made
+  const hasChanges = (concepts && concepts.length > 0) || (needsInstruction && instructionConcept);
+  return hasChanges ? map : null;
 }
 
 /* ---- Core function ---- */
