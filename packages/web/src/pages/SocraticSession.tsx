@@ -12,12 +12,15 @@ import { SubmitArrow } from "../components/exercise/SubmitArrow";
 interface ConversationMessage {
   role: "user" | "tutor";
   content: string;
+  tool_type?: string;
+  concept?: string;
 }
 
 interface SocraticResponse {
   reply: string;
   tool_type: string;
   topic?: string;
+  concept?: string;
   confidence_assessment?: string;
   understanding_level?: string;
   learner_readiness?: string;
@@ -117,7 +120,7 @@ export function SocraticSession() {
           context: { conversation: [] },
         });
         if (!cancelled.current) {
-          const initial: ConversationMessage[] = [{ role: "tutor", content: data.reply }];
+          const initial: ConversationMessage[] = [{ role: "tutor", content: data.reply, tool_type: data.tool_type, concept: data.concept }];
           setConversation(initial);
           saveConversation(initial);
         }
@@ -211,7 +214,7 @@ export function SocraticSession() {
         },
       });
 
-      const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
+      const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply, tool_type: response.tool_type, concept: response.concept }];
       setConversation(withReply);
       saveConversation(withReply);
       if (response.tool_type === "session_complete") {
@@ -253,7 +256,7 @@ export function SocraticSession() {
       })
       .then((response) => {
         setConversation((prev) => {
-          const updated = [...prev, { role: "tutor" as const, content: response.reply }];
+          const updated = [...prev, { role: "tutor" as const, content: response.reply, tool_type: response.tool_type, concept: response.concept }];
           saveConversation(updated);
           return updated;
         });
@@ -332,9 +335,33 @@ export function SocraticSession() {
       const msg = conversation[i];
       if (msg.role === "tutor") {
         const isError = msg.content.startsWith("Failed to reach the tutor");
+        const isInstruction = msg.tool_type?.includes("provide_instruction");
         elements.push(
           <div key={i}>
-            <TutorCard content={msg.content} />
+            {isInstruction ? (
+              <div
+                className="mr-10 mt-3 rounded-[10px] border border-blue-200 border-l-[3px] border-l-blue-500 bg-blue-50 p-4 dark:border-blue-800 dark:border-l-blue-400 dark:bg-blue-950/30"
+                data-testid="instruction-card"
+              >
+                <div className="mb-1 flex items-center gap-1.5">
+                  <span className="text-base" aria-hidden="true">&#128161;</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                    Direct Instruction
+                  </span>
+                </div>
+                {msg.concept && (
+                  <span
+                    className="mb-2 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    data-testid="instruction-concept"
+                  >
+                    {msg.concept}
+                  </span>
+                )}
+                <div className="text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+              </div>
+            ) : (
+              <TutorCard content={msg.content} />
+            )}
             {isError && (
               <button
                 onClick={handleRetry}
