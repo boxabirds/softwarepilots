@@ -11,10 +11,10 @@ import type {
 } from "@softwarepilots/shared";
 import {
   buildGeminiContents,
-  getOrUploadFile,
   GEMINI_API_URL,
 } from "../lib/gemini";
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
+import { buildCurriculumContext } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
@@ -311,7 +311,8 @@ export function buildSocraticSystemPrompt(
   meta: CurriculumMeta,
   section: SectionMeta,
   conversation: Array<{ role: "user" | "tutor"; content: string }>,
-  progressContext?: string
+  progressContext?: string,
+  curriculumContext?: string
 ): string {
   const lines = [
     `You are a Socratic tutor for "${section.title}" in the ${meta.profile} software pilotry curriculum.`,
@@ -356,6 +357,10 @@ export function buildSocraticSystemPrompt(
 
   if (progressContext) {
     lines.push("", progressContext);
+  }
+
+  if (curriculumContext) {
+    lines.push("", curriculumContext);
   }
 
   if (conversation.length > 0) {
@@ -557,15 +562,6 @@ socraticChat.post("/", async (c) => {
     return c.json({ error: message }, 400);
   }
 
-  // Upload section markdown for Gemini file context
-  const cacheKey = `${body.profile}/${body.section_id}`;
-  await getOrUploadFile(
-    c.env.GEMINI_API_KEY,
-    cacheKey,
-    section.markdown,
-    `${section.title}.md`
-  );
-
   // Build system prompt and tools
   const conversation = body.context?.conversation ?? [];
   const learnerId = c.get("learnerId" as never) as string | undefined;
@@ -577,7 +573,8 @@ socraticChat.post("/", async (c) => {
       // Non-critical: proceed without progress context
     }
   }
-  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined);
+  const curriculumContext = buildCurriculumContext(body.profile, body.section_id);
+  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined);
   const tools = buildSocraticTools(section, meta);
 
   // Build Gemini contents from conversation history
