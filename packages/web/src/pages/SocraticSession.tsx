@@ -470,9 +470,33 @@ export function SocraticSession() {
           </div>
         );
       } else {
+        const hasQuote = msg.content.startsWith("> ");
+        let quoteText: string | null = null;
+        let responseText = msg.content;
+
+        if (hasQuote) {
+          const splitIndex = msg.content.indexOf("\n\n");
+          if (splitIndex !== -1) {
+            quoteText = msg.content.slice(2, splitIndex);
+            responseText = msg.content.slice(splitIndex + 2);
+          }
+        }
+
+        const truncatedQuoteDisplay = quoteText && quoteText.length > QUOTE_TRUNCATE_LENGTH
+          ? quoteText.slice(0, QUOTE_TRUNCATE_LENGTH) + "..."
+          : quoteText;
+
         elements.push(
           <ChatCard key={i} align="right">
-            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+            {truncatedQuoteDisplay && (
+              <div
+                className="mb-2 border-l-2 border-muted-foreground/30 bg-muted/40 px-3 py-1.5 text-[12px] italic text-muted-foreground"
+                data-testid="user-quote-block"
+              >
+                {truncatedQuoteDisplay}
+              </div>
+            )}
+            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{responseText}</div>
           </ChatCard>
         );
       }
