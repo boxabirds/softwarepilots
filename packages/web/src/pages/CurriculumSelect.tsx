@@ -142,14 +142,8 @@ export function CurriculumSelect() {
 
   return (
     <div className="mx-auto max-w-4xl p-6">
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-8">
         <h1 className="text-2xl font-bold">Choose Your Track</h1>
-        <Link
-          to="/dashboard"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          Back to Dashboard
-        </Link>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">

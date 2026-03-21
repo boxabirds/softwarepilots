@@ -173,14 +173,8 @@ export function ProgressDashboard() {
 
   return (
     <div className="mx-auto max-w-4xl p-6">
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-8">
         <h1 className="text-2xl font-bold">Progress Dashboard</h1>
-        <Link
-          to="/curriculum"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          Back to Curriculum
-        </Link>
       </header>
 
       {/* Overall narrative card */}

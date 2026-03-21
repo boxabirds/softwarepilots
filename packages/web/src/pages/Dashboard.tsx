@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -54,18 +53,9 @@ const MODULES: ModuleInfo[] = [
 ];
 
 export function Dashboard() {
-  const { learner } = useAuth();
-
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Software Pilotry</h1>
-        {learner && (
-          <span className="text-sm text-muted-foreground">
-            {learner.display_name}
-          </span>
-        )}
-      </header>
+      <h1 className="mb-8 text-2xl font-bold">Dashboard</h1>
 
       <Card className="mb-6">
         <CardHeader className="pb-2">
