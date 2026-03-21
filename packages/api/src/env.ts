@@ -9,4 +9,7 @@ export interface Env {
   EVALUATOR_URL?: string; // Local dev: direct HTTP fallback (e.g. http://localhost:8788)
   GEMINI_API_KEY: string;
   GEMINI_MODEL?: string;
+  // Override for local dev with fake GitHub server (e.g. http://localhost:9999)
+  GITHUB_BASE_URL?: string;
+  GITHUB_API_BASE_URL?: string;
 }

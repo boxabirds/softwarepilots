@@ -3,20 +3,32 @@ import { sign } from "hono/jwt";
 import type { Env } from "../env";
 import { SESSION_COOKIE_NAME } from "../middleware/session-validation";
 
-const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
-const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_USER_URL = "https://api.github.com/user";
+
+const DEFAULT_GITHUB_BASE = "https://github.com";
+const DEFAULT_GITHUB_API_BASE = "https://api.github.com";
 const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
+
+function githubUrls(env: Env) {
+  const base = env.GITHUB_BASE_URL || DEFAULT_GITHUB_BASE;
+  const apiBase = env.GITHUB_API_BASE_URL || DEFAULT_GITHUB_API_BASE;
+  return {
+    authorize: `${base}/login/oauth/authorize`,
+    token: `${base}/login/oauth/access_token`,
+    user: `${apiBase}/user`,
+    emails: `${apiBase}/user/emails`,
+  };
+}
 
 const auth = new Hono<{ Bindings: Env }>();
 
 auth.get("/login", (c) => {
+  const gh = githubUrls(c.env);
   const params = new URLSearchParams({
     client_id: c.env.GITHUB_CLIENT_ID,
     redirect_uri: `${c.env.WEB_APP_URL}/api/auth/callback`,
     scope: "read:user user:email",
   });
-  return c.redirect(`${GITHUB_AUTHORIZE_URL}?${params}`);
+  return c.redirect(`${gh.authorize}?${params}`);
 });
 
 auth.get("/callback", async (c) => {
@@ -32,7 +44,8 @@ auth.get("/callback", async (c) => {
   }
 
   // Exchange code for access token
-  const tokenResponse = await fetch(GITHUB_TOKEN_URL, {
+  const gh = githubUrls(c.env);
+  const tokenResponse = await fetch(gh.token, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -66,7 +79,7 @@ auth.get("/callback", async (c) => {
   }
 
   // Fetch user profile
-  const userResponse = await fetch(GITHUB_USER_URL, {
+  const userResponse = await fetch(gh.user, {
     headers: {
       Authorization: `Bearer ${tokenData.access_token}`,
       Accept: "application/json",
@@ -90,7 +103,7 @@ auth.get("/callback", async (c) => {
   // Fetch primary email if not public
   let email = profile.email;
   if (!email) {
-    const emailResponse = await fetch("https://api.github.com/user/emails", {
+    const emailResponse = await fetch(gh.emails, {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
         Accept: "application/json",
