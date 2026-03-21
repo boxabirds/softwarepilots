@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { TopNav } from "../components/TopNav";
 
@@ -177,5 +177,49 @@ describe("Breadcrumbs", () => {
     mockIsMobile = true;
     renderTopNavAtRoute("/dashboard");
     expect(screen.queryByLabelText("Back")).toBeNull();
+  });
+
+  it("breadcrumbs render N/M format on session page when coverage data available", async () => {
+    // Mock progress API to return concepts data so coverage hook resolves
+    mockGet.mockImplementation((url: string) => {
+      if (url.includes("/progress")) {
+        return Promise.resolve([
+          {
+            section_id: "1.1",
+            status: "in_progress",
+            concepts_json: JSON.stringify({
+              concept_a: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+              concept_b: { level: "developing", next_review: "2099-01-01T00:00:00Z" },
+            }),
+          },
+        ]);
+      }
+      return Promise.reject(new Error("not mocked"));
+    });
+
+    renderTopNavAtRoute(
+      "/curriculum/veteran/1.1",
+      "/curriculum/:profile/:sectionId",
+    );
+
+    // Wait for the coverage data to load and re-render
+    await waitFor(() => {
+      const breadcrumbs = screen.getByTestId("breadcrumbs");
+      // Should contain N/M format like "2/X" where X is total concepts
+      expect(breadcrumbs.textContent).toMatch(/\d+\/\d+/);
+    });
+  });
+
+  it("falls back to name only when coverage data unavailable", () => {
+    // Default mockGet rejects, so coverage will be null
+    renderTopNavAtRoute(
+      "/curriculum/new-grad/1.1",
+      "/curriculum/:profile/:sectionId",
+    );
+    const breadcrumbs = screen.getByTestId("breadcrumbs");
+    // Should show profile name without N/M format
+    expect(breadcrumbs.textContent).toContain("New Grad");
+    // Initially no N/M since coverage hasn't loaded (and won't due to rejection)
+    expect(breadcrumbs.textContent).not.toMatch(/New Grad \(\d+\/\d+\)/);
   });
 });
