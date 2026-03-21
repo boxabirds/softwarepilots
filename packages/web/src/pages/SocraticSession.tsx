@@ -572,7 +572,7 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div className="flex h-dvh flex-col bg-muted">
+      <div className="flex h-[calc(100dvh-48px)] flex-col bg-muted">
         {/* Header with context toggle */}
         <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-3">
           <button
@@ -635,7 +635,7 @@ export function SocraticSession() {
 
   // Desktop: two-column layout
   return (
-    <div className="flex h-dvh bg-muted">
+    <div className="flex h-[calc(100dvh-48px)] bg-muted">
       {/* Left column: context panel */}
       <div className="flex w-80 shrink-0 flex-col border-r border-border bg-background">
         {renderContextPanel()}

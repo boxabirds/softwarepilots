@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Landing } from "./pages/Landing";
 import { useAuth } from "./lib/auth";
+import { TopNav, NAV_HEIGHT_PX } from "./components/TopNav";
 
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((m) => ({ default: m.Dashboard }))
@@ -37,6 +38,15 @@ function RouteLoader({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <TopNav />
+      <div style={{ paddingTop: NAV_HEIGHT_PX }}>{children}</div>
+    </>
+  );
+}
+
 export function App() {
   return (
     <BrowserRouter>
@@ -46,9 +56,11 @@ export function App() {
           path="/dashboard"
           element={
             <AuthGuard>
-              <RouteLoader>
-                <Dashboard />
-              </RouteLoader>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <Dashboard />
+                </RouteLoader>
+              </AuthenticatedLayout>
             </AuthGuard>
           }
         />
@@ -56,9 +68,11 @@ export function App() {
           path="/curriculum"
           element={
             <AuthGuard>
-              <RouteLoader>
-                <CurriculumSelect />
-              </RouteLoader>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <CurriculumSelect />
+                </RouteLoader>
+              </AuthenticatedLayout>
             </AuthGuard>
           }
         />
@@ -66,9 +80,11 @@ export function App() {
           path="/exercise/:moduleId/:exerciseId"
           element={
             <AuthGuard>
-              <RouteLoader>
-                <Exercise />
-              </RouteLoader>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <Exercise />
+                </RouteLoader>
+              </AuthenticatedLayout>
             </AuthGuard>
           }
         />
@@ -76,9 +92,11 @@ export function App() {
           path="/curriculum/:profile/progress"
           element={
             <AuthGuard>
-              <RouteLoader>
-                <ProgressDashboard />
-              </RouteLoader>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <ProgressDashboard />
+                </RouteLoader>
+              </AuthenticatedLayout>
             </AuthGuard>
           }
         />
@@ -86,9 +104,11 @@ export function App() {
           path="/curriculum/:profile/:sectionId"
           element={
             <AuthGuard>
-              <RouteLoader>
-                <SocraticSession />
-              </RouteLoader>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <SocraticSession />
+                </RouteLoader>
+              </AuthenticatedLayout>
             </AuthGuard>
           }
         />
