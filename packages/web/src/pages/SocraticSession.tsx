@@ -657,18 +657,24 @@ export function SocraticSession() {
           <textarea
             ref={inputRef}
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={(e) => {
+              setInputText(e.target.value);
+              // Auto-grow: reset height then set to content, capped at 7 lines (~140px)
+              const el = e.target;
+              el.style.height = "0";
+              const maxPx = 140;
+              if (el.scrollHeight > maxPx) {
+                el.style.height = maxPx + "px";
+                el.style.overflowY = "auto";
+              } else {
+                el.style.height = el.scrollHeight + "px";
+                el.style.overflowY = "hidden";
+              }
+            }}
             placeholder="Type your response..."
             rows={1}
-            className="flex-1 resize-none overflow-hidden border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
-            style={{ maxHeight: "7.5rem" }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = Math.min(el.scrollHeight, 120) + "px";
-              if (el.scrollHeight > 120) el.style.overflow = "auto";
-              else el.style.overflow = "hidden";
-            }}
+            className="flex-1 resize-none border-none bg-transparent font-sans text-sm leading-5 text-foreground outline-none"
+            style={{ height: "20px", overflowY: "hidden" }}
             disabled={sending}
             onKeyDown={(e) => {
               if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
