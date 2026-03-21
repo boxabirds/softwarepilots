@@ -145,4 +145,66 @@ test.describe("Socratic session page", () => {
       page.getByText("Something went wrong connecting to the tutor"),
     ).toBeVisible();
   });
+
+  test("struggle detection: learner confusion triggers instruction with distinct rendering", async ({ page }) => {
+    let requestCount = 0;
+
+    await page.route("**/api/socratic", async (route) => {
+      requestCount++;
+
+      if (requestCount === 1) {
+        // Opening probe
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "What do you think software pilotry means?",
+            tool_type: "socratic_probe",
+            topic: "introduction",
+          }),
+        });
+      } else {
+        // Learner sends confused message -> tutor provides instruction
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "Software pilotry is the practice of guiding software through its lifecycle with human judgment and automated systems working together.",
+            tool_type: "provide_instruction",
+            concept: "Software Pilotry",
+            struggle_reason: "learner_asked",
+          }),
+        });
+      }
+    });
+
+    await page.goto(SESSION_URL);
+
+    // Wait for opening probe
+    await expect(
+      page.getByText("What do you think software pilotry means?"),
+    ).toBeVisible();
+
+    // Learner sends confused message
+    const input = page.locator('textarea[placeholder="Type your response..."]');
+    await input.fill("I really don't know, can you just explain it?");
+    await input.press("Enter");
+
+    // Instruction card should appear with distinct rendering
+    const instructionCard = page.locator('[data-testid="instruction-card"]');
+    await expect(instructionCard).toBeVisible();
+
+    // Concept label should be shown
+    const conceptLabel = page.locator('[data-testid="instruction-concept"]');
+    await expect(conceptLabel).toBeVisible();
+    await expect(conceptLabel).toHaveText("Software Pilotry");
+
+    // The "Direct Instruction" label should be visible
+    await expect(page.getByText("Direct Instruction")).toBeVisible();
+
+    // The instruction content should be visible
+    await expect(
+      page.getByText(/Software pilotry is the practice/),
+    ).toBeVisible();
+  });
 });
