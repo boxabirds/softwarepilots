@@ -3,6 +3,7 @@ import { render, screen, waitFor, within, cleanup } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SocraticSession } from "../pages/SocraticSession";
+import { TutorCard } from "../components/exercise/TutorCard";
 
 /* ---- jsdom stubs ---- */
 
@@ -363,5 +364,181 @@ describe("SocraticSession pause card", () => {
     });
 
     expect(screen.getByText("We'll pick up with closures next time.")).toBeTruthy();
+  });
+});
+
+/* ---- TutorCard reply button ---- */
+
+describe("TutorCard reply button", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows Reply button when onReply is provided", () => {
+    render(<TutorCard content="Some tutor message" onReply={() => {}} />);
+    expect(screen.getByTestId("reply-button")).toBeTruthy();
+    expect(screen.getByTestId("reply-button").textContent).toBe("Reply");
+  });
+
+  it("does not show Reply button when onReply is not provided", () => {
+    render(<TutorCard content="Some tutor message" />);
+    expect(screen.queryByTestId("reply-button")).toBeNull();
+  });
+
+  it("calls onReply when Reply button is clicked", async () => {
+    const onReply = vi.fn();
+    render(<TutorCard content="Some tutor message" onReply={onReply} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("reply-button"));
+
+    expect(onReply).toHaveBeenCalledOnce();
+  });
+
+  it("does not show Reply button on loading card", () => {
+    render(<TutorCard content="" loading onReply={() => {}} />);
+    expect(screen.queryByTestId("reply-button")).toBeNull();
+  });
+});
+
+/* ---- Quote preview and quoted message rendering ---- */
+
+describe("SocraticSession quote features", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  function setupWithTutorMessage(tutorContent = "What do you think about this topic?") {
+    const savedMessages = [
+      { role: "tutor", content: tutorContent },
+    ];
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: savedMessages, updated_at: "2026-01-01T00:00:00Z" });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    mockPost.mockImplementation(() =>
+      Promise.resolve({ reply: "Good thinking!", tool_type: "socratic_probe" }),
+    );
+
+    mockPut.mockImplementation(() => Promise.resolve({ saved: true }));
+    mockDelete.mockImplementation(() => Promise.resolve({ reset: true }));
+  }
+
+  it("shows quote preview when Reply is clicked on a tutor message", async () => {
+    setupWithTutorMessage();
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("What do you think about this topic?")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+
+    // Click the Reply button on the tutor card (not the intro card)
+    const replyButtons = screen.getAllByTestId("reply-button");
+    await user.click(replyButtons[0]);
+
+    // Quote preview should appear
+    await waitFor(() => {
+      expect(screen.getByTestId("quote-preview")).toBeTruthy();
+    });
+
+    // Quote text should be visible in the preview
+    expect(screen.getByTestId("quote-preview").textContent).toContain("What do you think about this topic?");
+  });
+
+  it("dismiss button clears the quote preview", async () => {
+    setupWithTutorMessage();
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("What do you think about this topic?")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+
+    // Click Reply to set the quote
+    const replyButtons = screen.getAllByTestId("reply-button");
+    await user.click(replyButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("quote-preview")).toBeTruthy();
+    });
+
+    // Click dismiss
+    await user.click(screen.getByTestId("quote-dismiss"));
+
+    // Quote preview should be gone
+    expect(screen.queryByTestId("quote-preview")).toBeNull();
+  });
+
+  it("renders sent message with quote block and response separately", async () => {
+    const savedMessages = [
+      { role: "tutor", content: "What is recursion?" },
+      { role: "user", content: "> What is recursion?\n\nIt's when a function calls itself." },
+    ];
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: savedMessages, updated_at: "2026-01-01T00:00:00Z" });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    mockPut.mockImplementation(() => Promise.resolve({ saved: true }));
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("user-quote-block")).toBeTruthy();
+    });
+
+    // Quote block should contain the quoted text (without "> " prefix)
+    expect(screen.getByTestId("user-quote-block").textContent).toBe("What is recursion?");
+
+    // Response text should render normally
+    expect(screen.getByText("It's when a function calls itself.")).toBeTruthy();
+  });
+
+  it("renders sent message without quote normally", async () => {
+    const savedMessages = [
+      { role: "tutor", content: "Tell me more." },
+      { role: "user", content: "I think it means looping." },
+    ];
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: savedMessages, updated_at: "2026-01-01T00:00:00Z" });
+      }
+      if (path.startsWith("/api/curriculum/")) {
+        return Promise.resolve({ ...MOCK_SECTION });
+      }
+      return Promise.reject(new Error(`Unexpected GET: ${path}`));
+    });
+
+    mockPut.mockImplementation(() => Promise.resolve({ saved: true }));
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("I think it means looping.")).toBeTruthy();
+    });
+
+    // No quote block should exist
+    expect(screen.queryByTestId("user-quote-block")).toBeNull();
   });
 });
