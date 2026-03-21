@@ -14,6 +14,7 @@ import {
   getOrUploadFile,
   GEMINI_API_URL,
 } from "../lib/gemini";
+import { updateSectionProgress } from "./curriculum-progress";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
@@ -382,6 +383,13 @@ socraticChat.post("/", async (c) => {
     }
 
     const result = parseSocraticResponse(data!);
+
+    // Update progress (fire-and-forget — don't block response)
+    const learnerId = c.get("learnerId" as never) as string;
+    if (learnerId) {
+      updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch(() => {});
+    }
+
     return c.json(result);
   } catch {
     return c.json({ error: "Tutor unavailable" }, 502);

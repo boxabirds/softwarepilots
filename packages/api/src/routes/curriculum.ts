@@ -5,6 +5,7 @@ import {
   getCurriculumSections,
   getSection,
 } from "@softwarepilots/shared";
+import { getProgressForProfile } from "./curriculum-progress";
 
 /* ---- Valid profiles and section ID pattern ---- */
 
@@ -64,6 +65,14 @@ curriculum.get("/:profile", (c) => {
   } catch {
     return c.json({ error: `Unknown profile: ${profile}` }, 404);
   }
+});
+
+/* GET /:profile/progress — learner's progress for all sections in a profile */
+curriculum.get("/:profile/progress", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+  const progress = await getProgressForProfile(c.env.DB, learnerId, profile);
+  return c.json(progress);
 });
 
 /* GET /:profile/:sectionId — get section with markdown (must be before conversation routes) */
