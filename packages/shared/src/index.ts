@@ -13,3 +13,17 @@ export type {
   PyodideStep,
   PyodideStepType,
 } from "./exercises";
+
+export {
+  getCurriculumProfiles,
+  getCurriculumMeta,
+  getCurriculumSections,
+  getSection,
+} from "./curricula";
+
+export type {
+  LearnerProfile,
+  CurriculumMeta,
+  SectionMeta,
+  CurriculumProfileSummary,
+} from "./curricula";
