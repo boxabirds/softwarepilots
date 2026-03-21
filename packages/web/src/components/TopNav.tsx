@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -36,15 +37,64 @@ export function TopNav() {
         )}
       </div>
 
-      {/* Right: Profile icon */}
-      <div
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
-        data-testid="nav-profile-icon"
-        title={learner?.display_name ?? "Profile"}
-      >
-        {firstInitial}
-      </div>
+      {/* Right: Profile menu */}
+      <ProfileMenu initial={firstInitial} displayName={learner?.display_name} />
     </nav>
+  );
+}
+
+function ProfileMenu({ initial, displayName }: { initial: string; displayName?: string }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleSignOut = () => {
+    // POST to logout endpoint - it clears the cookie and redirects
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/auth/logout";
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+        data-testid="nav-profile-icon"
+        title={displayName ?? "Profile"}
+      >
+        {initial}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-40 rounded-md border border-border bg-background py-1 shadow-lg">
+          {displayName && (
+            <div className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+              {displayName}
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="flex w-full cursor-pointer items-center px-3 py-2 text-sm text-foreground hover:bg-accent"
+            data-testid="sign-out-button"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
