@@ -405,7 +405,7 @@ export function SocraticSession() {
                       />
                     )}
                     <span className="truncate">{lesson.title}</span>
-                    {sectionCov && sectionCov.total > 0 && (
+                    {sectionCov && sectionCov.total > 0 && status && status !== "not_started" && (
                       <span className="ml-auto flex shrink-0 items-center gap-1">
                         {sectionCov.dueForReview && (
                           <span

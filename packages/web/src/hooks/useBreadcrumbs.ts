@@ -44,9 +44,7 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
 
   // Routes with a profile param
   if (profile) {
-    const trackLabel = coverage
-      ? `${formatProfileName(profile)} (${coverage.track.covered}/${coverage.track.total})`
-      : formatProfileName(profile);
+    const trackLabel = formatProfileName(profile);
 
     // /curriculum/:profile/progress
     if (pathname.endsWith("/progress")) {
