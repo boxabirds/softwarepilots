@@ -225,7 +225,7 @@ export function Dashboard() {
               {/* Level 0 interactive exercises */}
               {expanded === "level-0" && (
                 <>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Interactive Exercises</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#7A8BA8" }}>Interactive Exercises</h3>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {LEVEL_0_EXERCISES.map((ex) => (
                       <ExerciseCard key={ex.number} {...ex} />
@@ -252,11 +252,15 @@ function TrackCard({
 }) {
   return (
     <div
-      className={`cursor-pointer rounded-xl p-4 transition-all hover:shadow-md ${
-        isExpanded
-          ? "bg-[var(--pilot-blue)] text-white shadow-lg"
-          : "border border-[var(--border-light)] bg-white hover:border-[var(--pilot-cyan)]"
-      }`}
+      className="cursor-pointer rounded-xl p-5 transition-all"
+      style={isExpanded ? {
+        background: "linear-gradient(135deg, #1A4FD1, #0F2C7E)",
+        color: "white",
+        boxShadow: "0 8px 24px rgba(26, 79, 209, 0.3)",
+      } : {
+        background: "#FAFBFE",
+        border: "1px solid #D1DBF5",
+      }}
       onClick={onToggle}
       role="button"
       tabIndex={0}
@@ -267,18 +271,29 @@ function TrackCard({
         }
       }}
     >
-      <h2 className={`text-lg font-bold ${isExpanded ? "text-white" : "text-[var(--text-primary)]"}`}>
+      <h2
+        className="text-xl font-bold"
+        style={{ color: isExpanded ? "#ffffff" : "#0D1526" }}
+      >
         {profile.title}
       </h2>
-      <p className={`mt-1 line-clamp-2 text-xs ${isExpanded ? "text-white/70" : "text-[var(--text-tertiary)]"}`}>
+      <p
+        className="mt-2 line-clamp-2 text-sm"
+        style={{ color: isExpanded ? "rgba(255,255,255,0.75)" : "#4A5A7A" }}
+      >
         {profile.starting_position}
       </p>
-      <div className="mt-3">
-        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-          isExpanded
-            ? "bg-white/20 text-white"
-            : "bg-[var(--pilot-100)] text-[var(--pilot-700)]"
-        }`}>
+      <div className="mt-4">
+        <span
+          className="rounded-full px-3 py-1 text-xs font-semibold"
+          style={isExpanded ? {
+            background: "rgba(255,255,255,0.2)",
+            color: "#ffffff",
+          } : {
+            background: "#E8EDFA",
+            color: "#13389E",
+          }}
+        >
           {profile.section_count} sections
         </span>
       </div>
@@ -303,7 +318,10 @@ function ModuleTree({
 
   return (
     <div>
-      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+      <h3
+        className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"
+        style={{ color: "#7A8BA8" }}
+      >
         {mod.module_title}
         {hasProgress && (
           <span className="font-normal normal-case tracking-normal">
@@ -318,7 +336,20 @@ function ModuleTree({
             <Link
               key={sec.id}
               to={`/curriculum/${profile}/${sec.id}`}
-              className="flex items-center gap-2 rounded-lg border border-[var(--border-light)] bg-white px-4 py-3 text-sm transition-all hover:border-[var(--pilot-cyan)] hover:shadow-sm"
+              className="flex items-center gap-2.5 rounded-lg px-4 py-3 text-sm no-underline transition-all hover:shadow-sm"
+              style={{
+                background: "#F4F6FD",
+                border: "1px solid #E8EDFA",
+                color: "#2A3654",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#00AAFF";
+                e.currentTarget.style.background = "#FAFBFE";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#E8EDFA";
+                e.currentTarget.style.background = "#F4F6FD";
+              }}
             >
               {progress ? (
                 <ProgressBadge
@@ -326,7 +357,7 @@ function ModuleTree({
                   understandingLevel={progress.understanding_level}
                 />
               ) : null}
-              <span className="text-[var(--text-secondary)]">{sec.title}</span>
+              <span>{sec.title}</span>
             </Link>
           );
         })}
