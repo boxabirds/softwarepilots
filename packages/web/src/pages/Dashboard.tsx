@@ -194,7 +194,7 @@ export function Dashboard() {
 
       {/* Expanded section area */}
       {expanded && (
-        <div className="mt-6 rounded-xl border border-[var(--border-light)] bg-[var(--bg-subtle)] p-5">
+        <div className="mt-6">
           {loadingSections ? (
             <p className="text-center text-[var(--text-muted)]">Loading sections...</p>
           ) : error ? (
@@ -252,10 +252,10 @@ function TrackCard({
 }) {
   return (
     <div
-      className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${
+      className={`cursor-pointer rounded-xl p-4 transition-all hover:shadow-md ${
         isExpanded
-          ? "border-[var(--pilot-blue)] bg-[var(--pilot-50)] shadow-md"
-          : "border-[var(--border-light)] bg-white hover:border-[var(--pilot-cyan)]"
+          ? "bg-[var(--pilot-blue)] text-white shadow-lg"
+          : "border border-[var(--border-light)] bg-white hover:border-[var(--pilot-cyan)]"
       }`}
       onClick={onToggle}
       role="button"
@@ -267,14 +267,18 @@ function TrackCard({
         }
       }}
     >
-      <h2 className={`text-lg font-bold ${isExpanded ? "text-[var(--pilot-blue)]" : "text-[var(--text-primary)]"}`}>
+      <h2 className={`text-lg font-bold ${isExpanded ? "text-white" : "text-[var(--text-primary)]"}`}>
         {profile.title}
       </h2>
-      <p className="mt-1 line-clamp-2 text-xs text-[var(--text-tertiary)]">
+      <p className={`mt-1 line-clamp-2 text-xs ${isExpanded ? "text-white/70" : "text-[var(--text-tertiary)]"}`}>
         {profile.starting_position}
       </p>
       <div className="mt-3">
-        <span className="rounded-full bg-[var(--pilot-100)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--pilot-700)]">
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+          isExpanded
+            ? "bg-white/20 text-white"
+            : "bg-[var(--pilot-100)] text-[var(--pilot-700)]"
+        }`}>
           {profile.section_count} sections
         </span>
       </div>
