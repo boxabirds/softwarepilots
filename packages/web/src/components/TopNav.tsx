@@ -25,9 +25,6 @@ export function TopNav() {
         data-testid="nav-logo"
       >
         <img src="/logo-blue-circle.png" alt="Software Pilots" className="h-7 w-auto" />
-        {!isMobile && (
-          <span className="text-sm">Software Pilots</span>
-        )}
       </Link>
 
       {/* Center: breadcrumb trail */}
