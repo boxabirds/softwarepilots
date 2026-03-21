@@ -9,6 +9,11 @@ const Dashboard = lazy(() =>
 const Exercise = lazy(() =>
   import("./pages/Exercise").then((m) => ({ default: m.Exercise }))
 );
+const CurriculumSelect = lazy(() =>
+  import("./pages/CurriculumSelect").then((m) => ({
+    default: m.CurriculumSelect,
+  }))
+);
 
 function RouteLoader({ children }: { children: React.ReactNode }) {
   return (
@@ -35,6 +40,16 @@ export function App() {
             <AuthGuard>
               <RouteLoader>
                 <Dashboard />
+              </RouteLoader>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/curriculum"
+          element={
+            <AuthGuard>
+              <RouteLoader>
+                <CurriculumSelect />
               </RouteLoader>
             </AuthGuard>
           }

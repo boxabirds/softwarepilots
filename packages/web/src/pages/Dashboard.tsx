@@ -68,6 +68,20 @@ export function Dashboard() {
         )}
       </header>
 
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Curriculum Tracks</CardTitle>
+          <CardDescription>
+            Choose a learning track tailored to your experience level
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link to="/curriculum">Browse Tracks</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <h2 className="mb-4 text-lg font-semibold">Modules</h2>
 
       <div className="flex flex-col gap-4">
