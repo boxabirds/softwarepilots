@@ -24,14 +24,15 @@ interface SocraticResponse {
 }
 
 interface SectionMetadata {
+  id: string;
   title: string;
-  module_title?: string;
-  track_name?: string;
-  markdown?: string;
+  module_id: string;
+  module_title: string;
+  markdown: string;
+  key_intuition: string;
 }
 
 const SCROLL_BOTTOM_THRESHOLD = 50;
-const CONTEXT_PREVIEW_LENGTH = 200;
 const OPENING_MESSAGE = "I'm ready to begin.";
 
 /* ---- Component ---- */
@@ -214,10 +215,6 @@ export function SocraticSession() {
 
   /* ---- Context panel content ---- */
 
-  const contextPreview = section?.markdown
-    ? section.markdown.slice(0, CONTEXT_PREVIEW_LENGTH) + (section.markdown.length > CONTEXT_PREVIEW_LENGTH ? "..." : "")
-    : null;
-
   function renderContextPanel() {
     if (sectionLoading) {
       return (
@@ -231,22 +228,18 @@ export function SocraticSession() {
     }
     if (!section) return null;
 
+    const trackLabel = profile?.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "";
+
     return (
       <div className="p-5">
-        {section.track_name && (
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            {section.track_name}
-          </span>
-        )}
-        {section.module_title && (
-          <p className="mt-1 text-xs text-muted-foreground">{section.module_title}</p>
-        )}
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          {trackLabel}
+        </span>
+        <p className="mt-1 text-xs text-muted-foreground">{section.module_title}</p>
         <h2 className="mt-2 text-lg font-bold text-foreground">{section.title}</h2>
-        {contextPreview && (
-          <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-            {contextPreview}
-          </p>
-        )}
+        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+          The tutor will guide you through this section using Socratic questioning — probing your understanding rather than lecturing.
+        </p>
       </div>
     );
   }
