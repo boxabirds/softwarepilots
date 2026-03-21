@@ -578,10 +578,18 @@ export function SocraticSession() {
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Type your response..."
           rows={1}
-          className="min-h-6 flex-1 resize-none border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
+          className="flex-1 resize-none overflow-hidden border-none bg-transparent font-sans text-sm leading-relaxed text-foreground outline-none"
+          style={{ maxHeight: "7.5rem" }}
+          onInput={(e) => {
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            el.style.height = Math.min(el.scrollHeight, 120) + "px";
+            if (el.scrollHeight > 120) el.style.overflow = "auto";
+            else el.style.overflow = "hidden";
+          }}
           disabled={sending}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && inputText.trim()) {
+            if (e.key === "Enter" && e.shiftKey && inputText.trim()) {
               e.preventDefault();
               handleSubmit();
             }
