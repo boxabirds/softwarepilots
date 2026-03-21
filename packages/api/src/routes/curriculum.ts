@@ -114,7 +114,7 @@ curriculum.put("/:profile/:sectionId/conversation", async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO curriculum_conversations (learner_id, profile, section_id, messages_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT (learner_id, profile, section_id)
+     ON CONFLICT (learner_id, profile, section_id) WHERE archived_at IS NULL
      DO UPDATE SET messages_json = excluded.messages_json, updated_at = datetime('now')`
   )
     .bind(learnerId, profile, sectionId, JSON.stringify(body.messages))
@@ -137,7 +137,7 @@ curriculum.get("/:profile/:sectionId/conversation", async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT messages_json, updated_at
      FROM curriculum_conversations
-     WHERE learner_id = ? AND profile = ? AND section_id = ?`
+     WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
   )
     .bind(learnerId, profile, sectionId)
     .first<{ messages_json: string; updated_at: string }>();
@@ -152,7 +152,7 @@ curriculum.get("/:profile/:sectionId/conversation", async (c) => {
   });
 });
 
-/* DELETE /:profile/:sectionId/conversation - reset conversation */
+/* DELETE /:profile/:sectionId/conversation - archive and reset conversation */
 curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");
@@ -164,8 +164,9 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   }
 
   await c.env.DB.prepare(
-    `DELETE FROM curriculum_conversations
-     WHERE learner_id = ? AND profile = ? AND section_id = ?`
+    `UPDATE curriculum_conversations
+     SET archived_at = datetime('now')
+     WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
   )
     .bind(learnerId, profile, sectionId)
     .run();

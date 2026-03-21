@@ -65,6 +65,7 @@ describe("isValidSectionId", () => {
 interface MockRow {
   messages_json: string;
   updated_at: string;
+  archived_at: string | null;
 }
 
 function createMockDB() {
@@ -86,19 +87,35 @@ function createMockDB() {
         return {
           first: async <T = MockRow>() => {
             if (sql.includes("SELECT")) {
-              return (store.get(key) as T) ?? null;
+              const row = store.get(key);
+              // Filter out archived rows (GET queries include archived_at IS NULL)
+              if (row && row.archived_at !== null) return null;
+              return (row as T) ?? null;
             }
             return null;
           },
           run: async () => {
             if (sql.includes("INSERT")) {
               const messagesJson = args[3] as string;
-              store.set(key, {
-                messages_json: messagesJson,
-                updated_at: new Date().toISOString(),
-              });
-            } else if (sql.includes("DELETE")) {
-              store.delete(key);
+              const existing = store.get(key);
+              if (existing && existing.archived_at === null) {
+                // Upsert: update active row
+                existing.messages_json = messagesJson;
+                existing.updated_at = new Date().toISOString();
+              } else {
+                // Insert new active row
+                store.set(key, {
+                  messages_json: messagesJson,
+                  updated_at: new Date().toISOString(),
+                  archived_at: null,
+                });
+              }
+            } else if (sql.includes("UPDATE") && sql.includes("archived_at")) {
+              // Archive (soft-delete)
+              const row = store.get(key);
+              if (row && row.archived_at === null) {
+                row.archived_at = new Date().toISOString();
+              }
             }
             return { success: true };
           },

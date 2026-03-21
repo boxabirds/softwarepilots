@@ -5,15 +5,13 @@ import { SESSION_COOKIE_NAME } from "../middleware/session-validation";
 import type { SessionPayload } from "../middleware/session-validation";
 
 
-const FAKE_GITHUB_URL = "http://localhost:9999";
-const REAL_GITHUB_BASE = "https://github.com";
-const REAL_GITHUB_API_BASE = "https://api.github.com";
+const DEFAULT_GITHUB_BASE = "https://github.com";
+const DEFAULT_GITHUB_API_BASE = "https://api.github.com";
 const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 function githubUrls(env: Env) {
-  const isLocal = env.ENVIRONMENT === "local";
-  const base = isLocal ? FAKE_GITHUB_URL : REAL_GITHUB_BASE;
-  const apiBase = isLocal ? FAKE_GITHUB_URL : REAL_GITHUB_API_BASE;
+  const base = env.GITHUB_BASE_URL || DEFAULT_GITHUB_BASE;
+  const apiBase = env.GITHUB_API_BASE_URL || DEFAULT_GITHUB_API_BASE;
   return {
     authorize: `${base}/login/oauth/authorize`,
     token: `${base}/login/oauth/access_token`,
