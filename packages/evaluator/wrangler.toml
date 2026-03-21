@@ -4,7 +4,7 @@ main = "src/index.ts"
 compatibility_date = "2026-03-09"
 
 [dev]
-port = 8788
+port = 8791
 
 [vars]
 ENVIRONMENT = "local"

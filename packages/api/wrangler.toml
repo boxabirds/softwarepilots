@@ -4,11 +4,11 @@ main = "src/index.ts"
 compatibility_date = "2026-03-09"
 
 [dev]
-port = 8787
+port = 8790
 
 [vars]
 ENVIRONMENT = "local"
-EVALUATOR_URL = "http://localhost:8788"
+EVALUATOR_URL = "http://localhost:8791"
 WEB_APP_URL = "http://localhost:3000"
 
 [[d1_databases]]
