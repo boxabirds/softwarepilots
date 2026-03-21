@@ -2,7 +2,7 @@ import type { CurriculumData } from "../curricula";
 
 export const veteranCurriculum: CurriculumData = {
   meta: {
-    profile: "veteran",
+    profile: "level-10",
     title: "Level 10",
     starting_position:
       "Deep production experience. Has built, broken, and fixed real systems. Strong mental models for how software fails. Risk: resists the paradigm shift - either dismisses agents as toys or over-indexes on doing everything themselves. The hardest lesson is letting go of the craft identity tied to writing code manually.",

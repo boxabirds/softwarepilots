@@ -174,7 +174,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
   it("returns structured data with empty progress", async () => {
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/progress/summary",
+      "/api/curriculum/level-1/progress/summary",
       { headers: { Cookie: cookie } },
       buildTestEnv()
     );
@@ -197,7 +197,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
   it("returns stats with all zeros for empty progress", async () => {
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/progress/summary",
+      "/api/curriculum/level-1/progress/summary",
       { headers: { Cookie: cookie } },
       buildTestEnv()
     );
@@ -217,18 +217,18 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
         `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, updated_at)
          VALUES (?, ?, ?, 'completed', '[{"understanding_level":"solid"}]', '{"thread safety":{"level":"solid","last_reviewed":"2026-01-01","next_review":"2026-01-08","review_count":2}}', datetime('now'), datetime('now'))`
       )
-      .run(TEST_LEARNER_ID, "new-grad", "1.1");
+      .run(TEST_LEARNER_ID, "level-1", "1.1");
 
     sqliteDb
       .prepare(
         `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, updated_at)
          VALUES (?, ?, ?, 'in_progress', '[{"understanding_level":"emerging"}]', '{}', datetime('now'), datetime('now'))`
       )
-      .run(TEST_LEARNER_ID, "new-grad", "1.2");
+      .run(TEST_LEARNER_ID, "level-1", "1.2");
 
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/progress/summary",
+      "/api/curriculum/level-1/progress/summary",
       { headers: { Cookie: cookie } },
       buildTestEnv()
     );
@@ -280,7 +280,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
         `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, updated_at)
          VALUES (?, ?, ?, 'in_progress', '[]', '{}', datetime('now'), datetime('now'))`
       )
-      .run(TEST_LEARNER_ID, "new-grad", "1.1");
+      .run(TEST_LEARNER_ID, "level-1", "1.1");
 
     // Override fetch to fail
     const failFetch = mock(() => Promise.reject(new Error("Network error")));
@@ -288,7 +288,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
 
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/progress/summary",
+      "/api/curriculum/level-1/progress/summary",
       { headers: { Cookie: cookie } },
       buildTestEnv()
     );

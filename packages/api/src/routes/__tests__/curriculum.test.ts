@@ -31,7 +31,7 @@ async function json<T>(res: Response): Promise<T> {
 
 describe("isValidProfile", () => {
   it("accepts known profiles", () => {
-    expect(isValidProfile("new-grad")).toBe(true);
+    expect(isValidProfile("level-1")).toBe(true);
     expect(isValidProfile("veteran-engineer")).toBe(true);
     expect(isValidProfile("senior-tech-leader")).toBe(true);
   });
@@ -179,7 +179,7 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
   });
 
   it("returns 400 for invalid section_id", async () => {
-    const res = await app.request("/curriculum/new-grad/bad/conversation", {
+    const res = await app.request("/curriculum/level-1/bad/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }),
@@ -190,7 +190,7 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
   });
 
   it("returns 400 for empty messages array", async () => {
-    const res = await app.request("/curriculum/new-grad/1.1/conversation", {
+    const res = await app.request("/curriculum/level-1/1.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: [] }),
@@ -201,7 +201,7 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
   });
 
   it("returns 400 for invalid JSON body", async () => {
-    const res = await app.request("/curriculum/new-grad/1.1/conversation", {
+    const res = await app.request("/curriculum/level-1/1.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: "not json",
@@ -216,7 +216,7 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
       { role: "user", content: "What is a race condition?" },
       { role: "tutor", content: "What do you think happens when two threads access the same data?" },
     ];
-    const res = await app.request("/curriculum/new-grad/1.1/conversation", {
+    const res = await app.request("/curriculum/level-1/1.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
@@ -235,14 +235,14 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
     ];
 
     // First PUT
-    await app.request("/curriculum/new-grad/1.1/conversation", {
+    await app.request("/curriculum/level-1/1.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: firstMessages }),
     });
 
     // Second PUT (upsert)
-    const res = await app.request("/curriculum/new-grad/1.1/conversation", {
+    const res = await app.request("/curriculum/level-1/1.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: secondMessages }),
@@ -250,7 +250,7 @@ describe("PUT /curriculum/:profile/:sectionId/conversation", () => {
     expect(res.status).toBe(200);
 
     // Verify via GET that the second PUT's messages are stored
-    const getRes = await app.request("/curriculum/new-grad/1.1/conversation");
+    const getRes = await app.request("/curriculum/level-1/1.1/conversation");
     const body = await json<ConversationResponse>(getRes);
     expect(body.messages).toEqual(secondMessages);
   });
@@ -272,12 +272,12 @@ describe("GET /curriculum/:profile/:sectionId/conversation", () => {
   });
 
   it("returns 400 for invalid section_id", async () => {
-    const res = await app.request("/curriculum/new-grad/xyz/conversation");
+    const res = await app.request("/curriculum/level-1/xyz/conversation");
     expect(res.status).toBe(400);
   });
 
   it("returns empty messages for section with no conversation", async () => {
-    const res = await app.request("/curriculum/new-grad/1.1/conversation");
+    const res = await app.request("/curriculum/level-1/1.1/conversation");
     expect(res.status).toBe(200);
     const body = await json<ConversationResponse>(res);
     expect(body.messages).toEqual([]);
@@ -290,13 +290,13 @@ describe("GET /curriculum/:profile/:sectionId/conversation", () => {
       { role: "tutor", content: "welcome" },
     ];
 
-    await app.request("/curriculum/new-grad/2.1/conversation", {
+    await app.request("/curriculum/level-1/2.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
     });
 
-    const res = await app.request("/curriculum/new-grad/2.1/conversation");
+    const res = await app.request("/curriculum/level-1/2.1/conversation");
     expect(res.status).toBe(200);
     const body = await json<ConversationResponse>(res);
     expect(body.messages).toEqual(messages);
@@ -322,7 +322,7 @@ describe("DELETE /curriculum/:profile/:sectionId/conversation", () => {
   });
 
   it("returns 200 even when no conversation exists (idempotent)", async () => {
-    const res = await app.request("/curriculum/new-grad/1.1/conversation", {
+    const res = await app.request("/curriculum/level-1/1.1/conversation", {
       method: "DELETE",
     });
     expect(res.status).toBe(200);

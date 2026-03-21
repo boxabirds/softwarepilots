@@ -70,7 +70,7 @@ function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
 /* ---- Test fixtures ---- */
 
 const TEST_LEARNER = "integration-learner-001";
-const TEST_PROFILE = "new-grad";
+const TEST_PROFILE = "level-1";
 const TEST_SECTION = "1.1";
 
 let sqliteDb: InstanceType<typeof Database>;

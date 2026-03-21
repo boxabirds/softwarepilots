@@ -9,7 +9,7 @@ import {
 
 describe("buildCurriculumContext", () => {
   it("includes full markdown for the current section", () => {
-    const result = buildCurriculumContext("new-grad", "1.1");
+    const result = buildCurriculumContext("level-1", "1.1");
     expect(result).toContain("== Curriculum Content ==");
     expect(result).toContain('--- Current Section: 1.1');
     // Should include the actual markdown content (not just title)
@@ -17,7 +17,7 @@ describe("buildCurriculumContext", () => {
   });
 
   it("includes other sections as summaries", () => {
-    const result = buildCurriculumContext("new-grad", "1.1");
+    const result = buildCurriculumContext("level-1", "1.1");
     // Should have other sections referenced by their IDs
     expect(result).toContain("Other Sections");
   });
@@ -28,14 +28,14 @@ describe("buildCurriculumContext", () => {
   });
 
   it("returns empty string for unknown section in valid profile", () => {
-    const result = buildCurriculumContext("new-grad", "99.99");
+    const result = buildCurriculumContext("level-1", "99.99");
     expect(result).toBe("");
   });
 
   it("respects token budget by truncating non-current sections", () => {
     // This test verifies the truncation behavior exists.
     // With real curriculum data, the budget may or may not trigger.
-    const result = buildCurriculumContext("new-grad", "1.1");
+    const result = buildCurriculumContext("level-1", "1.1");
     // Should always produce output for a valid section
     expect(result).toContain("== Curriculum Content ==");
     // Either "summary" or "titles only" should appear for other sections
@@ -167,7 +167,7 @@ describe("buildConversationContext", () => {
 
   it("returns empty string when no summaries exist", async () => {
     const db = createMockDb([]);
-    const result = await buildConversationContext(db, "learner1", "new-grad", "1.1");
+    const result = await buildConversationContext(db, "learner1", "level-1", "1.1");
     expect(result).toBe("");
   });
 
@@ -177,7 +177,7 @@ describe("buildConversationContext", () => {
       { section_id: "1.2", summary: "Explored advanced topics.", archived_at: null },
     ]);
 
-    const result = await buildConversationContext(db, "learner1", "new-grad", "1.1");
+    const result = await buildConversationContext(db, "learner1", "level-1", "1.1");
     expect(result).toContain("== Prior Sessions ==");
     expect(result).toContain("Discussed basic concepts.");
     expect(result).toContain("Explored advanced topics.");
@@ -189,7 +189,7 @@ describe("buildConversationContext", () => {
       { section_id: "1.2", summary: "Other section work.", archived_at: "2025-01-02" },
     ]);
 
-    const result = await buildConversationContext(db, "learner1", "new-grad", "1.1");
+    const result = await buildConversationContext(db, "learner1", "level-1", "1.1");
     expect(result).toContain("Previous sessions on current section");
     expect(result).toContain("Sessions on other sections");
   });

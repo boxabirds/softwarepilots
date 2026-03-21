@@ -6,7 +6,7 @@ import {
 } from "../curricula";
 import type { LearnerProfile } from "../curricula";
 
-const ALL_PROFILES: LearnerProfile[] = ["new-grad", "veteran", "senior-leader"];
+const ALL_PROFILES: LearnerProfile[] = ["level-1", "level-10", "level-20"];
 
 const TYPICAL_MIN_CONCEPTS = 3;
 const TYPICAL_MAX_CONCEPTS = 7;

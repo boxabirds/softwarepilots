@@ -2,7 +2,7 @@ import type { CurriculumData } from "../curricula";
 
 export const newGradCurriculum: CurriculumData = {
   meta: {
-    profile: "new-grad",
+    profile: "level-1",
     title: "Level 1",
     starting_position:
       "Has theoretical foundations but limited production experience. Can write code but hasn't yet built the judgment that comes from watching systems fail at scale. Risk: over-trusts agent output because they lack the reference frame to spot confident nonsense.",

@@ -15,7 +15,7 @@ const MOCK_SECTION = {
   key_intuition: "Software is a living system that requires constant attention",
 };
 
-const SESSION_URL = "/curriculum/new-grad/1.1";
+const SESSION_URL = "/curriculum/level-1/1.1";
 
 const TUTOR_OPENING = "What do you already know about software pilotry?";
 const TUTOR_FOLLOWUP = "Good thinking! Can you elaborate on that?";
@@ -40,9 +40,9 @@ test.describe("Reply to tutor message", () => {
     });
 
     // Mock section metadata
-    await page.route("**/api/curriculum/new-grad/1.1", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad/1.1") {
+      if (url.pathname === "/api/curriculum/level-1/1.1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -54,7 +54,7 @@ test.describe("Reply to tutor message", () => {
     });
 
     // Mock conversation load (empty = fresh session)
-    await page.route("**/api/curriculum/new-grad/1.1/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1/conversation", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -71,7 +71,7 @@ test.describe("Reply to tutor message", () => {
     });
 
     // Mock progress endpoint
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

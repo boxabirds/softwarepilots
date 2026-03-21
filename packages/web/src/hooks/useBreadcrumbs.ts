@@ -1,5 +1,5 @@
 import { useLocation, useParams } from "react-router-dom";
-import { getSection } from "@softwarepilots/shared";
+import { getSection, getCurriculumMeta } from "@softwarepilots/shared";
 import { useTopicCoverage } from "./useTopicCoverage";
 
 export interface BreadcrumbSegment {
@@ -7,12 +7,13 @@ export interface BreadcrumbSegment {
   href?: string; // undefined = current page (not clickable)
 }
 
-/** Convert a profile slug like 'new-grad' to title case: 'New Grad' */
+/** Get the display title for a profile slug from the curriculum registry */
 function formatProfileName(slug: string): string {
-  return slug
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  try {
+    return getCurriculumMeta(slug).title;
+  } catch {
+    return slug;
+  }
 }
 
 export function useBreadcrumbs(): BreadcrumbSegment[] {

@@ -81,7 +81,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderDashboard(profile = "new-grad") {
+function renderDashboard(profile = "level-1") {
   return render(
     <MemoryRouter initialEntries={[`/curriculum/${profile}/progress`]}>
       <Routes>

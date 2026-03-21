@@ -414,7 +414,7 @@ describe("concept tracking via updateSectionProgress", () => {
 
   it("resolves section titles for valid profiles", async () => {
     // Use a real profile with real section IDs
-    const REAL_PROFILE = "new-grad";
+    const REAL_PROFILE = "level-1";
     sqliteDb
       .prepare(
         `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, started_at, updated_at)

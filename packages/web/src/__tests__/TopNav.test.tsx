@@ -134,29 +134,29 @@ describe("Breadcrumbs", () => {
 
   it("shows profile and module title on session page", () => {
     renderTopNavAtRoute(
-      "/curriculum/new-grad/1.1",
+      "/curriculum/level-1/1.1",
       "/curriculum/:profile/:sectionId",
     );
     const breadcrumbs = screen.getByTestId("breadcrumbs");
-    expect(breadcrumbs.textContent).toContain("New Grad");
+    expect(breadcrumbs.textContent).toContain("Level 1");
     // Should not contain "Home"
     expect(breadcrumbs.textContent).not.toContain("Home");
   });
 
   it("shows progress page breadcrumb without Home", () => {
     renderTopNavAtRoute(
-      "/curriculum/senior-leader/progress",
+      "/curriculum/level-20/progress",
       "/curriculum/:profile/progress",
     );
     const breadcrumbs = screen.getByTestId("breadcrumbs");
     expect(breadcrumbs.textContent).not.toContain("Home");
-    expect(breadcrumbs.textContent).toContain("Senior Leader");
+    expect(breadcrumbs.textContent).toContain("Level 20");
     expect(breadcrumbs.textContent).toContain("Progress");
   });
 
   it("profile is a link on progress page, Progress is current", () => {
     renderTopNavAtRoute(
-      "/curriculum/senior-leader/progress",
+      "/curriculum/level-20/progress",
       "/curriculum/:profile/progress",
     );
     const profileLink = screen.getByTestId("breadcrumb-link-0");
@@ -198,7 +198,7 @@ describe("Breadcrumbs", () => {
     });
 
     renderTopNavAtRoute(
-      "/curriculum/veteran/1.1",
+      "/curriculum/level-10/1.1",
       "/curriculum/:profile/:sectionId",
     );
 
@@ -213,13 +213,13 @@ describe("Breadcrumbs", () => {
   it("falls back to name only when coverage data unavailable", () => {
     // Default mockGet rejects, so coverage will be null
     renderTopNavAtRoute(
-      "/curriculum/new-grad/1.1",
+      "/curriculum/level-1/1.1",
       "/curriculum/:profile/:sectionId",
     );
     const breadcrumbs = screen.getByTestId("breadcrumbs");
     // Should show profile name without N/M format
-    expect(breadcrumbs.textContent).toContain("New Grad");
+    expect(breadcrumbs.textContent).toContain("Level 1");
     // Initially no N/M since coverage hasn't loaded (and won't due to rejection)
-    expect(breadcrumbs.textContent).not.toMatch(/New Grad \(\d+\/\d+\)/);
+    expect(breadcrumbs.textContent).not.toMatch(/Level 1 \(\d+\/\d+\)/);
   });
 });

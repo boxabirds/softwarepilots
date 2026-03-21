@@ -50,7 +50,7 @@ const mockPost = vi.mocked(apiClient.post);
 const mockPut = vi.mocked(apiClient.put);
 const mockDelete = vi.mocked(apiClient.delete);
 
-function renderSession(profile = "new-grad", sectionId = "1.1") {
+function renderSession(profile = "level-1", sectionId = "1.1") {
   return render(
     <MemoryRouter initialEntries={[`/curriculum/${profile}/${sectionId}`]}>
       <Routes>

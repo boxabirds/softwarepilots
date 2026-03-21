@@ -7,21 +7,21 @@ import { test, expect } from "@playwright/test";
 
 const MOCK_PROFILES = [
   {
-    profile: "new-grad",
+    profile: "level-1",
     title: "New Graduate",
     starting_position: "Fresh from bootcamp or CS degree",
     module_count: 3,
     section_count: 12,
   },
   {
-    profile: "veteran",
+    profile: "level-10",
     title: "Veteran Engineer",
     starting_position: "5+ years shipping production code",
     module_count: 3,
     section_count: 10,
   },
   {
-    profile: "senior-leader",
+    profile: "level-20",
     title: "Senior Tech Leader",
     starting_position: "Leading teams and architecture decisions",
     module_count: 3,
@@ -91,10 +91,10 @@ test.describe("Curriculum selection page", () => {
   });
 
   test("clicking a track card reveals sections", async ({ page }) => {
-    // Mock sections for new-grad
-    await page.route("**/api/curriculum/new-grad", async (route) => {
+    // Mock sections for level-1
+    await page.route("**/api/curriculum/level-1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad") {
+      if (url.pathname === "/api/curriculum/level-1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -106,7 +106,7 @@ test.describe("Curriculum selection page", () => {
     });
 
     // Mock progress (empty)
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -125,10 +125,10 @@ test.describe("Curriculum selection page", () => {
   });
 
   test("clicking a section navigates to session page", async ({ page }) => {
-    // Mock sections for new-grad
-    await page.route("**/api/curriculum/new-grad", async (route) => {
+    // Mock sections for level-1
+    await page.route("**/api/curriculum/level-1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad") {
+      if (url.pathname === "/api/curriculum/level-1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -140,7 +140,7 @@ test.describe("Curriculum selection page", () => {
     });
 
     // Mock progress (empty)
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -157,7 +157,7 @@ test.describe("Curriculum selection page", () => {
     await page.getByText("What is Software Pilotry?").click();
 
     // Should navigate to the session page
-    await page.waitForURL("**/curriculum/new-grad/1.1");
-    expect(page.url()).toContain("/curriculum/new-grad/1.1");
+    await page.waitForURL("**/curriculum/level-1/1.1");
+    expect(page.url()).toContain("/curriculum/level-1/1.1");
   });
 });

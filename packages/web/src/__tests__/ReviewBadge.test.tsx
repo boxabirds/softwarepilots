@@ -16,7 +16,7 @@ function renderBadge(props: {
       <ReviewBadge
         concept={props.concept}
         daysOverdue={props.daysOverdue}
-        profile={props.profile ?? "new-grad"}
+        profile={props.profile ?? "level-1"}
         sectionId={props.sectionId ?? "1.1"}
       />
     </MemoryRouter>
@@ -48,11 +48,11 @@ describe("ReviewBadge", () => {
     renderBadge({
       concept: "testing",
       daysOverdue: 2,
-      profile: "veteran",
+      profile: "level-10",
       sectionId: "2.3",
     });
 
     const link = screen.getByTestId("review-badge");
-    expect(link.getAttribute("href")).toBe("/curriculum/veteran/2.3");
+    expect(link.getAttribute("href")).toBe("/curriculum/level-10/2.3");
   });
 });

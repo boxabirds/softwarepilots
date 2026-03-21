@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 
 const MAX_LINES = 7;
 const LINE_HEIGHT = 20; // matches leading-5 (1.25rem = 20px)
@@ -25,6 +25,11 @@ export function ChatInput({
   placeholder = "Type your response...",
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Autofocus on mount
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   // Auto-grow: runs before paint so no flicker
   useLayoutEffect(() => {

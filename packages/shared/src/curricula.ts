@@ -1,6 +1,6 @@
 /* ---- Types ---- */
 
-export type LearnerProfile = "new-grad" | "veteran" | "senior-leader";
+export type LearnerProfile = "level-1" | "level-10" | "level-20";
 
 export interface CurriculumMeta {
   profile: LearnerProfile;
@@ -48,12 +48,12 @@ import { newGradCurriculum } from "./curricula/new-grad";
 import { veteranCurriculum } from "./curricula/veteran";
 import { seniorLeaderCurriculum } from "./curricula/senior-leader";
 
-const ALL_PROFILES: LearnerProfile[] = ["new-grad", "veteran", "senior-leader"];
+const ALL_PROFILES: LearnerProfile[] = ["level-1", "level-10", "level-20"];
 
 const curricula: Record<LearnerProfile, CurriculumData> = {
-  "new-grad": newGradCurriculum,
-  veteran: veteranCurriculum,
-  "senior-leader": seniorLeaderCurriculum,
+  "level-1": newGradCurriculum,
+  "level-10": veteranCurriculum,
+  "level-20": seniorLeaderCurriculum,
 };
 
 /* ---- Helpers ---- */

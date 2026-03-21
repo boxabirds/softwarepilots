@@ -7,21 +7,21 @@ import { test, expect } from "@playwright/test";
 
 const MOCK_PROFILES = [
   {
-    profile: "new-grad",
+    profile: "level-1",
     title: "New Graduate",
     starting_position: "Fresh from bootcamp or CS degree",
     module_count: 2,
     section_count: 4,
   },
   {
-    profile: "veteran",
+    profile: "level-10",
     title: "Veteran Engineer",
     starting_position: "5+ years shipping production code",
     module_count: 2,
     section_count: 4,
   },
   {
-    profile: "senior-leader",
+    profile: "level-20",
     title: "Senior Tech Leader",
     starting_position: "Leading teams and architecture decisions",
     module_count: 2,
@@ -88,10 +88,10 @@ test.describe("Progress tracking on curriculum browser", () => {
   });
 
   test("sections are visible after expanding a track", async ({ page }) => {
-    // Mock sections for new-grad
-    await page.route("**/api/curriculum/new-grad", async (route) => {
+    // Mock sections for level-1
+    await page.route("**/api/curriculum/level-1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad") {
+      if (url.pathname === "/api/curriculum/level-1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -103,7 +103,7 @@ test.describe("Progress tracking on curriculum browser", () => {
     });
 
     // Mock progress with no data (all not_started)
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -123,10 +123,10 @@ test.describe("Progress tracking on curriculum browser", () => {
   });
 
   test("section progress indicators appear when progress data exists", async ({ page }) => {
-    // Mock sections for new-grad
-    await page.route("**/api/curriculum/new-grad", async (route) => {
+    // Mock sections for level-1
+    await page.route("**/api/curriculum/level-1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad") {
+      if (url.pathname === "/api/curriculum/level-1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -138,7 +138,7 @@ test.describe("Progress tracking on curriculum browser", () => {
     });
 
     // Mock progress with some data
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

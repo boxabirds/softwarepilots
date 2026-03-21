@@ -25,8 +25,8 @@ import {
 
 // Get actual data from the registry
 const PROFILES = getCurriculumProfiles();
-const NEW_GRAD_SECTIONS = getCurriculumSections("new-grad");
-const FIRST_SECTION = getSection("new-grad", NEW_GRAD_SECTIONS[0].id);
+const NEW_GRAD_SECTIONS = getCurriculumSections("level-1");
+const FIRST_SECTION = getSection("level-1", NEW_GRAD_SECTIONS[0].id);
 
 test.describe("Full learning flow", () => {
   test.beforeEach(async ({ page }) => {
@@ -89,12 +89,12 @@ test.describe("Full learning flow", () => {
     }
 
     // Mock section detail
-    await page.route("**/api/curriculum/new-grad/*", async (route) => {
+    await page.route("**/api/curriculum/level-1/*", async (route) => {
       const url = new URL(route.request().url());
-      const match = url.pathname.match(/\/api\/curriculum\/new-grad\/(\d+\.\d+)$/);
+      const match = url.pathname.match(/\/api\/curriculum\/level-1\/(\d+\.\d+)$/);
       if (match) {
         try {
-          const section = getSection("new-grad", match[1]);
+          const section = getSection("level-1", match[1]);
           await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -109,7 +109,7 @@ test.describe("Full learning flow", () => {
     });
 
     // Mock conversation persistence
-    await page.route("**/api/curriculum/new-grad/*/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/*/conversation", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -228,7 +228,7 @@ test.describe("Full learning flow", () => {
   test("clicking a section navigates to session page", async ({ page }) => {
     await page.goto("/curriculum");
 
-    // Expand new-grad
+    // Expand level-1
     await expect(page.getByText(PROFILES[0].title)).toBeVisible({ timeout: 10000 });
     await page.getByText(PROFILES[0].title).click();
 
@@ -237,11 +237,11 @@ test.describe("Full learning flow", () => {
     await expect(page.getByText(firstSectionTitle)).toBeVisible({ timeout: 5000 });
     await page.getByText(firstSectionTitle).click();
 
-    await page.waitForURL(`**/curriculum/new-grad/${NEW_GRAD_SECTIONS[0].id}`);
+    await page.waitForURL(`**/curriculum/level-1/${NEW_GRAD_SECTIONS[0].id}`);
   });
 
   test("Socratic session loads with tutor opening message", async ({ page }) => {
-    await page.goto(`/curriculum/new-grad/${NEW_GRAD_SECTIONS[0].id}`);
+    await page.goto(`/curriculum/level-1/${NEW_GRAD_SECTIONS[0].id}`);
 
     // Section title in sidebar
     await expect(page.getByText(FIRST_SECTION.title)).toBeVisible({ timeout: 10000 });
@@ -256,7 +256,7 @@ test.describe("Full learning flow", () => {
   });
 
   test("multi-turn conversation with evaluation and instruction", async ({ page }) => {
-    await page.goto(`/curriculum/new-grad/${NEW_GRAD_SECTIONS[0].id}`);
+    await page.goto(`/curriculum/level-1/${NEW_GRAD_SECTIONS[0].id}`);
 
     // Wait for opening probe (call 1)
     await expect(
@@ -289,7 +289,7 @@ test.describe("Full learning flow", () => {
   });
 
   test("session completion disables input", async ({ page }) => {
-    await page.goto(`/curriculum/new-grad/${NEW_GRAD_SECTIONS[0].id}`);
+    await page.goto(`/curriculum/level-1/${NEW_GRAD_SECTIONS[0].id}`);
 
     await expect(page.getByText("What do you think happens")).toBeVisible({ timeout: 10000 });
 

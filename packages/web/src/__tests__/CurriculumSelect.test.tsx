@@ -27,7 +27,7 @@ const MOCK_PROGRESS = [
 
 const MOCK_PROFILES = [
   {
-    profile: "new-grad" as const,
+    profile: "level-1" as const,
     title: "New CS Graduate",
     starting_position:
       "Fresh from university with theoretical knowledge but limited production experience",
@@ -35,7 +35,7 @@ const MOCK_PROFILES = [
     section_count: 9,
   },
   {
-    profile: "veteran" as const,
+    profile: "level-10" as const,
     title: "Veteran Engineer",
     starting_position:
       "10+ years shipping code, deep expertise in specific stacks",
@@ -43,7 +43,7 @@ const MOCK_PROFILES = [
     section_count: 10,
   },
   {
-    profile: "senior-leader" as const,
+    profile: "level-20" as const,
     title: "Senior Tech Leader",
     starting_position:
       "VP/CTO level, responsible for org-wide technology decisions",
@@ -185,11 +185,11 @@ describe("CurriculumSelect", () => {
 
     const link = screen.getByText("Section Alpha").closest("a");
     expect(link).not.toBeNull();
-    expect(link!.getAttribute("href")).toBe("/curriculum/new-grad/ng-1-1");
+    expect(link!.getAttribute("href")).toBe("/curriculum/level-1/ng-1-1");
 
     const link2 = screen.getByText("Section Gamma").closest("a");
     expect(link2).not.toBeNull();
-    expect(link2!.getAttribute("href")).toBe("/curriculum/new-grad/ng-2-1");
+    expect(link2!.getAttribute("href")).toBe("/curriculum/level-1/ng-2-1");
   });
 
   it("shows error state with retry when fetch fails", async () => {

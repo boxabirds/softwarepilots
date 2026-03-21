@@ -37,16 +37,16 @@ describe("Curriculum API endpoints", () => {
     expect(Array.isArray(body)).toBe(true);
     expect(body).toHaveLength(3);
     expect(body.map((p: { profile: string }) => p.profile).sort()).toEqual([
-      "new-grad",
-      "senior-leader",
-      "veteran",
+      "level-1",
+      "level-20",
+      "level-10",
     ]);
   });
 
-  it("GET /api/curriculum/new-grad returns sections array", async () => {
+  it("GET /api/curriculum/level-1 returns sections array", async () => {
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad",
+      "/api/curriculum/level-1",
       { headers: { Cookie: cookie } },
       TEST_ENV,
     );
@@ -63,10 +63,10 @@ describe("Curriculum API endpoints", () => {
     expect(first).toHaveProperty("module_title");
   });
 
-  it("GET /api/curriculum/new-grad/1.1 returns section with markdown", async () => {
+  it("GET /api/curriculum/level-1/1.1 returns section with markdown", async () => {
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/1.1",
+      "/api/curriculum/level-1/1.1",
       { headers: { Cookie: cookie } },
       TEST_ENV,
     );
@@ -93,10 +93,10 @@ describe("Curriculum API endpoints", () => {
     expect(body).toHaveProperty("error");
   });
 
-  it("GET /api/curriculum/new-grad/99.99 returns 404", async () => {
+  it("GET /api/curriculum/level-1/99.99 returns 404", async () => {
     const cookie = await authCookie();
     const res = await app.request(
-      "/api/curriculum/new-grad/99.99",
+      "/api/curriculum/level-1/99.99",
       { headers: { Cookie: cookie } },
       TEST_ENV,
     );

@@ -57,7 +57,7 @@ describe("computeSectionCoverage", () => {
 
 describe("computeTopicCoverage", () => {
   it("aggregates module coverage correctly", () => {
-    // new-grad has sections in modules; we test with real profile data
+    // level-1 has sections in modules; we test with real profile data
     const entries = [
       {
         section_id: "1.1",
@@ -76,7 +76,7 @@ describe("computeTopicCoverage", () => {
       },
     ];
 
-    const result = computeTopicCoverage("new-grad", entries);
+    const result = computeTopicCoverage("level-1", entries);
 
     // Section-level
     const sec1 = result.sections.get("1.1");
@@ -89,7 +89,7 @@ describe("computeTopicCoverage", () => {
 
     // Module aggregation: sections 1.1 and 1.2 are in the same module
     // Their covered counts should sum
-    const moduleId = "mod-1"; // The actual module_id from new-grad curriculum
+    const moduleId = "mod-1"; // The actual module_id from level-1 curriculum
     // Find the module that contains section 1.1
     let moduleForSec1: string | undefined;
     for (const [modId, modCov] of result.modules) {
@@ -122,7 +122,7 @@ describe("computeTopicCoverage", () => {
       },
     ];
 
-    const result = computeTopicCoverage("new-grad", entries);
+    const result = computeTopicCoverage("level-1", entries);
     expect(result.track.covered).toBe(3); // 2 + 1
     expect(result.track.total).toBeGreaterThan(0);
 

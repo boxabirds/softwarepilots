@@ -24,9 +24,9 @@ import {
 /* ---- Valid profiles and section ID pattern ---- */
 
 const VALID_PROFILES = new Set([
-  "new-grad",
-  "veteran-engineer",
-  "senior-tech-leader",
+  "level-1",
+  "level-10",
+  "level-20",
 ]);
 
 /** Section IDs follow the pattern "N.N" (e.g., "1.1", "2.3", "10.12") */

@@ -14,7 +14,7 @@ const MOCK_SECTION = {
   key_intuition: "Software is a living system that requires constant attention",
 };
 
-const SESSION_URL = "/curriculum/new-grad/1.1";
+const SESSION_URL = "/curriculum/level-1/1.1";
 
 test.describe("Socratic session page", () => {
   test.beforeEach(async ({ page }) => {
@@ -36,9 +36,9 @@ test.describe("Socratic session page", () => {
     });
 
     // Mock section metadata
-    await page.route("**/api/curriculum/new-grad/1.1", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad/1.1") {
+      if (url.pathname === "/api/curriculum/level-1/1.1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -50,7 +50,7 @@ test.describe("Socratic session page", () => {
     });
 
     // Mock conversation load (empty = fresh session)
-    await page.route("**/api/curriculum/new-grad/1.1/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1/conversation", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,

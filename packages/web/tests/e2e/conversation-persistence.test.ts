@@ -14,7 +14,7 @@ const MOCK_SECTION = {
   key_intuition: "Software is a living system that requires constant attention",
 };
 
-const SESSION_URL = "/curriculum/new-grad/1.1";
+const SESSION_URL = "/curriculum/level-1/1.1";
 
 const SAVED_CONVERSATION = [
   { role: "tutor", content: "Welcome! What does pilotry mean to you?" },
@@ -42,9 +42,9 @@ test.describe("Conversation persistence", () => {
     });
 
     // Mock section metadata
-    await page.route("**/api/curriculum/new-grad/1.1", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad/1.1") {
+      if (url.pathname === "/api/curriculum/level-1/1.1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -58,7 +58,7 @@ test.describe("Conversation persistence", () => {
 
   test("conversation persists across page refresh", async ({ page }) => {
     // Mock conversation GET to return saved messages
-    await page.route("**/api/curriculum/new-grad/1.1/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1/conversation", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -107,7 +107,7 @@ test.describe("Conversation persistence", () => {
     let conversationCleared = false;
 
     // Mock conversation GET - returns saved messages initially, empty after clear
-    await page.route("**/api/curriculum/new-grad/1.1/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1/conversation", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,

@@ -52,7 +52,7 @@ const geminiMultiResponse = (
   ],
 });
 
-const TEST_PROFILE = "new-grad" as const;
+const TEST_PROFILE = "level-1" as const;
 const TEST_META = getCurriculumMeta(TEST_PROFILE);
 const TEST_SECTIONS = getCurriculumSections(TEST_PROFILE);
 const TEST_SECTION = getSection(TEST_PROFILE, TEST_SECTIONS[0].id);
@@ -439,7 +439,7 @@ describe("socratic-chat route validation", () => {
 
   it("returns 400 for unknown section", async () => {
     const res = await makeRequest({
-      profile: "new-grad",
+      profile: "level-1",
       section_id: "nonexistent-99",
       message: "hello",
       context: { conversation: [] },
@@ -451,7 +451,7 @@ describe("socratic-chat route validation", () => {
 
   it("returns 400 for empty message", async () => {
     const res = await makeRequest({
-      profile: "new-grad",
+      profile: "level-1",
       section_id: "1.1",
       message: "   ",
       context: { conversation: [] },
@@ -463,7 +463,7 @@ describe("socratic-chat route validation", () => {
 
   it("returns 400 for missing message", async () => {
     const res = await makeRequest({
-      profile: "new-grad",
+      profile: "level-1",
       section_id: "1.1",
       context: { conversation: [] },
     });

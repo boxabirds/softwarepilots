@@ -14,7 +14,7 @@ const MOCK_LEARNER = {
 
 const MOCK_PROFILES = [
   {
-    profile: "new-grad",
+    profile: "level-1",
     title: "New Graduate",
     starting_position: "Fresh from bootcamp or CS degree",
     module_count: 3,
@@ -69,10 +69,10 @@ test.describe("TopNav", () => {
       }
     });
 
-    // Mock sections for new-grad
-    await page.route("**/api/curriculum/new-grad", async (route) => {
+    // Mock sections for level-1
+    await page.route("**/api/curriculum/level-1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad") {
+      if (url.pathname === "/api/curriculum/level-1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -84,9 +84,9 @@ test.describe("TopNav", () => {
     });
 
     // Mock progress
-    await page.route("**/api/curriculum/new-grad/progress", async (route) => {
+    await page.route("**/api/curriculum/level-1/progress", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad/progress") {
+      if (url.pathname === "/api/curriculum/level-1/progress") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -98,9 +98,9 @@ test.describe("TopNav", () => {
     });
 
     // Mock section metadata (for SocraticSession page)
-    await page.route("**/api/curriculum/new-grad/1.1", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1", async (route) => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/curriculum/new-grad/1.1") {
+      if (url.pathname === "/api/curriculum/level-1/1.1") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -119,7 +119,7 @@ test.describe("TopNav", () => {
     });
 
     // Mock conversation endpoint (empty)
-    await page.route("**/api/curriculum/new-grad/1.1/conversation", async (route) => {
+    await page.route("**/api/curriculum/level-1/1.1/conversation", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -166,7 +166,7 @@ test.describe("TopNav", () => {
   });
 
   test("navigate to a section, full breadcrumb path shown", async ({ page }) => {
-    await page.goto("/curriculum/new-grad/1.1");
+    await page.goto("/curriculum/level-1/1.1");
     const breadcrumbs = page.getByTestId("breadcrumbs");
     await expect(breadcrumbs).toContainText("Home");
     await expect(breadcrumbs).toContainText("New Grad");

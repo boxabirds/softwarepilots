@@ -66,7 +66,7 @@ test.describe("Progress dashboard page", () => {
 
     // Mock the summary endpoint
     await page.route(
-      "**/api/curriculum/new-grad/progress/summary",
+      "**/api/curriculum/level-1/progress/summary",
       async (route) => {
         await route.fulfill({
           status: 200,
@@ -78,7 +78,7 @@ test.describe("Progress dashboard page", () => {
   });
 
   test("displays progress narrative", async ({ page }) => {
-    await page.goto("/curriculum/new-grad/progress");
+    await page.goto("/curriculum/level-1/progress");
 
     await expect(
       page.getByText("You are making steady progress through the curriculum.")
@@ -86,7 +86,7 @@ test.describe("Progress dashboard page", () => {
   });
 
   test("displays stats bar with correct counts", async ({ page }) => {
-    await page.goto("/curriculum/new-grad/progress");
+    await page.goto("/curriculum/level-1/progress");
 
     await expect(page.getByText("1 completed")).toBeVisible();
     await expect(page.getByText("1 in progress")).toBeVisible();
@@ -94,7 +94,7 @@ test.describe("Progress dashboard page", () => {
   });
 
   test("shows module cards that expand on click", async ({ page }) => {
-    await page.goto("/curriculum/new-grad/progress");
+    await page.goto("/curriculum/level-1/progress");
 
     // Module cards should be present
     const moduleCards = page.getByTestId("module-card");
@@ -111,7 +111,7 @@ test.describe("Progress dashboard page", () => {
   test("clicking a section navigates to Socratic session", async ({
     page,
   }) => {
-    await page.goto("/curriculum/new-grad/progress");
+    await page.goto("/curriculum/level-1/progress");
 
     // Expand first module
     const moduleCards = page.getByTestId("module-card");
@@ -123,7 +123,7 @@ test.describe("Progress dashboard page", () => {
       .click();
 
     // Should navigate to the session
-    await page.waitForURL("**/curriculum/new-grad/1.1");
-    expect(page.url()).toContain("/curriculum/new-grad/1.1");
+    await page.waitForURL("**/curriculum/level-1/1.1");
+    expect(page.url()).toContain("/curriculum/level-1/1.1");
   });
 });

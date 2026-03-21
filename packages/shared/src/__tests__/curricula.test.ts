@@ -7,13 +7,13 @@ import {
 } from "../curricula";
 import type { LearnerProfile } from "../curricula";
 
-const ALL_PROFILES: LearnerProfile[] = ["new-grad", "veteran", "senior-leader"];
+const ALL_PROFILES: LearnerProfile[] = ["level-1", "level-10", "level-20"];
 const MODULES_PER_PROFILE = 3;
 
 const EXPECTED_SECTION_COUNTS: Record<LearnerProfile, number> = {
-  "new-grad": 10,
-  veteran: 10,
-  "senior-leader": 10,
+  "level-1": 10,
+  "level-10": 10,
+  "level-20": 10,
 };
 
 describe("getCurriculumProfiles", () => {
@@ -69,7 +69,7 @@ describe("getCurriculumSections", () => {
   );
 
   it("sections returned without markdown (listing mode)", () => {
-    const sections = getCurriculumSections("new-grad");
+    const sections = getCurriculumSections("level-1");
     for (const s of sections) {
       expect(s).not.toHaveProperty("markdown");
       expect(s.id).toBeTruthy();
@@ -82,7 +82,7 @@ describe("getCurriculumSections", () => {
 
 describe("getSection", () => {
   it("returns markdown content for valid (profile, sectionId)", () => {
-    const section = getSection("new-grad", "1.1");
+    const section = getSection("level-1", "1.1");
     expect(section.id).toBe("1.1");
     expect(section.markdown).toBeTruthy();
     expect(section.markdown.length).toBeGreaterThan(100);
@@ -91,7 +91,7 @@ describe("getSection", () => {
   });
 
   it("throws for unknown section", () => {
-    expect(() => getSection("new-grad", "99.99")).toThrow(
+    expect(() => getSection("level-1", "99.99")).toThrow(
       /Unknown section/,
     );
   });
