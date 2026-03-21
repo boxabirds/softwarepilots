@@ -13,6 +13,9 @@ interface ChatInputProps {
   quotedMessage?: string | null;
   onDismissQuote?: () => void;
   placeholder?: string;
+  feedbackMode?: boolean;
+  feedbackMessage?: string | null;
+  onDismissFeedback?: () => void;
 }
 
 export function ChatInput({
@@ -23,6 +26,9 @@ export function ChatInput({
   quotedMessage,
   onDismissQuote,
   placeholder = "Type your response...",
+  feedbackMode = false,
+  feedbackMessage,
+  onDismissFeedback,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -59,12 +65,53 @@ export function ChatInput({
       : quotedMessage
     : null;
 
+  const truncatedFeedbackQuote = feedbackMessage
+    ? feedbackMessage.length > QUOTE_PREVIEW_LENGTH
+      ? feedbackMessage.slice(0, QUOTE_PREVIEW_LENGTH) + "..."
+      : feedbackMessage
+    : null;
+
+  const effectivePlaceholder = feedbackMode ? "Share your feedback..." : placeholder;
+
   return (
     <div
       className="rounded-2xl px-4 py-3 shadow-sm"
       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
     >
-      {truncatedQuote && (
+      {feedbackMode && (
+        <>
+          <div
+            className="mb-2 flex items-center gap-2 rounded px-3 py-2"
+            style={{ background: "var(--status-warning-bg, #fef3c7)", color: "var(--status-warning-text, #92400e)" }}
+            data-testid="feedback-bar"
+          >
+            <span className="flex-1 text-[12px] font-medium">
+              Feedback: what would you like to say about this message?
+            </span>
+            <button
+              onClick={onDismissFeedback}
+              className="shrink-0 cursor-pointer border-none bg-transparent text-sm leading-none"
+              style={{ color: "var(--status-warning-text, #92400e)" }}
+              aria-label="Dismiss feedback"
+              data-testid="feedback-dismiss"
+            >
+              &times;
+            </button>
+          </div>
+          {truncatedFeedbackQuote && (
+            <div
+              className="mb-2 flex items-start gap-2 rounded px-3 py-2"
+              style={{ borderLeft: "2px solid var(--status-warning-border, #f59e0b)", background: "var(--bg-muted)" }}
+              data-testid="feedback-quote"
+            >
+              <span className="flex-1 text-[12px] italic" style={{ color: "var(--text-muted)" }}>
+                {truncatedFeedbackQuote}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+      {!feedbackMode && truncatedQuote && (
         <div
           className="mb-2 flex items-start gap-2 rounded px-3 py-2"
           style={{ borderLeft: "2px solid var(--pilot-blue)", background: "var(--bg-muted)" }}
@@ -91,7 +138,7 @@ export function ChatInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           disabled={disabled}
           rows={1}
           className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm outline-none"

@@ -4,9 +4,10 @@ interface TutorCardProps {
   content: string;
   loading?: boolean;
   onReply?: () => void;
+  onFeedback?: () => void;
 }
 
-export function TutorCard({ content, loading, onReply }: TutorCardProps) {
+export function TutorCard({ content, loading, onReply, onFeedback }: TutorCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +50,7 @@ export function TutorCard({ content, loading, onReply }: TutorCardProps) {
       )}
 
       {/* Three-dot menu - shows on hover (desktop) or always subtle (mobile) */}
-      {onReply && !loading && (
+      {(onReply || onFeedback) && !loading && (
         <div className="absolute top-2 right-2" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -73,19 +74,36 @@ export function TutorCard({ content, loading, onReply }: TutorCardProps) {
                 border: "1px solid var(--border-light)",
               }}
             >
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  onReply();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{ color: "var(--text-primary)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-muted)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                data-testid="reply-button"
-              >
-                Reply
-              </button>
+              {onReply && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onReply();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={{ color: "var(--text-primary)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-muted)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  data-testid="reply-button"
+                >
+                  Reply
+                </button>
+              )}
+              {onFeedback && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onFeedback();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={{ color: "var(--text-primary)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-muted)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  data-testid="feedback-button"
+                >
+                  Feedback
+                </button>
+              )}
             </div>
           )}
         </div>

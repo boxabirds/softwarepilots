@@ -68,6 +68,7 @@ export function SocraticSession() {
   const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
   const [sessionPaused, setSessionPaused] = useState<SocraticResponse | null>(null);
   const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
+  const [feedbackTarget, setFeedbackTarget] = useState<{ content: string; messageIndex: number } | null>(null);
 
   // Mobile layout
   const isMobile = useIsMobile();
@@ -237,6 +238,31 @@ export function SocraticSession() {
     const text = inputText.trim();
     if (!text || sending || !profile || !sectionId) return;
 
+    // Handle feedback submission separately
+    if (feedbackTarget) {
+      setInputText("");
+      const target = feedbackTarget;
+      setFeedbackTarget(null);
+
+      try {
+        await apiClient.post(`/api/curriculum/${profile}/${sectionId}/feedback`, {
+          message_content: target.content,
+          message_index: target.messageIndex,
+          feedback_text: text,
+        });
+        setConversation((prev) => [
+          ...prev,
+          { role: "tutor", content: "Feedback submitted \u2014 thank you!" },
+        ]);
+      } catch {
+        setConversation((prev) => [
+          ...prev,
+          { role: "tutor", content: "Failed to submit feedback. Please try again." },
+        ]);
+      }
+      return;
+    }
+
     const messageContent = quotedMessage
       ? `> ${quotedMessage}\n\n${text}`
       : text;
@@ -371,6 +397,13 @@ export function SocraticSession() {
 
   const handleReply = useCallback((content: string) => {
     setQuotedMessage(content);
+    setFeedbackTarget(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  const handleFeedback = useCallback((content: string, messageIndex: number) => {
+    setFeedbackTarget({ content, messageIndex });
+    setQuotedMessage(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
@@ -481,6 +514,7 @@ export function SocraticSession() {
               <TutorCard
                 content={msg.content}
                 onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
+                onFeedback={isError || i === conversation.length - 1 ? undefined : () => handleFeedback(msg.content, i)}
               />
             )}
             {isError && (
@@ -641,6 +675,9 @@ export function SocraticSession() {
         disabled={sending}
         quotedMessage={quotedMessage}
         onDismissQuote={() => setQuotedMessage(null)}
+        feedbackMode={feedbackTarget !== null}
+        feedbackMessage={feedbackTarget?.content ?? null}
+        onDismissFeedback={() => setFeedbackTarget(null)}
       />
     );
   }
