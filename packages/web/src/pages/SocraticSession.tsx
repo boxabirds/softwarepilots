@@ -365,9 +365,6 @@ export function SocraticSession() {
     return (
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto p-3">
-          <h3 className="mb-2 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Lessons
-          </h3>
           <ul className="flex flex-col gap-0.5">
             {moduleSections.map((lesson) => {
               const isCurrent = lesson.id === sectionId;
@@ -397,16 +394,6 @@ export function SocraticSession() {
             })}
           </ul>
         </div>
-        {conversation.length > 0 && (
-          <div className="border-t border-border p-3">
-            <button
-              onClick={handleStartOver}
-              className="w-full cursor-pointer rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Start Over
-            </button>
-          </div>
-        )}
       </div>
     );
   }
