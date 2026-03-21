@@ -11,6 +11,12 @@ export interface SessionPayload {
 
 export const sessionValidation = createMiddleware<{ Bindings: Env }>(
   async (c, next) => {
+    // Auth routes handle their own authentication
+    if (c.req.path.startsWith("/api/auth/")) {
+      await next();
+      return;
+    }
+
     const cookie = getCookie(c.req.raw, SESSION_COOKIE_NAME);
     if (!cookie) {
       return c.json({ error: "Authentication required" }, 401);
