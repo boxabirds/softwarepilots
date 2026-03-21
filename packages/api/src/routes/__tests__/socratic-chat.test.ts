@@ -20,6 +20,7 @@ const BASE_TOOL_NAMES = [
   "present_scenario",
   "evaluate_response",
   "surface_key_insight",
+  "provide_instruction",
   "off_topic_detected",
   "session_complete",
 ];
@@ -628,5 +629,84 @@ describe("parseSocraticResponse with track_concepts", () => {
     );
     expect(result.concepts_demonstrated).toBeUndefined();
     expect(result.concept_levels).toBeUndefined();
+  });
+});
+
+/* ---- provide_instruction tool ---- */
+
+describe("provide_instruction tool", () => {
+  it("has correct parameters in tool declaration", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const instructionTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "provide_instruction"
+    );
+    expect(instructionTool).toBeDefined();
+
+    const params = instructionTool!.parameters as Record<string, unknown>;
+    const properties = params.properties as Record<string, Record<string, unknown>>;
+    const required = params.required as string[];
+
+    expect(properties.instruction).toBeDefined();
+    expect(properties.instruction.type).toBe("STRING");
+
+    expect(properties.concept).toBeDefined();
+    expect(properties.concept.type).toBe("STRING");
+
+    expect(properties.struggle_reason).toBeDefined();
+    expect(properties.struggle_reason.type).toBe("STRING");
+    expect(properties.struggle_reason.enum).toEqual([
+      "repeated_wrong_answer",
+      "no_progression",
+      "learner_asked",
+      "low_confidence_sustained",
+    ]);
+
+    expect(required).toContain("instruction");
+    expect(required).toContain("concept");
+    expect(required).toContain("struggle_reason");
+  });
+
+  it("parser extracts instruction, concept, and struggle_reason", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("provide_instruction", {
+        instruction: "A variable is a named container for data.",
+        concept: "variables",
+        struggle_reason: "repeated_wrong_answer",
+      })
+    );
+
+    expect(result.reply).toBe("A variable is a named container for data.");
+    expect(result.tool_type).toBe("provide_instruction");
+    expect(result.concept).toBe("variables");
+    expect(result.struggle_reason).toBe("repeated_wrong_answer");
+  });
+
+  it("multi-tool: provide_instruction + socratic_probe concatenated", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "provide_instruction",
+          args: {
+            instruction: "A loop repeats a block of code.",
+            concept: "loops",
+            struggle_reason: "no_progression",
+          },
+        },
+        {
+          name: "socratic_probe",
+          args: {
+            response: "Can you think of when you might use a loop?",
+            topic: "loops",
+            confidence_assessment: "low",
+          },
+        },
+      ])
+    );
+
+    expect(result.reply).toContain("A loop repeats a block of code.");
+    expect(result.reply).toContain("Can you think of when you might use a loop?");
+    expect(result.tool_type).toBe("provide_instruction+socratic_probe");
+    expect(result.concept).toBe("loops");
+    expect(result.struggle_reason).toBe("no_progression");
   });
 });
