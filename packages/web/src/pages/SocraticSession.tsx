@@ -514,7 +514,7 @@ export function SocraticSession() {
           <ChatCard key={i} align="right">
             {truncatedQuoteDisplay && (
               <div
-                className="mb-2 border-l-2 border-muted-foreground/30 bg-muted/40 px-3 py-1.5 text-[12px] italic text-muted-foreground"
+                className="mb-2 border-l-2 border-muted-foreground/30 bg-background px-3 py-1.5 text-[12px] italic text-muted-foreground"
                 data-testid="user-quote-block"
               >
                 {truncatedQuoteDisplay}
@@ -655,7 +655,7 @@ export function SocraticSession() {
         <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
           <button
             onClick={() => setContextOpen(!contextOpen)}
-            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-foreground"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground"
             aria-label="Toggle lesson list"
           >
             {contextOpen ? "\u2715" : "\u2630"}

@@ -111,7 +111,7 @@ function DesktopBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
     <ol className="flex items-center gap-1.5 text-sm text-muted-foreground">
       {segments.map((seg, i) => (
         <li key={i} className="flex items-center gap-1.5">
-          {i > 0 && <span className="text-xs text-muted-foreground/60">&gt;</span>}
+          {i > 0 && <span className="text-xs opacity-60">&gt;</span>}
           {seg.href ? (
             <Link
               to={seg.href}
