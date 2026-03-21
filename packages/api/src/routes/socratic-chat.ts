@@ -55,6 +55,8 @@ export interface SocraticChatResponse {
   pause_reason?: string;
   concepts_covered_so_far?: string;
   resume_suggestion?: string;
+  query_type?: string;
+  topics_referenced?: string;
 }
 
 /* ---- Tool builder ---- */
@@ -275,6 +277,31 @@ export function buildSocraticTools(
     },
   ];
 
+  declarations.push({
+    name: "lesson_query",
+    description:
+      "Answer a meta-question about the learning process - objectives, remaining topics, what needs attention, or overall assessment. Use the concept list, coverage data, and conversation history to give a personalised answer.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        response: {
+          type: "STRING",
+          description: "The answer to the learner's meta-question",
+        },
+        query_type: {
+          type: "STRING",
+          enum: ["objectives", "remaining_topics", "needs_attention", "overall_assessment", "general"],
+          description: "The type of meta-question being answered",
+        },
+        topics_referenced: {
+          type: "STRING",
+          description: "Comma-separated topics mentioned in the answer",
+        },
+      },
+      required: ["response", "query_type"],
+    },
+  });
+
   if (section.concepts && section.concepts.length > 0) {
     const conceptList = section.concepts.join(", ");
     declarations.push({
@@ -340,6 +367,12 @@ export function buildSocraticSystemPrompt(
     "- Use off_topic_detected to redirect off-topic messages",
     "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
     "- Use session_pause when the learner explicitly asks to stop or take a break, shows signs of frustration, or appears fatigued. Be warm and encouraging. Never say 'you seem tired'. If the learner declines a pause offer, do not offer again for at least 5 more exchanges.",
+    "- Use lesson_query when the learner asks about the learning process itself:",
+    "  - 'What are the learning objectives?' / 'What's the point of this section?'",
+    "  - 'What topics haven't I covered?' / 'What's left?'",
+    "  - 'What needs more attention?' / 'What should I review?'",
+    "  - 'How am I doing?' / 'How much have I covered?'",
+    "  Answer using the concept list, the learner's demonstrated coverage, and the spaced repetition schedule. Be honest and specific.",
   ];
 
   if (section.concepts && section.concepts.length > 0) {
@@ -390,6 +423,7 @@ const REPLY_TOOLS = new Set([
   "provide_instruction",
   "session_complete",
   "session_pause",
+  "lesson_query",
 ]);
 
 const SIDE_EFFECT_TOOLS = new Set([
@@ -431,6 +465,9 @@ function extractReplyText(fc: { name: string; args: Record<string, string> }): s
     case "session_pause":
       return fc.args.acknowledgment || fc.args.message || fc.args.response || null;
 
+    case "lesson_query":
+      return fc.args.response || null;
+
     default:
       return null;
   }
@@ -459,6 +496,10 @@ function extractMetadata(
     result.concepts_covered_so_far = fc.args.concepts_covered_so_far;
   if (fc.args.resume_suggestion)
     result.resume_suggestion = fc.args.resume_suggestion;
+  if (fc.args.query_type && !result.query_type)
+    result.query_type = fc.args.query_type;
+  if (fc.args.topics_referenced && !result.topics_referenced)
+    result.topics_referenced = fc.args.topics_referenced;
 }
 
 function extractTrackConcepts(
