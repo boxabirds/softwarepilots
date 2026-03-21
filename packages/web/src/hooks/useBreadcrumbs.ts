@@ -1,7 +1,6 @@
 import { useLocation, useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { apiClient } from "../lib/api-client";
-import { getCurriculumSections, getSection } from "@softwarepilots/shared";
+import { getSection } from "@softwarepilots/shared";
+import { useTopicCoverage } from "./useTopicCoverage";
 
 export interface BreadcrumbSegment {
   label: string;
@@ -14,56 +13,6 @@ function formatProfileName(slug: string): string {
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
-}
-
-/** Cache for progress percentages keyed by profile */
-const progressCache = new Map<string, number | null>();
-
-function useProfileProgress(profile: string | undefined): number | null {
-  const [progress, setProgress] = useState<number | null>(
-    profile ? (progressCache.get(profile) ?? null) : null,
-  );
-
-  useEffect(() => {
-    if (!profile) return;
-
-    if (progressCache.has(profile)) {
-      setProgress(progressCache.get(profile) ?? null);
-      return;
-    }
-
-    let cancelled = false;
-
-    apiClient
-      .get<Array<{ status: string }>>(`/api/curriculum/${profile}/progress`)
-      .then((sections) => {
-        if (cancelled) return;
-        const total = sections.length;
-        if (total === 0) {
-          progressCache.set(profile, null);
-          setProgress(null);
-          return;
-        }
-        const completed = sections.filter(
-          (s) => s.status === "completed",
-        ).length;
-        const pct = Math.round((completed / total) * 100);
-        progressCache.set(profile, pct);
-        setProgress(pct);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          progressCache.set(profile, null);
-          setProgress(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profile]);
-
-  return progress;
 }
 
 export function useBreadcrumbs(): BreadcrumbSegment[] {
@@ -79,7 +28,7 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
   const sectionId = params.sectionId;
   const pathname = location.pathname;
 
-  const progress = useProfileProgress(profile);
+  const coverage = useTopicCoverage(profile);
 
   // /dashboard - logo handles home navigation
   if (pathname === "/dashboard") {
@@ -95,36 +44,39 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
 
   // Routes with a profile param
   if (profile) {
-    const profileLabel =
-      progress !== null
-        ? `${formatProfileName(profile)} (${progress}%)`
-        : formatProfileName(profile);
+    const trackLabel = coverage
+      ? `${formatProfileName(profile)} (${coverage.track.covered}/${coverage.track.total})`
+      : formatProfileName(profile);
 
     // /curriculum/:profile/progress
     if (pathname.endsWith("/progress")) {
       return [
-                { label: profileLabel, href: "/curriculum" },
+                { label: trackLabel, href: "/curriculum" },
         { label: "Progress" },
       ];
     }
 
     // /curriculum/:profile/:sectionId
     if (sectionId) {
-      let sectionTitle = sectionId;
       let moduleTitle = "";
+      let moduleId = "";
       try {
         const section = getSection(profile, sectionId);
-        sectionTitle = section.title;
         moduleTitle = section.module_title;
+        moduleId = section.module_id;
       } catch {
         // Fall back to sectionId if getSection fails
       }
 
       const segments: BreadcrumbSegment[] = [
-        { label: profileLabel, href: "/curriculum" },
+        { label: trackLabel, href: "/curriculum" },
       ];
       if (moduleTitle) {
-        segments.push({ label: moduleTitle });
+        const moduleCov = moduleId && coverage?.modules.get(moduleId);
+        const moduleLabel = moduleCov
+          ? `${moduleTitle} (${moduleCov.covered}/${moduleCov.total})`
+          : moduleTitle;
+        segments.push({ label: moduleLabel });
       }
       return segments;
     }

@@ -8,6 +8,7 @@ import { InputPill } from "../components/exercise/InputPill";
 import { SubmitArrow } from "../components/exercise/SubmitArrow";
 import { getCurriculumSections } from "@softwarepilots/shared";
 import { ProgressBadge } from "../components/ProgressBadge";
+import { useTopicCoverage } from "../hooks/useTopicCoverage";
 
 /* ---- Types ---- */
 
@@ -71,6 +72,9 @@ export function SocraticSession() {
   const isMobile = useIsMobile();
   const [contextOpen, setContextOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Topic coverage for N/M badges
+  const topicCoverage = useTopicCoverage(profile);
 
   // Module sections for the lesson list sidebar
   interface LessonItem { id: string; title: string; module_id: string; }
@@ -369,6 +373,7 @@ export function SocraticSession() {
             {moduleSections.map((lesson) => {
               const isCurrent = lesson.id === sectionId;
               const status = lessonProgress.get(lesson.id);
+              const sectionCov = topicCoverage?.sections.get(lesson.id);
               return (
                 <li key={lesson.id}>
                   <button
@@ -388,6 +393,23 @@ export function SocraticSession() {
                       />
                     )}
                     <span className="truncate">{lesson.title}</span>
+                    {sectionCov && sectionCov.total > 0 && (
+                      <span className="ml-auto flex shrink-0 items-center gap-1">
+                        {sectionCov.dueForReview && (
+                          <span
+                            className="inline-block size-2 rounded-full bg-amber-500"
+                            data-testid={`review-dot-${lesson.id}`}
+                            aria-label="Due for review"
+                          />
+                        )}
+                        <span
+                          className="text-[11px] tabular-nums text-muted-foreground"
+                          data-testid={`section-coverage-${lesson.id}`}
+                        >
+                          {sectionCov.covered}/{sectionCov.total}
+                        </span>
+                      </span>
+                    )}
                   </button>
                 </li>
               );

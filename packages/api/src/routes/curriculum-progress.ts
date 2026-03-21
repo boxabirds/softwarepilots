@@ -60,6 +60,7 @@ export interface ProgressSummary {
   section_id: string;
   status: string;
   understanding_level?: string;
+  concepts_json?: string | null;
   updated_at: string;
 }
 
@@ -340,10 +341,10 @@ export async function getProgressForProfile(
 ): Promise<ProgressSummary[]> {
   const { results } = await db
     .prepare(
-      "SELECT section_id, status, understanding_json, updated_at FROM curriculum_progress WHERE learner_id = ? AND profile = ?"
+      "SELECT section_id, status, understanding_json, concepts_json, updated_at FROM curriculum_progress WHERE learner_id = ? AND profile = ?"
     )
     .bind(learnerId, profile)
-    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "updated_at">>();
+    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "updated_at">>();
 
   return (results || []).map((row) => {
     const entries = JSON.parse(row.understanding_json || "[]") as Array<
@@ -359,6 +360,9 @@ export async function getProgressForProfile(
     };
     if (understandingLevel) {
       summary.understanding_level = understandingLevel;
+    }
+    if (row.concepts_json) {
+      summary.concepts_json = row.concepts_json;
     }
     return summary;
   });
