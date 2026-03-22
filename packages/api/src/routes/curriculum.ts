@@ -465,6 +465,35 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   return c.json({ reset: true });
 });
 
+/* POST /:profile/:sectionId/archive - archive active conversation for Start Over */
+curriculum.post("/:profile/:sectionId/archive", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+  const sectionId = c.req.param("sectionId");
+
+  // Validate profile via getCurriculumSections
+  try {
+    getCurriculumSections(profile);
+  } catch {
+    return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  const result = await c.env.DB.prepare(
+    `UPDATE curriculum_conversations
+     SET archived_at = datetime('now')
+     WHERE learner_id = ? AND profile = ? AND section_id = ? AND archived_at IS NULL`
+  )
+    .bind(learnerId, profile, sectionId)
+    .run();
+
+  const rowsAffected = result.meta?.changes ?? 0;
+  if (rowsAffected > 0) {
+    return c.json({ archived: true });
+  }
+
+  return new Response(null, { status: 204 });
+});
+
 /* POST /:profile/:sectionId/feedback - submit learner feedback on a tutor message */
 curriculum.post("/:profile/:sectionId/feedback", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 /* ---- Level 0 interactive exercises (original POC) ---- */
 
@@ -381,40 +381,169 @@ function ModuleTree({
           </span>
         )}
       </h3>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {mod.sections.map((sec) => {
-          const progress = progressMap.get(sec.id);
-          return (
-            <Link
-              key={sec.id}
-              to={`/curriculum/${profile}/${sec.id}`}
-              className="flex items-center gap-2.5 rounded-lg px-4 py-3 text-sm no-underline transition-all hover:shadow-sm"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-light)",
-                color: "var(--text-secondary)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--card-border-hover)";
-                e.currentTarget.style.background = "var(--bg-base)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--card-border)";
-                e.currentTarget.style.background = "var(--card-bg)";
-              }}
-            >
-              {progress ? (
-                <ProgressBadge
-                  status={progress.status}
-                  understandingLevel={progress.understanding_level}
-                  claimProgress={progress.claim_progress}
-                />
-              ) : null}
-              <span>{sec.title}</span>
-            </Link>
-          );
-        })}
+      <div className="flex flex-col gap-2">
+        {mod.sections.map((sec) => (
+          <SectionRow
+            key={sec.id}
+            section={sec}
+            progress={progressMap.get(sec.id)}
+            profile={profile}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+/* ---- Section row component ---- */
+
+export function SectionRow({
+  section: sec,
+  progress,
+  profile,
+}: {
+  section: SectionSummary;
+  progress: SectionProgress | undefined;
+  profile: LearnerProfile;
+}) {
+  const navigate = useNavigate();
+  const status = progress?.status ?? "not_started";
+  const sectionPath = `/curriculum/${profile}/${sec.id}`;
+
+  async function handleStartOver() {
+    const confirmed = window.confirm(
+      "This will archive your current session and start fresh. Continue?"
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiClient.post(`/api/curriculum/${profile}/${sec.id}/archive`, {});
+    } catch {
+      // Archive failed - navigate anyway so learner is not stuck
+    }
+    navigate(sectionPath);
+  }
+
+  return (
+    <div
+      className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm"
+      style={{
+        background: "var(--bg-subtle)",
+        border: "1px solid var(--border-light)",
+      }}
+      data-testid={`section-row-${sec.id}`}
+    >
+      {/* Title */}
+      <span
+        className="min-w-0 shrink-0 font-medium"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {sec.title}
+      </span>
+
+      {/* Progress indicator */}
+      <span className="flex flex-1 items-center gap-1.5">
+        {status === "not_started" && (
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Not started
+          </span>
+        )}
+        {status === "in_progress" && progress?.claim_progress && (
+          <>
+            <ProgressBadge
+              status="in_progress"
+              claimProgress={progress.claim_progress}
+            />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }} data-testid="claim-text">
+              {progress.claim_progress.demonstrated}/{progress.claim_progress.total} claims
+            </span>
+          </>
+        )}
+        {status === "in_progress" && !progress?.claim_progress && (
+          <span className="text-xs" style={{ color: "var(--text-muted)" }} data-testid="in-progress-text">
+            In progress
+          </span>
+        )}
+        {status === "completed" && (
+          <>
+            <ProgressBadge
+              status="completed"
+              claimProgress={progress?.claim_progress}
+            />
+            <span className="text-xs font-medium text-green-600">
+              Complete
+            </span>
+          </>
+        )}
+        {status === "needs_review" && (
+          <>
+            <ProgressBadge
+              status="needs_review"
+              claimProgress={progress?.claim_progress}
+            />
+            <span className="text-xs font-medium text-amber-600">
+              Review needed
+            </span>
+          </>
+        )}
+      </span>
+
+      {/* Action buttons */}
+      <span className="flex shrink-0 items-center gap-2">
+        {status === "not_started" && (
+          <Button size="sm" asChild>
+            <Link to={sectionPath}>Start</Link>
+          </Button>
+        )}
+        {status === "in_progress" && (
+          <>
+            <Button size="sm" asChild>
+              <Link to={sectionPath}>Continue</Link>
+            </Button>
+            <button
+              type="button"
+              onClick={handleStartOver}
+              className="text-xs underline"
+              style={{ color: "var(--text-muted)" }}
+              data-testid="start-over"
+            >
+              Start Over
+            </button>
+          </>
+        )}
+        {status === "completed" && (
+          <>
+            <Button size="sm" variant="outline" asChild>
+              <Link to={sectionPath}>Review</Link>
+            </Button>
+            <button
+              type="button"
+              onClick={handleStartOver}
+              className="text-xs underline"
+              style={{ color: "var(--text-muted)" }}
+              data-testid="start-over"
+            >
+              Start Over
+            </button>
+          </>
+        )}
+        {status === "needs_review" && (
+          <>
+            <Button size="sm" variant="outline" asChild>
+              <Link to={sectionPath}>Review</Link>
+            </Button>
+            <button
+              type="button"
+              onClick={handleStartOver}
+              className="text-xs underline"
+              style={{ color: "var(--text-muted)" }}
+              data-testid="start-over"
+            >
+              Start Over
+            </button>
+          </>
+        )}
+      </span>
     </div>
   );
 }
