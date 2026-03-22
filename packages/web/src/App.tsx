@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Landing } from "./pages/Landing";
 import { useAuth } from "./lib/auth";
-import { TopNav, NAV_HEIGHT_PX } from "./components/TopNav";
+import { TopNav, NAV_HEIGHT_REM } from "./components/TopNav";
 
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((m) => ({ default: m.Dashboard }))
@@ -20,6 +20,9 @@ const ProgressDashboard = lazy(() =>
 );
 const Admin = lazy(() =>
   import("./pages/Admin").then((m) => ({ default: m.Admin }))
+);
+const Simulation = lazy(() =>
+  import("./pages/Simulation").then((m) => ({ default: m.Simulation }))
 );
 
 function RouteLoader({ children }: { children: React.ReactNode }) {
@@ -40,7 +43,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <TopNav />
-      <div style={{ paddingTop: NAV_HEIGHT_PX }}>{children}</div>
+      <div style={{ paddingTop: NAV_HEIGHT_REM }}>{children}</div>
     </>
   );
 }
@@ -95,6 +98,18 @@ export function App() {
               <AuthenticatedLayout>
                 <RouteLoader>
                   <SocraticSession />
+                </RouteLoader>
+              </AuthenticatedLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/simulation/:sessionId"
+          element={
+            <AuthGuard>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <Simulation />
                 </RouteLoader>
               </AuthenticatedLayout>
             </AuthGuard>
