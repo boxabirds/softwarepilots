@@ -23,7 +23,7 @@ ENVIRONMENT = "staging"
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "softwarepilots-db-staging"
-database_id = "TBD"
+database_id = "bc6f104e-e75b-46d8-8262-0d86ddae5a40"
 migrations_dir = "../api/src/db/migrations"
 
 [env.production]
@@ -34,5 +34,5 @@ ENVIRONMENT = "production"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "softwarepilots-db"
-database_id = "TBD"
+database_id = "10a4195f-40aa-4800-b9f0-c91721d3ac10"
 migrations_dir = "../api/src/db/migrations"

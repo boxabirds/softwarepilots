@@ -1,0 +1,9 @@
+# Web app - Cloudflare Pages with Functions proxy
+name = "softwarepilots-web"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-03-09"
+
+# Production: service binding to production API worker
+[[services]]
+binding = "API_WORKER"
+service = "softwarepilots-api"

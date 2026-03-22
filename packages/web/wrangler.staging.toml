@@ -1,0 +1,9 @@
+# Web app (staging) - Cloudflare Pages with Functions proxy
+name = "softwarepilots-web-staging"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-03-09"
+
+# Staging: service binding to staging API worker
+[[services]]
+binding = "API_WORKER"
+service = "softwarepilots-api-staging"
