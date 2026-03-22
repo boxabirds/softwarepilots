@@ -5,11 +5,12 @@ import {
   getCurriculumSections,
   getSection,
 } from "@softwarepilots/shared";
-import { getProgressForProfile } from "./curriculum-progress";
+import { getProgressForProfile, computeClaimProgress } from "./curriculum-progress";
 import {
   parseConceptsJson,
   getConceptsDueForReview,
 } from "../lib/spaced-repetition";
+import { getLearningMapForProfile } from "@softwarepilots/shared";
 import type { ConceptsMap } from "../lib/spaced-repetition";
 import {
   buildNarrativePrompt,
@@ -82,6 +83,78 @@ curriculum.get("/:profile", (c) => {
   }
 });
 
+/* GET /:profile/progress/debug - diagnostic endpoint for operators */
+curriculum.get("/:profile/progress/debug", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+
+  // Validate profile
+  let expectedSectionCount: number;
+  try {
+    expectedSectionCount = getCurriculumSections(profile).length;
+  } catch {
+    return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  // Check if learner exists
+  const learnerRow = await c.env.DB.prepare(
+    "SELECT id FROM learners WHERE id = ?"
+  )
+    .bind(learnerId)
+    .first<{ id: string }>();
+
+  const learnerExists = learnerRow !== null;
+
+  // Get table columns via PRAGMA
+  const { results: columnRows } = await c.env.DB.prepare(
+    "PRAGMA table_info(curriculum_progress)"
+  ).all<{ name: string }>();
+
+  const tableColumns = (columnRows || []).map((r) => r.name);
+
+  // Get all progress rows for this learner + profile
+  const { results: progressRows } = await c.env.DB.prepare(
+    `SELECT section_id, status, understanding_json, concepts_json,
+            started_at, completed_at, paused_at, updated_at
+     FROM curriculum_progress
+     WHERE learner_id = ? AND profile = ?`
+  )
+    .bind(learnerId, profile)
+    .all<{
+      section_id: string;
+      status: string;
+      understanding_json: string;
+      concepts_json: string | null;
+      started_at: string | null;
+      completed_at: string | null;
+      paused_at: string | null;
+      updated_at: string | null;
+    }>();
+
+  const rows = progressRows || [];
+
+  // Compute summary counts
+  const summary = { not_started: 0, in_progress: 0, completed: 0, paused: 0 };
+  for (const row of rows) {
+    if (row.status === "completed") summary.completed++;
+    else if (row.status === "in_progress") summary.in_progress++;
+    else if (row.status === "paused") summary.paused++;
+  }
+  summary.not_started = expectedSectionCount - summary.completed - summary.in_progress - summary.paused;
+  if (summary.not_started < 0) summary.not_started = 0;
+
+  return c.json({
+    learner_exists: learnerExists,
+    learner_id: learnerId,
+    profile,
+    table_columns: tableColumns,
+    progress_rows: rows,
+    expected_section_count: expectedSectionCount,
+    actual_progress_count: rows.length,
+    summary,
+  });
+});
+
 /* GET /:profile/progress - learner's progress for all sections in a profile */
 curriculum.get("/:profile/progress", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
@@ -123,9 +196,9 @@ curriculum.get("/:profile/progress/summary", async (c) => {
     return c.json({ error: `Invalid profile: ${profile}` }, 400);
   }
 
-  // Load all progress rows (with concepts_json for due-review calculation)
+  // Load all progress rows (with concepts_json and claims_json)
   const { results: rawRows } = await c.env.DB.prepare(
-    `SELECT section_id, status, understanding_json, concepts_json, updated_at
+    `SELECT section_id, status, understanding_json, concepts_json, claims_json, updated_at
      FROM curriculum_progress
      WHERE learner_id = ? AND profile = ?`
   )
@@ -135,6 +208,7 @@ curriculum.get("/:profile/progress/summary", async (c) => {
       status: string;
       understanding_json: string;
       concepts_json: string | null;
+      claims_json: string | null;
       updated_at: string;
     }>();
 
@@ -175,7 +249,13 @@ curriculum.get("/:profile/progress/summary", async (c) => {
     const entries = row ? JSON.parse(row.understanding_json || "[]") : [];
     const latest = entries.length > 0 ? entries[entries.length - 1] : null;
 
-    sectionProgressData.push({
+    // Compute claim progress for this section
+    const learningMap = getLearningMapForProfile(profile, sectionId) ?? null;
+    const claimProgress = row
+      ? computeClaimProgress(row.claims_json, learningMap)
+      : null;
+
+    const sectionEntry: SectionProgressData & { claim_progress?: { demonstrated: number; total: number; percentage: number; missing: string[] } } = {
       section_id: sectionId,
       title: info.title,
       status: row?.status ?? "not_started",
@@ -186,7 +266,18 @@ curriculum.get("/:profile/progress/summary", async (c) => {
           { level: a.level, review_count: a.review_count },
         ])
       ),
-    });
+    };
+
+    if (claimProgress && learningMap && learningMap.core_claims.length > 0) {
+      sectionEntry.claim_progress = {
+        demonstrated: claimProgress.demonstrated,
+        total: claimProgress.total,
+        percentage: claimProgress.percentage,
+        missing: claimProgress.missing_claims,
+      };
+    }
+
+    sectionProgressData.push(sectionEntry);
   }
 
   // Concepts due for review
@@ -211,7 +302,7 @@ curriculum.get("/:profile/progress/summary", async (c) => {
     } else {
       try {
         const prompt = buildNarrativePrompt(sectionProgressData, stats, dueConcepts.length);
-        const model = c.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+        const model = c.env.GEMINI_MODEL ?? "gemini-flash-latest";
         overallNarrative = await generateNarrative(c.env.GEMINI_API_KEY, model, prompt);
         narrativeCache.set(cacheKey, { narrative: overallNarrative, timestamp: now });
       } catch {
@@ -362,7 +453,7 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
     } catch { /* use sectionId as fallback */ }
 
     const messages = JSON.parse(conv.messages_json) as Array<{ role: "user" | "tutor"; content: string }>;
-    compressConversation(c.env.GEMINI_API_KEY, c.env.GEMINI_MODEL || "gemini-2.0-flash", messages, sectionTitle)
+    compressConversation(c.env.GEMINI_API_KEY, c.env.GEMINI_MODEL || "gemini-flash-latest", messages, sectionTitle)
       .then((summary) => {
         if (summary) {
           persistSummary(c.env.DB, conv.id, summary).catch(() => {});

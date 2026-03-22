@@ -12,9 +12,9 @@ import type { SocraticResponse } from "../curriculum-progress";
 function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
-      let bindings: unknown[] = [];
+      let bindings: any[] = [];
       return {
-        bind(...values: unknown[]) {
+        bind(...values: any[]) {
           bindings = values;
           return this;
         },
@@ -61,7 +61,7 @@ function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
     async exec(_query: string): Promise<D1ExecResult> {
       throw new Error("exec not implemented in shim");
     },
-  } as D1Database;
+  } as unknown as D1Database;
 }
 
 /* ---- Test fixtures ---- */
@@ -75,6 +75,9 @@ let db: D1Database;
 
 beforeEach(() => {
   sqliteDb = new Database(":memory:");
+
+  // Enable FK enforcement so FK violation tests work
+  sqliteDb.exec("PRAGMA foreign_keys = ON");
 
   // Create learners table (referenced by FK)
   sqliteDb.exec(`
@@ -98,6 +101,7 @@ beforeEach(() => {
       status TEXT NOT NULL DEFAULT 'not_started',
       understanding_json TEXT DEFAULT '[]',
       concepts_json TEXT DEFAULT '{}',
+      claims_json TEXT DEFAULT '{}',
       started_at TEXT,
       completed_at TEXT,
       paused_at TEXT,
@@ -700,5 +704,228 @@ describe("pause status transitions", () => {
       .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
 
     expect(row.status).toBe("paused");
+  });
+});
+
+/* ---- Progress write path reproduction tests (story 53) ---- */
+
+describe("progress write path - reproduction tests", () => {
+  it("first message with socratic_probe creates in_progress row", async () => {
+    const response: SocraticResponse = {
+      tool_type: "socratic_probe",
+      confidence_assessment: "low",
+    };
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, response);
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT * FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row).toBeTruthy();
+    expect(row.status).toBe("in_progress");
+    expect(row.started_at).toBeTruthy();
+
+    // Verify understanding entry captured the confidence_assessment
+    const entries = JSON.parse(row.understanding_json as string);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].confidence_assessment).toBe("low");
+  });
+
+  it("session_complete transitions to completed with completed_at", async () => {
+    // Create in_progress row first
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "socratic_probe",
+      confidence_assessment: "low",
+    });
+
+    // Now complete via session_complete
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_complete",
+      final_understanding: "solid",
+      concepts_covered: ["concept-a"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT status, completed_at, understanding_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("completed");
+    expect(row.completed_at).toBeTruthy();
+
+    // Verify the final understanding entry was recorded
+    const entries = JSON.parse(row.understanding_json as string);
+    const finalEntry = entries.find((e: Record<string, unknown>) => e.final_understanding);
+    expect(finalEntry).toBeTruthy();
+    expect(finalEntry.final_understanding).toBe("solid");
+    expect(finalEntry.concepts_covered).toContain("concept-a");
+  });
+
+  it("message after completed does not regress status", async () => {
+    // Create and complete
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_complete",
+      final_understanding: "solid",
+      concepts_covered: ["concept-a"],
+    });
+
+    // Verify completed
+    let row = sqliteDb
+      .prepare(
+        "SELECT status, completed_at FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("completed");
+    const originalCompletedAt = row.completed_at;
+
+    // Send another message that should not regress
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "evaluate_response",
+      understanding_level: "strong",
+    });
+
+    row = sqliteDb
+      .prepare(
+        "SELECT status, completed_at FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row.status).toBe("completed");
+    expect(row.completed_at).toBe(originalCompletedAt);
+  });
+
+  it("concept tracking updates concepts_json with correct level", async () => {
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      concepts_demonstrated: ["concept-x"],
+      concept_levels: ["developing"],
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    const concepts = JSON.parse(row.concepts_json as string);
+    expect(concepts["concept-x"]).toBeTruthy();
+    expect(concepts["concept-x"].level).toBe("developing");
+  });
+
+  it("pause/resume cycle transitions correctly", async () => {
+    // Start in_progress
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "socratic_probe",
+      confidence_assessment: "medium",
+    });
+
+    let row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("in_progress");
+
+    // Pause
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "session_pause",
+      pause_reason: "fatigue_detected",
+      concepts_covered_so_far: "basics",
+      resume_suggestion: "Continue later",
+    });
+
+    row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("paused");
+
+    // Resume with any non-pause message
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "socratic_probe",
+      confidence_assessment: "high",
+    });
+
+    row = sqliteDb
+      .prepare(
+        "SELECT status FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+    expect(row.status).toBe("in_progress");
+  });
+
+  it("missing learner returns gracefully without throwing or writing", async () => {
+    const NONEXISTENT_LEARNER = "learner-does-not-exist";
+
+    // Capture console.warn output
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args.join(" ")); };
+
+    try {
+      // Should NOT throw - the guard check returns early
+      await updateSectionProgress(db, NONEXISTENT_LEARNER, TEST_PROFILE, TEST_SECTION, {
+        tool_type: "socratic_probe",
+        confidence_assessment: "low",
+      });
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    // Verify warning was logged
+    expect(warnings.length).toBeGreaterThanOrEqual(1);
+    expect(warnings[0]).toContain("[progress] Skipping write");
+    expect(warnings[0]).toContain(NONEXISTENT_LEARNER);
+
+    // Verify no row was created
+    const row = sqliteDb
+      .prepare(
+        "SELECT * FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(NONEXISTENT_LEARNER, TEST_PROFILE, TEST_SECTION);
+    expect(row).toBeNull();
+  });
+
+  it("FK constraint still enforced at DB level for direct inserts", async () => {
+    // Verify the FK constraint is real at the database level
+    // (the application guard prevents hitting this, but the constraint is a safety net)
+    let caughtError: Error | null = null;
+    try {
+      sqliteDb
+        .prepare(
+          `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, updated_at)
+           VALUES (?, ?, ?, 'in_progress', '[]', '{}', datetime('now'), datetime('now'))`
+        )
+        .run("nonexistent-learner", TEST_PROFILE, TEST_SECTION);
+    } catch (err) {
+      caughtError = err as Error;
+    }
+
+    expect(caughtError).toBeTruthy();
+    expect(caughtError!.message).toContain("FOREIGN KEY constraint failed");
+  });
+
+  it("first message creates row even with no understanding data", async () => {
+    // Minimal response - only tool_type, no confidence or understanding fields
+    await updateSectionProgress(db, TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION, {
+      tool_type: "socratic_probe",
+    });
+
+    const row = sqliteDb
+      .prepare(
+        "SELECT * FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"
+      )
+      .get(TEST_LEARNER_ID, TEST_PROFILE, TEST_SECTION) as Record<string, unknown>;
+
+    expect(row).toBeTruthy();
+    expect(row.status).toBe("in_progress");
+    expect(row.started_at).toBeTruthy();
+
+    // understanding_json should be empty array (no assessment data provided)
+    const entries = JSON.parse(row.understanding_json as string);
+    expect(entries).toHaveLength(0);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /* ---- Level 0 interactive exercises (original POC) ---- */
@@ -76,10 +76,18 @@ interface SectionSummary {
   key_intuition: string;
 }
 
+interface ClaimProgressData {
+  demonstrated: number;
+  total: number;
+  percentage: number;
+  missing?: string[];
+}
+
 interface SectionProgress {
   section_id: string;
-  status: "not_started" | "in_progress" | "completed";
+  status: "not_started" | "in_progress" | "completed" | "needs_review";
   understanding_level?: string;
+  claim_progress?: ClaimProgressData;
   updated_at: string;
 }
 
@@ -113,6 +121,7 @@ export function Dashboard() {
   const [progressMap, setProgressMap] = useState<Map<string, SectionProgress>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [loadingSections, setLoadingSections] = useState(false);
+  const sectionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     apiClient
@@ -120,6 +129,28 @@ export function Dashboard() {
       .then(setProfiles)
       .catch(() => setError("Failed to load tracks"));
   }, []);
+
+  // Auto-refresh progress when the window regains focus (e.g. returning from a Socratic session)
+  const refreshProgress = useCallback(() => {
+    if (!expanded) return;
+    apiClient
+      .get<SectionProgress[]>(`/api/curriculum/${expanded}/progress`)
+      .then((progress) => {
+        const map = new Map<string, SectionProgress>();
+        for (const p of progress) {
+          map.set(p.section_id, p);
+        }
+        setProgressMap(map);
+      })
+      .catch(() => {
+        // Silently ignore - stale data is better than an error
+      });
+  }, [expanded]);
+
+  useEffect(() => {
+    window.addEventListener("focus", refreshProgress);
+    return () => window.removeEventListener("focus", refreshProgress);
+  }, [refreshProgress]);
 
   async function handleToggle(profile: LearnerProfile) {
     if (expanded === profile) {
@@ -146,6 +177,11 @@ export function Dashboard() {
         map.set(p.section_id, p);
       }
       setProgressMap(map);
+
+      // On mobile, scroll the sections area into view
+      requestAnimationFrame(() => {
+        sectionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch {
       setError(`Failed to load sections`);
       setModules([]);
@@ -194,7 +230,7 @@ export function Dashboard() {
 
       {/* Expanded section area */}
       {expanded && (
-        <div className="mt-6">
+        <div className="mt-6" ref={sectionsRef}>
           {loadingSections ? (
             <p className="text-center text-[var(--text-muted)]">Loading sections...</p>
           ) : error ? (
@@ -310,11 +346,22 @@ function ModuleTree({
   profile: LearnerProfile;
   progressMap: Map<string, SectionProgress>;
 }) {
-  const completedCount = mod.sections.filter(
-    (sec) => progressMap.get(sec.id)?.status === "completed",
-  ).length;
-  const totalCount = mod.sections.length;
   const hasProgress = progressMap.size > 0;
+
+  // Compute aggregate claim coverage across sections in this module
+  let totalClaims = 0;
+  let demonstratedClaims = 0;
+  for (const sec of mod.sections) {
+    const progress = progressMap.get(sec.id);
+    if (progress?.claim_progress) {
+      totalClaims += progress.claim_progress.total;
+      demonstratedClaims += progress.claim_progress.demonstrated;
+    }
+  }
+  const hasClaimData = totalClaims > 0;
+  const aggregatePercentage = totalClaims > 0
+    ? Math.round((demonstratedClaims / totalClaims) * 100)
+    : 0;
 
   return (
     <div>
@@ -323,9 +370,14 @@ function ModuleTree({
         style={{ color: "var(--text-muted)" }}
       >
         {mod.module_title}
-        {hasProgress && (
+        {hasProgress && hasClaimData && (
+          <span className="font-normal normal-case tracking-normal" data-testid="module-claim-summary">
+            ({demonstratedClaims}/{totalClaims} claims - {aggregatePercentage}%)
+          </span>
+        )}
+        {hasProgress && !hasClaimData && (
           <span className="font-normal normal-case tracking-normal">
-            ({completedCount}/{totalCount})
+            ({mod.sections.filter((sec) => progressMap.get(sec.id)?.status === "completed").length}/{mod.sections.length})
           </span>
         )}
       </h3>
@@ -355,6 +407,7 @@ function ModuleTree({
                 <ProgressBadge
                   status={progress.status}
                   understandingLevel={progress.understanding_level}
+                  claimProgress={progress.claim_progress}
                 />
               ) : null}
               <span>{sec.title}</span>

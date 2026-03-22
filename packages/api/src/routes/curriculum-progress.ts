@@ -9,7 +9,8 @@ import {
   getConceptsDueForReview,
 } from "../lib/spaced-repetition";
 import type { ConceptsMap, ConceptUpdateOptions } from "../lib/spaced-repetition";
-import { getCurriculumSections } from "@softwarepilots/shared";
+import { getCurriculumSections, getLearningMapForProfile, getLearningMap } from "@softwarepilots/shared";
+import type { SectionLearningMap } from "@softwarepilots/shared";
 
 /* ---- Constants ---- */
 
@@ -17,12 +18,27 @@ const STATUS_NOT_STARTED = "not_started";
 const STATUS_IN_PROGRESS = "in_progress";
 const STATUS_COMPLETED = "completed";
 export const STATUS_PAUSED = "paused";
+export const STATUS_NEEDS_REVIEW = "needs_review";
 
 const COMPLETION_TOOL_TYPE = "surface_key_insight";
 const COMPLETION_READINESS = "articulated";
 const SESSION_COMPLETE_TOOL_TYPE = "session_complete";
 const PROVIDE_INSTRUCTION_TOOL_TYPE = "provide_instruction";
 const SESSION_PAUSE_TOOL_TYPE = "session_pause";
+
+/** Fraction of core claims that must be at or above MINIMUM_CLAIM_LEVEL to complete */
+export const COMPLETION_THRESHOLD = 0.7;
+
+/** Minimum claim level that counts as "demonstrated" for threshold purposes */
+export const MINIMUM_CLAIM_LEVEL = "developing";
+
+/** Ordinal ranking of claim levels - higher number = stronger demonstration */
+export const LEVEL_ORDER: Record<string, number> = {
+  emerging: 0,
+  developing: 1,
+  solid: 2,
+  strong: 3,
+};
 
 /* ---- Types ---- */
 
@@ -41,6 +57,10 @@ export interface SocraticResponse {
   pause_reason?: string;
   concepts_covered_so_far?: string;
   resume_suggestion?: string;
+  claims_demonstrated?: string[];
+  claim_levels?: string[];
+  misconceptions_surfaced?: string[];
+  misconceptions_resolved?: string[];
 }
 
 interface ProgressRow {
@@ -50,10 +70,18 @@ interface ProgressRow {
   status: string;
   understanding_json: string;
   concepts_json: string | null;
+  claims_json: string | null;
   started_at: string | null;
   completed_at: string | null;
   paused_at: string | null;
   updated_at: string;
+}
+
+export interface ClaimProgressSummary {
+  demonstrated: number;
+  total: number;
+  percentage: number;
+  missing: string[];
 }
 
 export interface ProgressSummary {
@@ -61,19 +89,185 @@ export interface ProgressSummary {
   status: string;
   understanding_level?: string;
   concepts_json?: string | null;
+  claim_progress?: ClaimProgressSummary;
   updated_at: string;
+}
+
+/* ---- Claim progress computation ---- */
+
+export interface ClaimProgress {
+  meets_threshold: boolean;
+  percentage: number;
+  demonstrated: number;
+  total: number;
+  missing_claims: string[];
+}
+
+/**
+ * Compute how many core claims are demonstrated at or above MINIMUM_CLAIM_LEVEL.
+ * Returns progress stats including whether the completion threshold is met.
+ */
+export function computeClaimProgress(
+  claimsJson: string | null | undefined,
+  learningMap: SectionLearningMap | null | undefined
+): ClaimProgress {
+  const NO_MAP_RESULT: ClaimProgress = {
+    meets_threshold: true,
+    percentage: 100,
+    demonstrated: 0,
+    total: 0,
+    missing_claims: [],
+  };
+
+  if (!learningMap || learningMap.core_claims.length === 0) {
+    return NO_MAP_RESULT;
+  }
+
+  let claimsMap: ClaimsMap;
+  try {
+    claimsMap = claimsJson ? JSON.parse(claimsJson) : {};
+  } catch {
+    claimsMap = {};
+  }
+
+  const minimumRank = LEVEL_ORDER[MINIMUM_CLAIM_LEVEL];
+  const total = learningMap.core_claims.length;
+  let demonstrated = 0;
+  const missing: string[] = [];
+
+  for (const claim of learningMap.core_claims) {
+    const entry = claimsMap[claim.id];
+    if (entry) {
+      const rank = LEVEL_ORDER[entry.level] ?? -1;
+      if (rank >= minimumRank) {
+        demonstrated++;
+        continue;
+      }
+    }
+    missing.push(claim.id);
+  }
+
+  const percentage = total > 0 ? Math.round((demonstrated / total) * 100) : 100;
+
+  return {
+    meets_threshold: percentage >= COMPLETION_THRESHOLD * 100,
+    percentage,
+    demonstrated,
+    total,
+    missing_claims: missing,
+  };
+}
+
+/* ---- Claim decay evaluation ---- */
+
+/** Days overdue at which a claim's underlying concept triggers full removal */
+const DECAY_REMOVE_DAYS = 7;
+
+/** Days overdue range (1 to DECAY_REMOVE_DAYS-1) that triggers a one-tier downgrade */
+const DECAY_DOWNGRADE_MIN_DAYS = 1;
+
+/**
+ * Evaluate claim decay based on spaced-repetition overdue concepts.
+ * For each claim in the learning map, checks if any of its underlying concepts
+ * are overdue for review. Returns a decayed copy of the claims map:
+ * - Concept 1-6 days overdue: downgrade claim level by one tier
+ * - Concept 7+ days overdue: remove claim from the map entirely
+ */
+export function evaluateClaimDecay(
+  claimsJson: string | null | undefined,
+  conceptsJson: string | null | undefined,
+  learningMap: SectionLearningMap | null | undefined,
+  now?: Date
+): ClaimsMap {
+  let claimsMap: ClaimsMap;
+  try {
+    claimsMap = claimsJson ? JSON.parse(claimsJson) : {};
+  } catch {
+    claimsMap = {};
+  }
+
+  if (!learningMap || learningMap.core_claims.length === 0) {
+    return claimsMap;
+  }
+
+  const conceptsMap = parseConceptsJson(conceptsJson);
+  const timestamp = now ?? new Date();
+  const msPerDay = 86_400_000;
+
+  // Build a copy so we don't mutate the original
+  const decayed: ClaimsMap = { ...claimsMap };
+
+  for (const claim of learningMap.core_claims) {
+    const entry = decayed[claim.id];
+    if (!entry) continue;
+
+    // Check each concept tied to this claim
+    let worstOverdueDays = 0;
+    for (const conceptName of claim.concepts) {
+      const assessment = conceptsMap[conceptName];
+      if (!assessment) continue;
+
+      const nextReview = new Date(assessment.next_review);
+      if (nextReview <= timestamp) {
+        const daysOverdue = Math.floor(
+          (timestamp.getTime() - nextReview.getTime()) / msPerDay
+        );
+        worstOverdueDays = Math.max(worstOverdueDays, daysOverdue);
+      }
+    }
+
+    if (worstOverdueDays >= DECAY_REMOVE_DAYS) {
+      // Full removal - concept is too stale
+      delete decayed[claim.id];
+    } else if (worstOverdueDays >= DECAY_DOWNGRADE_MIN_DAYS) {
+      // Downgrade by one tier
+      const currentRank = LEVEL_ORDER[entry.level] ?? 0;
+      const downgraded = currentRank - 1;
+      // Find the level name for the downgraded rank
+      const levelName = Object.entries(LEVEL_ORDER).find(([, rank]) => rank === downgraded)?.[0];
+      if (levelName) {
+        decayed[claim.id] = { ...entry, level: levelName };
+      } else {
+        // Already at lowest tier (emerging -> below emerging), remove
+        delete decayed[claim.id];
+      }
+    }
+  }
+
+  return decayed;
 }
 
 /* ---- Helpers ---- */
 
-function isCompletionTrigger(response: SocraticResponse): boolean {
-  if (response.tool_type === SESSION_COMPLETE_TOOL_TYPE) return true;
-  // Check for + joined tool types (multi-tool responses)
-  if (response.tool_type?.includes(SESSION_COMPLETE_TOOL_TYPE)) return true;
-  return (
+interface CompletionContext {
+  claimsJson?: string | null;
+  learningMap?: SectionLearningMap | null;
+}
+
+function isCompletionTrigger(response: SocraticResponse, ctx?: CompletionContext): boolean {
+  const isTutorComplete =
+    response.tool_type === SESSION_COMPLETE_TOOL_TYPE ||
+    (response.tool_type?.includes(SESSION_COMPLETE_TOOL_TYPE) ?? false);
+
+  const isInsightComplete =
     response.tool_type === COMPLETION_TOOL_TYPE &&
-    response.learner_readiness === COMPLETION_READINESS
-  );
+    response.learner_readiness === COMPLETION_READINESS;
+
+  if (!isTutorComplete && !isInsightComplete) return false;
+
+  // If we have a learning map with claims, enforce the threshold
+  if (ctx?.learningMap && ctx.learningMap.core_claims.length > 0) {
+    const progress = computeClaimProgress(ctx.claimsJson, ctx.learningMap);
+    if (!progress.meets_threshold) {
+      console.log(
+        `[progress] Completion override: claims at ${progress.percentage}%, threshold is ${COMPLETION_THRESHOLD * 100}%. ` +
+        `Missing: ${progress.missing_claims.join(", ")}`
+      );
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isPauseTrigger(response: SocraticResponse): boolean {
@@ -124,6 +318,59 @@ function applyConceptUpdates(
   return hasChanges ? map : null;
 }
 
+/* ---- Claim tracking helper ---- */
+
+export interface ClaimEntry {
+  level: string;
+  timestamp: string;
+}
+
+export type ClaimsMap = Record<string, ClaimEntry>;
+
+const CLAIM_LEVEL_ORDER: Record<string, number> = {
+  developing: 1,
+  solid: 2,
+  strong: 3,
+};
+
+export function applyClaimUpdates(
+  existingJson: string | null | undefined,
+  response: SocraticResponse
+): ClaimsMap | null {
+  const claims = response.claims_demonstrated;
+  const levels = response.claim_levels;
+
+  if (!claims || claims.length === 0) return null;
+
+  let map: ClaimsMap;
+  try {
+    map = existingJson ? JSON.parse(existingJson) : {};
+  } catch {
+    map = {};
+  }
+
+  const now = new Date().toISOString();
+  let changed = false;
+
+  for (let i = 0; i < claims.length; i++) {
+    const claimId = claims[i];
+    const newLevel = levels?.[i] ?? "developing";
+    const existing = map[claimId];
+
+    // No downgrade: if existing level is higher, skip
+    if (existing) {
+      const existingRank = CLAIM_LEVEL_ORDER[existing.level] ?? 0;
+      const newRank = CLAIM_LEVEL_ORDER[newLevel] ?? 0;
+      if (newRank <= existingRank) continue;
+    }
+
+    map[claimId] = { level: newLevel, timestamp: now };
+    changed = true;
+  }
+
+  return changed ? map : null;
+}
+
 /* ---- Core function ---- */
 
 export async function updateSectionProgress(
@@ -133,6 +380,19 @@ export async function updateSectionProgress(
   sectionId: string,
   response: SocraticResponse
 ): Promise<void> {
+  // Guard: verify learner exists before attempting writes that would violate FK constraint
+  const learnerExists = await db
+    .prepare("SELECT id FROM learners WHERE id = ?")
+    .bind(learnerId)
+    .first<{ id: string }>();
+
+  if (!learnerExists) {
+    console.warn(
+      `[progress] Skipping write - learner not found: learner=${learnerId} section=${sectionId} profile=${profile}`
+    );
+    return;
+  }
+
   // Load current progress
   const existing = await db
     .prepare(
@@ -140,6 +400,11 @@ export async function updateSectionProgress(
     )
     .bind(learnerId, profile, sectionId)
     .first<ProgressRow>();
+
+  // Look up learning map once for claim-based completion checks.
+  // Only use the profile-specific map - cross-profile fallback would apply
+  // the wrong claims to the wrong curriculum track.
+  const sectionLearningMap = getLearningMapForProfile(profile, sectionId) ?? null;
 
   if (!existing) {
     // First interaction - create row
@@ -156,7 +421,12 @@ export async function updateSectionProgress(
       });
     }
 
-    const shouldComplete = isCompletionTrigger(response);
+    const claimsMap = applyClaimUpdates(null, response);
+    const claimsJsonForCheck = claimsMap ? JSON.stringify(claimsMap) : null;
+    const shouldComplete = isCompletionTrigger(response, {
+      claimsJson: claimsJsonForCheck,
+      learningMap: sectionLearningMap,
+    });
 
     if (shouldComplete && response.tool_type === SESSION_COMPLETE_TOOL_TYPE) {
       understandingEntries.push({
@@ -171,8 +441,8 @@ export async function updateSectionProgress(
 
     await db
       .prepare(
-        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, started_at, completed_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'))`
+        `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, concepts_json, claims_json, started_at, completed_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'))`
       )
       .bind(
         learnerId,
@@ -181,6 +451,7 @@ export async function updateSectionProgress(
         shouldComplete ? STATUS_COMPLETED : STATUS_IN_PROGRESS,
         JSON.stringify(understandingEntries),
         conceptsMap ? JSON.stringify(conceptsMap) : "{}",
+        claimsJsonForCheck ?? "{}",
         shouldComplete ? new Date().toISOString() : null
       )
       .run();
@@ -189,12 +460,13 @@ export async function updateSectionProgress(
 
   // Status never regresses from completed (pause also blocked from completed)
   if (existing.status === STATUS_COMPLETED) {
-    // Still accumulate understanding and concept data even if completed
+    // Still accumulate understanding, concept, and claim data even if completed
     const hasUnderstanding =
       response.confidence_assessment || response.understanding_level;
     const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
+    const claimsMap = applyClaimUpdates(existing.claims_json, response);
 
-    if (hasUnderstanding || conceptsMap) {
+    if (hasUnderstanding || conceptsMap || claimsMap) {
       const entries = JSON.parse(existing.understanding_json || "[]");
       if (hasUnderstanding) {
         entries.push({
@@ -209,13 +481,16 @@ export async function updateSectionProgress(
       }
       await db
         .prepare(
-          "UPDATE curriculum_progress SET understanding_json = ?, concepts_json = ?, updated_at = datetime('now') WHERE learner_id = ? AND profile = ? AND section_id = ?"
+          "UPDATE curriculum_progress SET understanding_json = ?, concepts_json = ?, claims_json = ?, updated_at = datetime('now') WHERE learner_id = ? AND profile = ? AND section_id = ?"
         )
         .bind(
           JSON.stringify(entries),
           conceptsMap
             ? JSON.stringify(conceptsMap)
             : existing.concepts_json ?? "{}",
+          claimsMap
+            ? JSON.stringify(claimsMap)
+            : existing.claims_json ?? "{}",
           learnerId,
           profile,
           sectionId
@@ -241,11 +516,12 @@ export async function updateSectionProgress(
     }
 
     const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
+    const claimsMap = applyClaimUpdates(existing.claims_json, response);
 
     await db
       .prepare(
         `UPDATE curriculum_progress
-         SET status = ?, understanding_json = ?, concepts_json = ?, updated_at = datetime('now')
+         SET status = ?, understanding_json = ?, concepts_json = ?, claims_json = ?, updated_at = datetime('now')
          WHERE learner_id = ? AND profile = ? AND section_id = ?`
       )
       .bind(
@@ -254,6 +530,9 @@ export async function updateSectionProgress(
         conceptsMap
           ? JSON.stringify(conceptsMap)
           : existing.concepts_json ?? "{}",
+        claimsMap
+          ? JSON.stringify(claimsMap)
+          : existing.claims_json ?? "{}",
         learnerId,
         profile,
         sectionId
@@ -277,7 +556,15 @@ export async function updateSectionProgress(
   }
 
   const conceptsMap = applyConceptUpdates(existing.concepts_json, response);
-  const shouldComplete = isCompletionTrigger(response);
+  const claimsMap = applyClaimUpdates(existing.claims_json, response);
+  // Merge existing claims with any new claims for the threshold check
+  const mergedClaimsJson = claimsMap
+    ? JSON.stringify(claimsMap)
+    : existing.claims_json ?? "{}";
+  const shouldComplete = isCompletionTrigger(response, {
+    claimsJson: mergedClaimsJson,
+    learningMap: sectionLearningMap,
+  });
   const shouldPause = isPauseTrigger(response);
 
   if (shouldComplete && response.tool_type?.includes(SESSION_COMPLETE_TOOL_TYPE)) {
@@ -314,7 +601,7 @@ export async function updateSectionProgress(
   await db
     .prepare(
       `UPDATE curriculum_progress
-       SET status = ?, understanding_json = ?, concepts_json = ?, completed_at = ?, paused_at = ?, updated_at = datetime('now')
+       SET status = ?, understanding_json = ?, concepts_json = ?, claims_json = ?, completed_at = ?, paused_at = ?, updated_at = datetime('now')
        WHERE learner_id = ? AND profile = ? AND section_id = ?`
     )
     .bind(
@@ -323,6 +610,9 @@ export async function updateSectionProgress(
       conceptsMap
         ? JSON.stringify(conceptsMap)
         : existing.concepts_json ?? "{}",
+      claimsMap
+        ? JSON.stringify(claimsMap)
+        : existing.claims_json ?? "{}",
       shouldComplete ? new Date().toISOString() : existing.completed_at,
       shouldPause ? new Date().toISOString() : existing.paused_at,
       learnerId,
@@ -341,10 +631,10 @@ export async function getProgressForProfile(
 ): Promise<ProgressSummary[]> {
   const { results } = await db
     .prepare(
-      "SELECT section_id, status, understanding_json, concepts_json, updated_at FROM curriculum_progress WHERE learner_id = ? AND profile = ?"
+      "SELECT section_id, status, understanding_json, concepts_json, claims_json, updated_at FROM curriculum_progress WHERE learner_id = ? AND profile = ?"
     )
     .bind(learnerId, profile)
-    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "updated_at">>();
+    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "claims_json" | "updated_at">>();
 
   return (results || []).map((row) => {
     const entries = JSON.parse(row.understanding_json || "[]") as Array<
@@ -353,9 +643,26 @@ export async function getProgressForProfile(
     const latest = entries.length > 0 ? entries[entries.length - 1] : null;
     const understandingLevel = latest?.understanding_level;
 
+    // Compute claim progress using the profile-specific learning map
+    const learningMap = getLearningMapForProfile(profile, row.section_id) ?? null;
+
+    // For completed sections, evaluate claim decay based on overdue concepts
+    let effectiveClaimsJson = row.claims_json;
+    let effectiveStatus = row.status;
+    if (row.status === STATUS_COMPLETED && learningMap && learningMap.core_claims.length > 0) {
+      const decayedClaims = evaluateClaimDecay(row.claims_json, row.concepts_json, learningMap);
+      effectiveClaimsJson = JSON.stringify(decayedClaims);
+      const decayedProgress = computeClaimProgress(effectiveClaimsJson, learningMap);
+      if (!decayedProgress.meets_threshold) {
+        effectiveStatus = STATUS_NEEDS_REVIEW;
+      }
+    }
+
+    const claimProgress = computeClaimProgress(effectiveClaimsJson, learningMap);
+
     const summary: ProgressSummary = {
       section_id: row.section_id,
-      status: row.status,
+      status: effectiveStatus,
       updated_at: row.updated_at,
     };
     if (understandingLevel) {
@@ -363,6 +670,14 @@ export async function getProgressForProfile(
     }
     if (row.concepts_json) {
       summary.concepts_json = row.concepts_json;
+    }
+    if (learningMap && learningMap.core_claims.length > 0) {
+      summary.claim_progress = {
+        demonstrated: claimProgress.demonstrated,
+        total: claimProgress.total,
+        percentage: claimProgress.percentage,
+        missing: claimProgress.missing_claims,
+      };
     }
     return summary;
   });
@@ -382,10 +697,10 @@ export async function buildProgressContext(
 ): Promise<string> {
   const { results } = await db
     .prepare(
-      "SELECT section_id, status, understanding_json, concepts_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND status != ?"
+      "SELECT section_id, status, understanding_json, concepts_json, claims_json FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND status != ?"
     )
     .bind(learnerId, profile, STATUS_NOT_STARTED)
-    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json">>();
+    .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "claims_json">>();
 
   if (!results || results.length === 0) {
     return "";
@@ -432,12 +747,46 @@ export async function buildProgressContext(
       ? "\n  Concepts:\n" + conceptDetails.join("\n")
       : "";
 
+    // Build claim coverage section when claims_json is present
+    const claimsRaw = row.claims_json;
+    let claimSuffix = "";
+    if (claimsRaw && claimsRaw !== "{}") {
+      try {
+        const claimsMap = JSON.parse(claimsRaw) as Record<string, { level: string }>;
+        const learningMap = getLearningMapForProfile(profile, row.section_id)
+          ?? getLearningMap(row.section_id);
+        if (learningMap && learningMap.core_claims.length > 0) {
+          const demonstrated: string[] = [];
+          const notYetDemonstrated: string[] = [];
+          for (const claim of learningMap.core_claims) {
+            const entry = claimsMap[claim.id];
+            if (entry) {
+              demonstrated.push(`${claim.id} (${entry.level})`);
+            } else {
+              notYetDemonstrated.push(claim.id);
+            }
+          }
+          const claimLines: string[] = [];
+          claimLines.push(`  Claim Coverage for Section ${row.section_id}:`);
+          if (demonstrated.length > 0) {
+            claimLines.push(`    Demonstrated: ${demonstrated.join(", ")}`);
+          }
+          if (notYetDemonstrated.length > 0) {
+            claimLines.push(`    Not yet demonstrated: ${notYetDemonstrated.join(", ")}`);
+          }
+          claimSuffix = "\n" + claimLines.join("\n");
+        }
+      } catch {
+        // Malformed claims_json - skip
+      }
+    }
+
     if (row.status === STATUS_COMPLETED) {
-      completed.push(`Completed: ${label}${conceptSuffix}`);
+      completed.push(`Completed: ${label}${conceptSuffix}${claimSuffix}`);
     } else if (row.status === STATUS_PAUSED) {
-      paused.push(`Paused: ${label}${conceptSuffix}`);
+      paused.push(`Paused: ${label}${conceptSuffix}${claimSuffix}`);
     } else if (row.status === STATUS_IN_PROGRESS) {
-      inProgress.push(`In progress: ${label}${conceptSuffix}`);
+      inProgress.push(`In progress: ${label}${conceptSuffix}${claimSuffix}`);
     }
   }
 

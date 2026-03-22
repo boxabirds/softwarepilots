@@ -207,4 +207,56 @@ test.describe("Socratic session page", () => {
     const continueSession = page.locator('[data-testid="continue-session-button"]');
     await expect(continueSession).toBeVisible();
   });
+
+  test("chat still works when progress tracking would fail (missing learner resilience)", async ({ page }) => {
+    // Simulate: the socratic endpoint returns a valid reply even though
+    // progress tracking fails internally (fire-and-forget pattern).
+    // This tests the user-facing behavior: the chat must remain functional
+    // regardless of background progress write failures.
+    let socraticCallCount = 0;
+    await page.route("**/api/socratic", async (route) => {
+      socraticCallCount++;
+      if (socraticCallCount === 1) {
+        // Opening probe - returns successfully (progress failure is internal)
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "Welcome! Let's start exploring this topic.",
+            tool_type: "socratic_probe",
+            topic: "introduction",
+            confidence_assessment: "low",
+          }),
+        });
+      } else {
+        // Follow-up - also succeeds despite any internal progress issues
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "That's a great start! Can you explain further?",
+            tool_type: "evaluate_response",
+            understanding_level: "emerging",
+          }),
+        });
+      }
+    });
+
+    await page.goto(SESSION_URL);
+
+    // Tutor opening should appear (progress failure is invisible to user)
+    await expect(
+      page.getByText("Welcome! Let's start exploring this topic."),
+    ).toBeVisible();
+
+    // User can still interact - type and send a message
+    const input = page.locator('textarea[placeholder="Type your response..."]');
+    await input.fill("I think software pilotry is about maintaining systems");
+    await input.press("Shift+Enter");
+
+    // Follow-up reply should appear - chat is fully functional
+    await expect(
+      page.getByText("That's a great start! Can you explain further?"),
+    ).toBeVisible();
+  });
 });
