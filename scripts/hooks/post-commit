@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Post-commit hook: remind to tag commits with story IDs via git notes.
+# Non-blocking - just prints a reminder.
+#
+# Install: git config core.hooksPath scripts/hooks
+#
+
+COMMIT=$(git rev-parse HEAD)
+SHORT=$(git rev-parse --short HEAD)
+NOTE=$(git notes --ref=stories show "$COMMIT" 2>/dev/null || echo "")
+
+if [ -z "$NOTE" ]; then
+  echo ""
+  echo "  [story-tag] Commit $SHORT has no story tag."
+  echo "  Tag it:  git notes --ref=stories add -m 'stories: <ID>' $SHORT"
+  echo "  Then:    git push origin refs/notes/stories"
+  echo ""
+fi
