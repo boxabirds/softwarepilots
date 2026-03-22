@@ -141,8 +141,8 @@ export function ChatInput({
           placeholder={effectivePlaceholder}
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none border-none bg-transparent p-0 font-sans text-base outline-none"
-          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)" }}
+          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-base outline-none"
+          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)", padding: 0, margin: 0, height: LINE_HEIGHT + "px" }}
         />
         <button
           onClick={onSubmit}
