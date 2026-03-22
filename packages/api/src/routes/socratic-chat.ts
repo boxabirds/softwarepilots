@@ -136,7 +136,7 @@ export function buildSocraticTools(
         properties: {
           assessment: {
             type: "STRING",
-            description: "Brief assessment of the learner's response",
+            description: "Brief feedback on what the learner said, addressed directly to them using 'you' (e.g., 'You correctly identified...' not 'The learner correctly identifies...')",
           },
           follow_up: {
             type: "STRING",
@@ -473,6 +473,8 @@ export function buildSocraticSystemPrompt(
     `Section: ${section.title}`,
     "",
     "== Rules ==",
+    "- NEVER refer to the learner in third person ('the learner', 'the student'). Always address them directly as 'you'. Your responses are spoken TO the learner, not ABOUT them.",
+    "- When creating scenarios, be internally consistent. Do not describe something as 'comprehensive' if the details contradict that (e.g., do not say 'comprehensive test suite' then mention only 15 unit tests for a complex service).",
     `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response (except provide_instruction, which should be as thorough as needed to explain the concept clearly)`,
     "- ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.",
     "- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.",
