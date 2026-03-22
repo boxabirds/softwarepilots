@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "bun run build && wrangler pages deploy dist --project-name=softwarepilots-app",
+    "deploy:staging": "bun run build && cp wrangler.toml wrangler.bak && cp wrangler.staging.toml wrangler.toml && wrangler pages deploy dist --project-name=softwarepilots-web-staging --commit-dirty=true; cp wrangler.bak wrangler.toml; rm wrangler.bak",
+    "deploy:production": "bun run build && wrangler pages deploy dist --project-name=softwarepilots-web --commit-dirty=true",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

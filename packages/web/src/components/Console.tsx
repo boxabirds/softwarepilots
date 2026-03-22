@@ -12,7 +12,7 @@ export function Console({ output }: ConsoleProps) {
   }
 
   return (
-    <div className="max-h-48 overflow-y-auto bg-[#0d1117] px-5 py-3 font-mono text-[13px] leading-5 text-[#c9d1d9]">
+    <div className="max-h-48 overflow-y-auto bg-[#0d1117] px-5 py-3 font-mono text-[0.8125rem] leading-5 text-[#c9d1d9]">
       <pre className="m-0 whitespace-pre-wrap">{output}</pre>
     </div>
   );

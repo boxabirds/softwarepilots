@@ -86,7 +86,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
           onChange={(e) => updateCode(e.target.value)}
           disabled={disabled}
           spellCheck={false}
-          className="flex-1 resize-none border-none bg-transparent px-5 py-4 font-mono text-[13px] leading-6 text-[#d4d4d4] outline-none"
+          className="flex-1 resize-none border-none bg-transparent px-5 py-4 font-mono text-[0.8125rem] leading-6 text-[#d4d4d4] outline-none"
           style={{ tabSize: 4 }}
           onKeyDown={(e) => {
             if (e.key === "Tab") {

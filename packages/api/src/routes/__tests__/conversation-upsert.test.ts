@@ -14,9 +14,9 @@ import { Hono } from "hono";
 function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
-      let bindings: unknown[] = [];
+      let bindings: any[] = [];
       return {
-        bind(...values: unknown[]) {
+        bind(...values: any[]) {
           bindings = values;
           return this;
         },
@@ -46,7 +46,7 @@ function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
     async batch<T>(): Promise<D1Result<T>[]> { throw new Error("not implemented"); },
     async dump(): Promise<ArrayBuffer> { throw new Error("not implemented"); },
     async exec(): Promise<D1ExecResult> { throw new Error("not implemented"); },
-  } as D1Database;
+  } as unknown as D1Database;
 }
 
 let sqliteDb: InstanceType<typeof Database>;

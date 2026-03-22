@@ -13,7 +13,7 @@ export { buildGeminiContents, callGeminiWithTools, parseGeminiToolResponse };
 
 /* ---- Constants ---- */
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 const TUTOR_TEMPERATURE = 0.4;
 
 /* ---- Step-type to input expectation mapping ---- */

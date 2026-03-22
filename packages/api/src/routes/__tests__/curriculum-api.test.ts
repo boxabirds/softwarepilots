@@ -33,7 +33,7 @@ describe("Curriculum API endpoints", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(Array.isArray(body)).toBe(true);
     expect(body).toHaveLength(3);
     expect(body.map((p: { profile: string }) => p.profile).sort()).toEqual([
@@ -52,7 +52,7 @@ describe("Curriculum API endpoints", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBeGreaterThan(0);
     // Each section should have expected fields
@@ -72,7 +72,7 @@ describe("Curriculum API endpoints", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(body).toHaveProperty("id", "1.1");
     expect(body).toHaveProperty("title");
     expect(body).toHaveProperty("markdown");
@@ -89,7 +89,7 @@ describe("Curriculum API endpoints", () => {
     );
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(body).toHaveProperty("error");
   });
 
@@ -102,7 +102,7 @@ describe("Curriculum API endpoints", () => {
     );
 
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(body).toHaveProperty("error");
   });
 });

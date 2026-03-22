@@ -12,7 +12,11 @@ const mockLearner = {
   enrolled_at: "2026-01-01T00:00:00Z",
 };
 
-let mockAuthState = {
+let mockAuthState: {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  learner: typeof mockLearner | null;
+} = {
   isAuthenticated: true,
   isLoading: false,
   learner: mockLearner,

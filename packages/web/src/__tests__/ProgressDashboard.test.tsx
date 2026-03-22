@@ -67,7 +67,8 @@ const EMPTY_SUMMARY = {
 
 /* ---- Mock api-client ---- */
 
-let mockGet: ReturnType<typeof vi.fn>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockGet: any;
 
 vi.mock("../lib/api-client", () => ({
   apiClient: {

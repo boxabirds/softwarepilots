@@ -15,11 +15,11 @@ export function OutputCard({ index, output, selected, onClick }: {
     >
       <div className="mb-2 flex items-center justify-between">
         <FieldLabel>Output (run #{index + 1})</FieldLabel>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-[0.6875rem] text-muted-foreground">
           {selected ? "viewing code \u2190" : "click to view code"}
         </span>
       </div>
-      <pre className="m-0 overflow-x-auto whitespace-pre-wrap rounded-md bg-[#0d1117] px-4 py-3 font-mono text-[13px] leading-relaxed text-[#c9d1d9]">
+      <pre className="m-0 overflow-x-auto whitespace-pre-wrap rounded-md bg-[#0d1117] px-4 py-3 font-mono text-[0.8125rem] leading-relaxed text-[#c9d1d9]">
         {output}
       </pre>
     </div>

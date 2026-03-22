@@ -223,7 +223,7 @@ auth.get("/me", async (c) => {
   }
 
   try {
-    const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as SessionPayload;
+    const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as unknown as SessionPayload;
     const learner = await c.env.DB.prepare(
       "SELECT id, email, display_name, enrolled_at FROM learners WHERE id = ?"
     )

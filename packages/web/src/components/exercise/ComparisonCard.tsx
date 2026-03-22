@@ -17,13 +17,13 @@ export function ComparisonCard({ prediction, output, selected, onClick }: {
       <div className="mb-2 flex gap-4">
         <div className="flex-1">
           <FieldLabel>Your prediction</FieldLabel>
-          <pre className="m-0 whitespace-pre-wrap rounded-md bg-[#0d1117] px-3 py-2.5 font-mono text-[13px] leading-relaxed text-[#c9d1d9]">
+          <pre className="m-0 whitespace-pre-wrap rounded-md bg-[#0d1117] px-3 py-2.5 font-mono text-[0.8125rem] leading-relaxed text-[#c9d1d9]">
             {prediction}
           </pre>
         </div>
         <div className="flex-1">
           <FieldLabel>Actual output</FieldLabel>
-          <pre className="m-0 whitespace-pre-wrap rounded-md bg-[#0d1117] px-3 py-2.5 font-mono text-[13px] leading-relaxed text-[#c9d1d9]">
+          <pre className="m-0 whitespace-pre-wrap rounded-md bg-[#0d1117] px-3 py-2.5 font-mono text-[0.8125rem] leading-relaxed text-[#c9d1d9]">
             {output}
           </pre>
         </div>
@@ -32,7 +32,7 @@ export function ComparisonCard({ prediction, output, selected, onClick }: {
         <span className={`text-xs font-semibold ${match ? "text-success" : "text-warning"}`}>
           {match ? "Exact match!" : "Not quite \u2014 spot the difference"}
         </span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-[0.6875rem] text-muted-foreground">
           {selected ? "viewing code \u2190" : "click to view code"}
         </span>
       </div>

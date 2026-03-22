@@ -51,7 +51,7 @@ type Phase = "intro" | "steps" | "self-assessment" | "submitting" | "results";
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-block rounded-[3px] border border-border bg-muted px-1 py-px font-sans text-[10px]">
+    <kbd className="inline-block rounded-[3px] border border-border bg-muted px-1 py-px font-sans text-[0.625rem]">
       {children}
     </kbd>
   );
@@ -358,7 +358,7 @@ export function Exercise() {
           if (msg.role === "user") {
             elements.push(
               <ChatCard key={`intro-user-${j}`} align="right">
-                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[0.8125rem] leading-relaxed text-foreground">{msg.content}</div>
               </ChatCard>
             );
           } else {
@@ -392,7 +392,7 @@ export function Exercise() {
       if (submitted) {
         elements.push(
           <ChatCard key={`input-${i}`} align="right">
-            <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{submitted}</div>
+            <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[0.8125rem] leading-relaxed text-foreground">{submitted}</div>
           </ChatCard>
         );
       }
@@ -400,9 +400,9 @@ export function Exercise() {
       if (submitted && stepRendering.showRun && !snapshots[i]) {
         elements.push(
           <ChatCard key={`run-hint-${i}`} muted>
-            <span className="text-[13px] text-muted-foreground">
+            <span className="text-[0.8125rem] text-muted-foreground">
               Click <strong>Run</strong> to see if you were right.
-              {" "}<span className="text-[11px]"><Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></span>
+              {" "}<span className="text-[0.6875rem]"><Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></span>
             </span>
           </ChatCard>
         );
@@ -442,7 +442,7 @@ export function Exercise() {
             <ChatCard key={`ack-${i}`}>
               <button
                 onClick={handleAcknowledgeStep}
-                className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[15px] font-semibold text-primary-foreground transition-transform duration-100"
+                className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[0.9375rem] font-semibold text-primary-foreground transition-transform duration-100"
               >
                 Continue
               </button>
@@ -457,7 +457,7 @@ export function Exercise() {
           if (msg.role === "user") {
             elements.push(
               <ChatCard key={`chat-user-${i}-${j}`} align="right">
-                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+                <div className="rounded-r border-l-[3px] border-border bg-muted px-3 py-2 font-mono text-[0.8125rem] leading-relaxed text-foreground">{msg.content}</div>
               </ChatCard>
             );
           } else {
@@ -477,7 +477,7 @@ export function Exercise() {
     if (readyMessage && phase === "steps") {
       elements.push(
         <ChatCard key="ready" muted>
-          <span className="text-[13px] text-muted-foreground">
+          <span className="text-[0.8125rem] text-muted-foreground">
             Ready to test your new edits.
           </span>
         </ChatCard>
@@ -532,7 +532,7 @@ export function Exercise() {
           </InputPill>
           <button
             onClick={handleIntroAdvance}
-            className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[15px] font-semibold text-primary-foreground transition-transform duration-100"
+            className="cursor-pointer rounded-[10px] border-none bg-primary px-6 py-3 text-center text-[0.9375rem] font-semibold text-primary-foreground transition-transform duration-100"
           >
             {allIntroMessagesShown ? "I\u2019m ready \u2014 let\u2019s start" : "Next"}
           </button>
@@ -540,13 +540,13 @@ export function Exercise() {
       );
     }
     if (phase === "submitting") {
-      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Waiting for evaluation...</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[0.8125rem] leading-relaxed text-muted-foreground">Waiting for evaluation...</span></InputPill>;
     }
     if (phase === "results") {
-      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Exercise complete.</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[0.8125rem] leading-relaxed text-muted-foreground">Exercise complete.</span></InputPill>;
     }
     if (phase === "self-assessment") {
-      return <InputPill><span className="flex-1 text-[13px] leading-relaxed text-muted-foreground">Complete self-assessment above...</span></InputPill>;
+      return <InputPill><span className="flex-1 text-[0.8125rem] leading-relaxed text-muted-foreground">Complete self-assessment above...</span></InputPill>;
     }
     if (!currentStep) return null;
 
@@ -557,7 +557,7 @@ export function Exercise() {
         : "Ask about what you see...";
 
     const runHint = currentRendering.showRun && !awaitingAcknowledgment ? (
-      <div className="mb-1 pl-0.5 text-[11px] text-muted-foreground">
+      <div className="mb-1 pl-0.5 text-[0.6875rem] text-muted-foreground">
         {currentRendering.hasInput && currentInputSubmitted
           ? <>Click <strong>Run</strong> to test your prediction. <Kbd>{modKey}</Kbd>+<Kbd>Enter</Kbd></>
           : !currentRendering.hasInput
@@ -606,7 +606,7 @@ export function Exercise() {
       }`}>
         {/* Header */}
         <div className="border-b border-border px-5 py-4">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground">
             Module {moduleId} &middot; Exercise {exerciseId}
           </span>
           <h1 className="mt-1 text-xl font-bold">{title}</h1>
@@ -642,7 +642,7 @@ export function Exercise() {
               <div className="border-b border-border bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
                 Viewing code from run #{viewingSnapshot + 1} (read-only)
               </div>
-              <pre className="m-0 flex-1 overflow-y-auto whitespace-pre-wrap bg-[#1e1e1e] px-5 py-4 font-mono text-[13px] leading-relaxed text-[#d4d4d4]">
+              <pre className="m-0 flex-1 overflow-y-auto whitespace-pre-wrap bg-[#1e1e1e] px-5 py-4 font-mono text-[0.8125rem] leading-relaxed text-[#d4d4d4]">
                 {snapshots[viewingSnapshot].code}
               </pre>
 
@@ -663,7 +663,7 @@ export function Exercise() {
                         setShowSnapshotPopup(false);
                         handleResumeEditing();
                       }}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[0.8125rem] font-medium text-primary-foreground"
                     >
                       Make another edit
                     </button>
@@ -676,7 +676,7 @@ export function Exercise() {
 
         {/* Undo hint (hidden on mobile to save space) */}
         {phase !== "intro" && (
-          <div className="hidden border-t border-border px-5 py-1 text-center text-[11px] text-muted-foreground md:block">
+          <div className="hidden border-t border-border px-5 py-1 text-center text-[0.6875rem] text-muted-foreground md:block">
             <Kbd>{modKey}</Kbd>+<Kbd>Z</Kbd> to undo edits
           </div>
         )}
@@ -686,7 +686,7 @@ export function Exercise() {
           {viewingSnapshot !== null ? (
             <button
               onClick={handleResumeEditing}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border-none bg-primary px-4 py-[7px] text-[0.8125rem] font-medium text-primary-foreground"
             >
               Make another edit
             </button>
@@ -694,13 +694,13 @@ export function Exercise() {
             <button
               onClick={handleRunClick}
               disabled={runDisabled}
-              className={`inline-flex items-center gap-1 rounded-md border-none px-4 py-[7px] text-[13px] font-medium ${
+              className={`inline-flex items-center gap-1 rounded-md border-none px-4 py-[7px] text-[0.8125rem] font-medium ${
                 runDisabled
                   ? "cursor-default bg-muted text-muted-foreground"
                   : "cursor-pointer bg-primary text-primary-foreground"
               }`}
             >
-              {editorReady && !inputGatesRun && <span className="text-[11px]">&#9654;</span>}
+              {editorReady && !inputGatesRun && <span className="text-[0.6875rem]">&#9654;</span>}
               {" "}{!editorReady ? "Loading Python..." : inputGatesRun ? "Submit your answer first" : "Run"}
             </button>
           )}

@@ -34,7 +34,7 @@ export function ChatInput({
 
   useEffect(() => {
     textareaRef.current?.focus();
-  }, []);
+  }, [feedbackMode]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -82,16 +82,16 @@ export function ChatInput({
         <>
           <div
             className="mb-2 flex items-center gap-2 rounded px-3 py-2"
-            style={{ background: "var(--status-warning-bg, #fef3c7)", color: "var(--status-warning-text, #92400e)" }}
+            style={{ background: "rgba(234, 179, 8, 0.15)", color: "#facc15" }}
             data-testid="feedback-bar"
           >
-            <span className="flex-1 text-[12px] font-medium">
+            <span className="flex-1 text-[0.75rem] font-medium">
               Feedback: what would you like to say about this message?
             </span>
             <button
               onClick={onDismissFeedback}
               className="shrink-0 cursor-pointer border-none bg-transparent text-sm leading-none"
-              style={{ color: "var(--status-warning-text, #92400e)" }}
+              style={{ color: "#facc15" }}
               aria-label="Dismiss feedback"
               data-testid="feedback-dismiss"
             >
@@ -104,7 +104,7 @@ export function ChatInput({
               style={{ borderLeft: "2px solid var(--status-warning-border, #f59e0b)", background: "var(--bg-muted)" }}
               data-testid="feedback-quote"
             >
-              <span className="flex-1 text-[12px] italic" style={{ color: "var(--text-muted)" }}>
+              <span className="flex-1 text-[0.75rem] italic" style={{ color: "var(--text-muted)" }}>
                 {truncatedFeedbackQuote}
               </span>
             </div>
@@ -117,7 +117,7 @@ export function ChatInput({
           style={{ borderLeft: "2px solid var(--pilot-blue)", background: "var(--bg-muted)" }}
           data-testid="quote-preview"
         >
-          <span className="flex-1 text-[12px] italic" style={{ color: "var(--text-muted)" }}>
+          <span className="flex-1 text-[0.75rem] italic" style={{ color: "var(--text-muted)" }}>
             {truncatedQuote}
           </span>
           <button
@@ -141,7 +141,7 @@ export function ChatInput({
           placeholder={effectivePlaceholder}
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-sm outline-none"
+          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-base outline-none"
           style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)" }}
         />
         <button

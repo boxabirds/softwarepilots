@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useBreadcrumbs } from "../hooks/useBreadcrumbs";
 
-const NAV_HEIGHT_PX = 56;
+const NAV_HEIGHT_REM = "3.5rem"; // 56px at default 16px root
 
 export function TopNav() {
   const { learner } = useAuth();
@@ -16,8 +16,7 @@ export function TopNav() {
   return (
     <nav
       className="fixed top-0 right-0 left-0 z-30 flex items-center px-4"
-      style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-base)" }}
-      style={{ height: NAV_HEIGHT_PX }}
+      style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-base)", height: NAV_HEIGHT_REM }}
       data-testid="top-nav"
     >
       {/* Left: Logo */}
@@ -166,4 +165,4 @@ function MobileBreadcrumbs({ segments }: { segments: BreadcrumbSegment[] }) {
   );
 }
 
-export { NAV_HEIGHT_PX };
+export { NAV_HEIGHT_REM };

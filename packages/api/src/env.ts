@@ -9,4 +9,7 @@ export interface Env {
   EVALUATOR_URL?: string; // Local dev: direct HTTP fallback (e.g. http://localhost:8788)
   GEMINI_API_KEY: string;
   GEMINI_MODEL?: string;
+  ADMIN_API_KEY: string;
+  GITHUB_BASE_URL?: string;
+  GITHUB_API_BASE_URL?: string;
 }

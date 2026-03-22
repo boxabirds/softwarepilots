@@ -23,7 +23,7 @@ export const sessionValidation = createMiddleware<{ Bindings: Env }>(
     }
 
     try {
-      const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as SessionPayload;
+      const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as unknown as SessionPayload;
       c.set("learnerId" as never, payload.sub);
       await next();
     } catch {

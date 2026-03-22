@@ -450,7 +450,7 @@ export function SocraticSession() {
                           />
                         )}
                         <span
-                          className="text-[11px] tabular-nums text-muted-foreground"
+                          className="text-[0.6875rem] tabular-nums text-muted-foreground"
                           data-testid={`section-coverage-${lesson.id}`}
                         >
                           {sectionCov.covered}/{sectionCov.total}
@@ -496,31 +496,31 @@ export function SocraticSession() {
               >
                 <div className="mb-1 flex items-center gap-1.5">
                   <span className="text-base" aria-hidden="true">&#128161;</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                  <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
                     Direct Instruction
                   </span>
                 </div>
                 {msg.concept && (
                   <span
-                    className="mb-2 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                    className="mb-2 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[0.6875rem] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                     data-testid="instruction-concept"
                   >
                     {msg.concept}
                   </span>
                 )}
-                <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{msg.content}</div>
+                <div className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-foreground">{msg.content}</div>
               </div>
             ) : (
               <TutorCard
                 content={msg.content}
                 onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
-                onFeedback={isError || i === conversation.length - 1 ? undefined : () => handleFeedback(msg.content, i)}
+                onFeedback={isError ? undefined : () => handleFeedback(msg.content, i)}
               />
             )}
             {isError && (
               <button
                 onClick={handleRetry}
-                className="ml-4 mt-1 cursor-pointer border-none bg-transparent text-[13px] font-medium text-primary underline"
+                className="ml-4 mt-1 cursor-pointer border-none bg-transparent text-[0.8125rem] font-medium text-primary underline"
               >
                 Retry
               </button>
@@ -548,13 +548,13 @@ export function SocraticSession() {
           <ChatCard key={i} align="right">
             {truncatedQuoteDisplay && (
               <div
-                className="mb-2 border-l-2 border-muted-foreground/30 bg-background px-3 py-1.5 text-[12px] italic text-muted-foreground"
+                className="mb-2 border-l-2 border-muted-foreground/30 bg-background px-3 py-1.5 text-[0.75rem] italic text-muted-foreground"
                 data-testid="user-quote-block"
               >
                 {truncatedQuoteDisplay}
               </div>
             )}
-            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{responseText}</div>
+            <div className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-foreground">{responseText}</div>
           </ChatCard>
         );
       }
@@ -596,7 +596,7 @@ export function SocraticSession() {
             {sessionComplete.concepts_covered.map((concept) => (
               <span
                 key={concept}
-                className="rounded-full bg-green-200 px-2 py-0.5 text-[11px] font-medium text-green-800 dark:bg-green-800 dark:text-green-200"
+                className="rounded-full bg-green-200 px-2 py-0.5 text-[0.6875rem] font-medium text-green-800 dark:bg-green-800 dark:text-green-200"
               >
                 {concept}
               </span>

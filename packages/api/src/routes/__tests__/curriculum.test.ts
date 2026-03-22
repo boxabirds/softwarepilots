@@ -90,7 +90,7 @@ function createMockDB() {
               if (row && row.archived_at !== null) return null;
               if (!row) return null;
               // Return with id for the UPDATE path
-              return ({ ...row, id: key } as unknown as T) ?? null;
+              return { ...row, id: key } as unknown as T;
             }
             return null;
           },

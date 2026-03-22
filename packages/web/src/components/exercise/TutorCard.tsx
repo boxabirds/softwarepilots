@@ -38,11 +38,11 @@ export function TutorCard({ content, loading, onReply, onFeedback }: TutorCardPr
             className="size-4 animate-spin rounded-full border-2 border-t-transparent"
             style={{ borderColor: "var(--pilot-blue)", borderTopColor: "transparent" }}
           />
-          <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>Thinking...</span>
+          <span className="text-[0.8125rem]" style={{ color: "var(--text-muted)" }}>Thinking...</span>
         </div>
       ) : (
         <div
-          className="whitespace-pre-wrap text-[13px] leading-relaxed"
+          className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed"
           style={{ color: "var(--text-secondary)" }}
         >
           {content}
