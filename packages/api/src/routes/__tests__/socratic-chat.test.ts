@@ -77,7 +77,7 @@ describe("buildSocraticTools", () => {
   it("includes section title in base tool descriptions", () => {
     const tools = buildSocraticTools(TEST_SECTION, TEST_META);
     const baseDecls = tools[0].functionDeclarations.filter(
-      (d) => d.name !== "track_concepts" && d.name !== "session_complete" && d.name !== "session_pause" && d.name !== "lesson_query"
+      (d) => d.name !== "track_concepts" && d.name !== "claim_assessment" && d.name !== "session_complete" && d.name !== "session_pause" && d.name !== "lesson_query"
     );
     const descriptions = baseDecls.map((d) => d.description as string);
     for (const desc of descriptions) {
@@ -499,8 +499,10 @@ const SECTION_WITHOUT_CONCEPTS: SectionMeta = {
   concepts: [],
 };
 
-const EXPECTED_BASE_TOOL_COUNT = 9;
-const EXPECTED_CONCEPTS_TOOL_COUNT = 10;
+// Base 9 + accountability_probe (TEST_META has accountability_scope) + simulation_readiness_check (TEST_SECTION has simulation_scenarios) + claim_assessment (learning_map has claims)
+const EXPECTED_BASE_TOOL_COUNT = 12;
+// Base + track_concepts + accountability_probe + simulation_readiness_check + claim_assessment
+const EXPECTED_CONCEPTS_TOOL_COUNT = 13;
 
 describe("buildSocraticTools with concepts", () => {
   it("adds track_concepts tool when section has concepts", () => {
@@ -894,5 +896,332 @@ describe("lesson_query system prompt guidance", () => {
     expect(prompt).toContain("lesson_query");
     expect(prompt).toContain("learning objectives");
     expect(prompt).toContain("What topics haven't I covered");
+  });
+});
+
+/* ---- accountability_probe tool ---- */
+
+import type { AccountabilityScope } from "@softwarepilots/shared";
+
+const META_WITH_ACCOUNTABILITY: CurriculumMeta = {
+  ...TEST_META,
+  accountability_scope: "single-app" as AccountabilityScope,
+};
+
+const META_WITHOUT_ACCOUNTABILITY: CurriculumMeta = {
+  ...TEST_META,
+};
+// Ensure no accountability_scope is set
+delete (META_WITHOUT_ACCOUNTABILITY as unknown as Record<string, unknown>).accountability_scope;
+
+const SECTION_WITH_SIMULATIONS: SectionMeta = {
+  ...TEST_SECTION,
+  simulation_scenarios: ["sim-outage-01", "sim-deploy-02"],
+};
+
+const SECTION_WITHOUT_SIMULATIONS: SectionMeta = {
+  ...TEST_SECTION,
+};
+// Ensure no simulation_scenarios is set
+delete (SECTION_WITHOUT_SIMULATIONS as unknown as Record<string, unknown>).simulation_scenarios;
+
+const EXPECTED_BASE_PLUS_CONCEPTS_COUNT = 11;
+
+describe("accountability_probe tool declaration", () => {
+  it("is added when meta has accountability_scope", () => {
+    const tools = buildSocraticTools(TEST_SECTION, META_WITH_ACCOUNTABILITY);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toContain("accountability_probe");
+  });
+
+  it("is NOT added when meta lacks accountability_scope", () => {
+    const tools = buildSocraticTools(TEST_SECTION, META_WITHOUT_ACCOUNTABILITY);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).not.toContain("accountability_probe");
+  });
+
+  it("has topic, dimension (enum), and response as required parameters", () => {
+    const tools = buildSocraticTools(TEST_SECTION, META_WITH_ACCOUNTABILITY);
+    const probeTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "accountability_probe"
+    );
+    expect(probeTool).toBeDefined();
+    const params = probeTool!.parameters as Record<string, unknown>;
+    const properties = params.properties as Record<string, Record<string, unknown>>;
+    const required = params.required as string[];
+
+    expect(required).toContain("response");
+    expect(required).toContain("topic");
+    expect(required).toContain("dimension");
+
+    expect(properties.dimension.enum).toEqual([
+      "diagnosis",
+      "verification",
+      "escalation",
+      "sign_off",
+    ]);
+  });
+});
+
+describe("accountability_probe parser", () => {
+  it("extracts response, topic, and dimension", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("accountability_probe", {
+        response: "If this service failed at 2am, what would you check first?",
+        topic: "incident response",
+        dimension: "diagnosis",
+      })
+    );
+    expect(result.tool_type).toBe("accountability_probe");
+    expect(result.reply).toContain("If this service failed");
+    expect(result.topic).toBe("incident response");
+    expect(result.dimension).toBe("diagnosis");
+  });
+
+  it("provides default reply when response is missing", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("accountability_probe", {
+        topic: "deployment",
+        dimension: "sign_off",
+      })
+    );
+    expect(result.reply).toContain("responsibilities");
+  });
+
+  it("works in multi-tool with track_concepts", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "track_concepts",
+          args: {
+            concepts_demonstrated: '["monitoring"]',
+            concept_levels: '["developing"]',
+          },
+        },
+        {
+          name: "accountability_probe",
+          args: {
+            response: "Who would you escalate this to?",
+            topic: "escalation paths",
+            dimension: "escalation",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("track_concepts+accountability_probe");
+    expect(result.reply).toBe("Who would you escalate this to?");
+    expect(result.dimension).toBe("escalation");
+    expect(result.concepts_demonstrated).toEqual(["monitoring"]);
+  });
+});
+
+describe("accountability_probe system prompt", () => {
+  it("includes accountability context when meta has accountability_scope", () => {
+    const prompt = buildSocraticSystemPrompt(
+      META_WITH_ACCOUNTABILITY,
+      TEST_SECTION,
+      []
+    );
+    expect(prompt).toContain("Accountability Context");
+    expect(prompt).toContain("single-app");
+    expect(prompt).toContain("accountability_probe");
+    expect(prompt).toContain("diagnosis");
+    expect(prompt).toContain("verification");
+    expect(prompt).toContain("escalation");
+    expect(prompt).toContain("sign_off");
+  });
+
+  it("does NOT include accountability context when meta lacks accountability_scope", () => {
+    const prompt = buildSocraticSystemPrompt(
+      META_WITHOUT_ACCOUNTABILITY,
+      TEST_SECTION,
+      []
+    );
+    expect(prompt).not.toContain("Accountability Context");
+    expect(prompt).not.toContain("accountability_probe");
+  });
+});
+
+/* ---- simulation_readiness_check tool ---- */
+
+describe("simulation_readiness_check tool declaration", () => {
+  it("is added when section has simulation_scenarios", () => {
+    const tools = buildSocraticTools(SECTION_WITH_SIMULATIONS, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toContain("simulation_readiness_check");
+  });
+
+  it("is NOT added when section lacks simulation_scenarios", () => {
+    const tools = buildSocraticTools(SECTION_WITHOUT_SIMULATIONS, TEST_META);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).not.toContain("simulation_readiness_check");
+  });
+
+  it("has scenario_ids, readiness, gaps, recommendation as required parameters", () => {
+    const tools = buildSocraticTools(SECTION_WITH_SIMULATIONS, TEST_META);
+    const simTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "simulation_readiness_check"
+    );
+    expect(simTool).toBeDefined();
+    const params = simTool!.parameters as Record<string, unknown>;
+    const properties = params.properties as Record<string, Record<string, unknown>>;
+    const required = params.required as string[];
+
+    expect(required).toContain("scenario_ids");
+    expect(required).toContain("readiness");
+    expect(required).toContain("gaps");
+    expect(required).toContain("recommendation");
+
+    expect(properties.readiness.enum).toEqual([
+      "not_ready",
+      "approaching",
+      "ready",
+    ]);
+  });
+});
+
+describe("simulation_readiness_check parser", () => {
+  it("extracts readiness, gaps, and recommendation as side-effect (no reply text)", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "simulation_readiness_check",
+          args: {
+            scenario_ids: '["sim-outage-01"]',
+            readiness: "approaching",
+            gaps: '["monitoring basics", "alert thresholds"]',
+            recommendation: "Review monitoring concepts before attempting the simulation",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe("simulation_readiness_check");
+    expect(result.reply).toBe(""); // side-effect, no reply
+    expect(result.readiness).toBe("approaching");
+    expect(result.gaps).toEqual(["monitoring basics", "alert thresholds"]);
+    expect(result.recommendation).toBe(
+      "Review monitoring concepts before attempting the simulation"
+    );
+  });
+
+  it("works alongside a reply tool", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "evaluate_response",
+          args: {
+            assessment: "Good understanding of monitoring!",
+            follow_up: "Let's see if you're ready for a hands-on scenario.",
+            understanding_level: "solid",
+            topic: "monitoring",
+          },
+        },
+        {
+          name: "simulation_readiness_check",
+          args: {
+            scenario_ids: '["sim-outage-01"]',
+            readiness: "ready",
+            gaps: "[]",
+            recommendation: "Proceed to simulation",
+          },
+        },
+      ])
+    );
+    expect(result.tool_type).toBe(
+      "evaluate_response+simulation_readiness_check"
+    );
+    expect(result.reply).toContain("Good understanding of monitoring!");
+    expect(result.readiness).toBe("ready");
+    expect(result.gaps).toEqual([]);
+    expect(result.recommendation).toBe("Proceed to simulation");
+  });
+
+  it("handles comma-separated gaps fallback", () => {
+    const result = parseSocraticResponse(
+      geminiMultiResponse([
+        {
+          name: "simulation_readiness_check",
+          args: {
+            scenario_ids: '["sim-deploy-02"]',
+            readiness: "not_ready",
+            gaps: "rollback strategy, canary deploys",
+            recommendation: "Cover deployment patterns first",
+          },
+        },
+      ])
+    );
+    expect(result.gaps).toEqual(["rollback strategy", "canary deploys"]);
+  });
+});
+
+describe("simulation_readiness_check system prompt", () => {
+  it("includes simulation scenarios when section has them", () => {
+    const prompt = buildSocraticSystemPrompt(
+      TEST_META,
+      SECTION_WITH_SIMULATIONS,
+      []
+    );
+    expect(prompt).toContain("Simulation Scenarios");
+    expect(prompt).toContain("sim-outage-01");
+    expect(prompt).toContain("sim-deploy-02");
+    expect(prompt).toContain("simulation_readiness_check");
+  });
+
+  it("does NOT include simulation block when section lacks scenarios", () => {
+    const prompt = buildSocraticSystemPrompt(
+      TEST_META,
+      SECTION_WITHOUT_SIMULATIONS,
+      []
+    );
+    expect(prompt).not.toContain("Simulation Scenarios");
+    expect(prompt).not.toContain("simulation_readiness_check");
+  });
+});
+
+/* ---- backward compatibility ---- */
+
+const PLAIN_SECTION_WITH_CONCEPTS: SectionMeta = {
+  ...SECTION_WITH_CONCEPTS,
+};
+delete (PLAIN_SECTION_WITH_CONCEPTS as unknown as Record<string, unknown>).simulation_scenarios;
+
+// base 9 + track_concepts + claim_assessment = 11
+const EXPECTED_PLAIN_CONCEPTS_COUNT = 11;
+
+describe("backward compatibility with non-enriched curricula", () => {
+  it("tool count unchanged when meta has no accountability_scope and section has no simulation_scenarios", () => {
+    const tools = buildSocraticTools(PLAIN_SECTION_WITH_CONCEPTS, META_WITHOUT_ACCOUNTABILITY);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    expect(names).toHaveLength(EXPECTED_PLAIN_CONCEPTS_COUNT);
+    expect(names).not.toContain("accountability_probe");
+    expect(names).not.toContain("simulation_readiness_check");
+  });
+
+  it("adds both new tools when both enrichments present", () => {
+    const enrichedSection: SectionMeta = {
+      ...SECTION_WITH_CONCEPTS,
+      simulation_scenarios: ["sim-test-01"],
+    };
+    const tools = buildSocraticTools(enrichedSection, META_WITH_ACCOUNTABILITY);
+    const names = tools[0].functionDeclarations.map((d) => d.name as string);
+    // base 9 + track_concepts + claim_assessment + accountability_probe + simulation_readiness_check = 13
+    const EXPECTED_FULLY_ENRICHED_COUNT = 13;
+    expect(names).toHaveLength(EXPECTED_FULLY_ENRICHED_COUNT);
+    expect(names).toContain("accountability_probe");
+    expect(names).toContain("simulation_readiness_check");
+    expect(names).toContain("track_concepts");
+  });
+
+  it("system prompt unchanged for basic meta and section", () => {
+    const prompt = buildSocraticSystemPrompt(
+      META_WITHOUT_ACCOUNTABILITY,
+      SECTION_WITHOUT_SIMULATIONS,
+      []
+    );
+    expect(prompt).not.toContain("Accountability Context");
+    expect(prompt).not.toContain("Simulation Scenarios");
+    // Core content still present
+    expect(prompt).toContain("Socratic tutor");
+    expect(prompt).toContain(META_WITHOUT_ACCOUNTABILITY.tutor_guidance);
   });
 });

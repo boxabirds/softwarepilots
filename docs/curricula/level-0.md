@@ -1,33 +1,18 @@
-import type { CurriculumData } from "../curricula";
+# Software Pilotry Curriculum: Level 0 - Foundations
 
-export const level0Curriculum: CurriculumData = {
-  meta: {
-    profile: "level-0",
-    title: "Level 0",
-    starting_position:
-      "Complete beginner to software pilotry. No prior programming experience required. This track introduces the fundamental concepts of what software is, how AI agents generate it, and why human oversight matters.",
-    tutor_guidance:
-      "The learner is a complete beginner. Use simple, concrete language. Avoid jargon. Build understanding through real-world analogies. The goal is to establish foundational mental models before any technical depth. When the learner seems confused, simplify rather than elaborate.",
-    accountability_scope: "learning",
-  },
-  modules: [
-    {
-      id: "1",
-      title: "Systems Vocabulary",
-      sections: [
-        {
-          id: "0.1",
-          title: "Systems Vocabulary",
-          key_intuition:
-            "You cannot be accountable for something you cannot name. Every term in this section is a concept you will eventually need to evaluate in agent-generated output. Learning these terms is not memorization - it is building the mental model that makes oversight possible.",
-          simulation_scenarios: ["S0.1"],
-          markdown: `## Systems Vocabulary
+> **Starting position:** No production experience. May be a student, career changer, or early-stage learner. Like a medical student who is not yet accountable for patient outcomes but is building the foundational knowledge that accountability will eventually rest on. Risk: skips straight to agent interaction without understanding what software systems actually are, producing someone who can prompt but cannot evaluate.
+
+**Accountability framing:** At L0, you are not yet accountable for production software. That is the point. A medical student observes surgeries before performing them. A pilot trainee studies aerodynamics before flying. You are building the vocabulary, observation skills, and diagnostic instincts that will make real accountability possible at higher levels. Every concept here exists because it is a prerequisite for the judgment you will need when agent-generated code has real consequences.
+
+---
+
+## Module 1: Systems Vocabulary [Durability: A - Foundation/permanent]
 
 Before you can oversee software generation, you need to speak the language of the systems that software runs on. This module builds that vocabulary from first principles.
 
 **Accountability context:** You cannot be accountable for something you cannot name. Every term in this section is a concept you will eventually need to evaluate in agent-generated output. Learning these terms is not memorization - it is building the mental model that makes oversight possible.
 
-### What Is a Server?
+### 1.1 What Is a Server?
 
 A server is a computer that waits for requests and sends responses. That is the entire concept. Everything else is detail.
 
@@ -40,7 +25,7 @@ Modern servers are usually not physical machines - they are virtual machines or 
 **Why this matters for pilotry:**
 Agents generate code that runs on servers. The agent does not think about the server - it generates code that assumes infinite memory, instant network, and zero concurrent users. Understanding what a server actually is helps you spot those assumptions.
 
-### What Is a Database?
+### 1.2 What Is a Database?
 
 A database stores data so that it survives restarts, is queryable, and can handle multiple users accessing it simultaneously.
 
@@ -55,17 +40,17 @@ Data organized into tables with rows and columns. Tables relate to each other th
 **Non-relational databases (NoSQL):**
 Data stored as documents (MongoDB), key-value pairs (Redis), or other structures that do not fit neatly into tables. Useful when your data does not have a fixed structure or when you need very fast reads.
 
-### What Is an API?
+### 1.3 What Is an API?
 
 An API (Application Programming Interface) is a contract between two pieces of software. It defines: what requests you can make, what format they must be in, and what responses you will get back.
 
 **REST APIs:**
-The most common web API style. Uses HTTP methods (GET to read, POST to create, PUT to update, DELETE to remove) with URLs that identify resources. Example: \`GET /users/123\` returns user 123. \`POST /users\` creates a new user. The response is usually JSON - a structured text format.
+The most common web API style. Uses HTTP methods (GET to read, POST to create, PUT to update, DELETE to remove) with URLs that identify resources. Example: `GET /users/123` returns user 123. `POST /users` creates a new user. The response is usually JSON - a structured text format.
 
 **Why APIs matter for pilotry:**
 APIs are boundaries. Every boundary is a place where things can go wrong - wrong format, missing fields, unexpected errors, authentication failures. Agents generate API code frequently, and the boundary behavior is where they make the most mistakes.
 
-### What Is Deployment?
+### 1.4 What Is Deployment?
 
 Deployment is the process of getting your code from your machine to a server where users can access it.
 
@@ -78,36 +63,26 @@ Modern deployments are defined in configuration files (Terraform, CloudFormation
 **Key vocabulary:**
 - **CI/CD:** Continuous Integration / Continuous Deployment. Automated pipelines that test, build, and deploy code.
 - **Environment variables:** Configuration values that differ between environments (development vs. production). Database passwords, API keys, and feature flags live here.
-- **Rollback:** Reverting to the previous version when a deployment causes problems. The ability to roll back quickly is the difference between a 5-minute incident and a 5-hour one.`,
-        },
-      ],
-    },
-    {
-      id: "2",
-      title: "Reading Dashboards and Logs",
-      sections: [
-        {
-          id: "0.2",
-          title: "Reading Dashboards and Logs",
-          key_intuition:
-            "Observation comes before action. Before you can diagnose problems, you need to read the instruments. Dashboards and logs are the instruments of software pilotry - like vital signs monitors in medicine or cockpit instruments in aviation.",
-          simulation_scenarios: ["S0.2", "S0.3"],
-          markdown: `## Reading Dashboards and Logs
+- **Rollback:** Reverting to the previous version when a deployment causes problems. The ability to roll back quickly is the difference between a 5-minute incident and a 5-hour one.
+
+---
+
+## Module 2: Reading Dashboards and Logs [Durability: B - Systems/annual review]
 
 Observation comes before action. Before you can diagnose problems, you need to read the instruments.
 
 **Accountability context:** In higher-level curricula, you will be responsible for verifying that agent-generated code behaves correctly in production. That verification starts with knowing how to read the signals systems emit. Dashboards and logs are the instruments of software pilotry - like vital signs monitors in medicine or cockpit instruments in aviation.
 
-### What Logs Tell You
+### 2.1 What Logs Tell You
 
 A log is a timestamped record of what happened. Every server, database, and application produces logs. Reading them is the most fundamental diagnostic skill.
 
 **Log anatomy:**
-\`\`\`
+```
 2024-03-15T14:23:07.123Z [INFO] Request received: GET /api/users/456 - 200 OK - 23ms
 2024-03-15T14:23:07.456Z [WARN] Cache miss for key: user_456, falling back to database
 2024-03-15T14:23:08.789Z [ERROR] Database connection timeout after 5000ms - pool exhausted
-\`\`\`
+```
 
 Each line has: timestamp (when), level (severity), message (what happened), and context (relevant details).
 
@@ -123,7 +98,7 @@ Each line has: timestamp (when), level (severity), message (what happened), and 
 - Timing: did errors start at a specific time? What changed at that time? (A deployment? A traffic spike?)
 - Correlation: are errors in one service related to errors in another?
 
-### What Dashboards Show You
+### 2.2 What Dashboards Show You
 
 A dashboard is a visual summary of system health. Where logs show individual events, dashboards show trends and aggregates.
 
@@ -137,7 +112,7 @@ These are the metrics that matter most for any service:
 **Reading a dashboard:**
 Look for: sudden changes (something broke), gradual trends (something is degrading), correlations (error rate went up when traffic went up - capacity issue), and baselines (what does "normal" look like for this system?).
 
-### Structured Observation Practice
+### 2.3 Structured Observation Practice
 
 **Exercise - Log Reading:**
 Given a set of application logs from a failing system, answer:
@@ -153,26 +128,19 @@ Given a monitoring dashboard showing the four golden signals over 24 hours:
 3. What is your hypothesis for the root cause based on which signals are affected?
 4. What additional data would you need to confirm your hypothesis?
 
-These exercises build the diagnostic instinct: observe before acting, form hypotheses before intervening, gather evidence before concluding.`,
-        },
-      ],
-    },
-    {
-      id: "3",
-      title: "Accountability in Practice",
-      sections: [
-        {
-          id: "0.3",
-          title: "Diagnostic Reasoning Introduction",
-          key_intuition:
-            "The most important principle in pilotry - and in medicine, aviation, and every other high-stakes domain - is: observe before you act. When agent-generated code does not work, the instinct is to tell the agent to fix it. Diagnostic reasoning means understanding what is wrong and why before taking action.",
-          simulation_scenarios: ["S0.4"],
-          markdown: `## Diagnostic Reasoning Introduction
+These exercises build the diagnostic instinct: observe before acting, form hypotheses before intervening, gather evidence before concluding.
+
+---
+
+## Module 3: Accountability in Practice [Durability: A - Foundation/permanent]
+
+At L0, accountability is about building the habits that will scale. You are forming the reflexes that make oversight possible.
+
+### 3.1 Diagnostic Reasoning Introduction
 
 The most important principle in pilotry - and in medicine, aviation, and every other high-stakes domain - is: observe before you act.
 
-### The Diagnostic Loop
-
+**The diagnostic loop:**
 1. **Observe:** What is actually happening? Not what you think is happening - what the evidence shows.
 2. **Hypothesize:** What could cause this? Generate multiple hypotheses, not just the first one that comes to mind.
 3. **Test:** What evidence would confirm or rule out each hypothesis? Gather that evidence.
@@ -185,22 +153,7 @@ When agent-generated code does not work, the instinct is to tell the agent "fix 
 **The medical analogy:**
 A medical student does not prescribe medication on their first day. They learn anatomy, physiology, and pathology. They observe experienced doctors. They learn to read test results and imaging. Only after this foundation do they begin making clinical decisions, always supervised. Software pilotry follows the same progression: understand systems, observe behavior, learn to read the instruments, then begin making decisions about agent-generated output.
 
-### Fixation Loops and How to Avoid Them
-
-A fixation loop happens when the agent tries to fix its own mistake, fails, tries again, and makes the code progressively worse. Each iteration adds another layer of wrong "fixes" on top of the original problem.
-
-**Why fixation loops happen:**
-- The agent does not remember what it tried before (each response is independent)
-- The agent does not understand the root cause, only the symptoms
-- The human keeps asking the agent to "fix it" without providing new information
-
-**How to break a fixation loop:**
-1. Stop after 2-3 failed attempts
-2. Read the code yourself and understand what is actually wrong
-3. Either give the agent a precise, specific correction or fix it yourself
-4. If you cannot understand the code, that is a signal: the code is too complex for the current approach
-
-### K8sGames Graduation Criteria
+### 3.2 K8sGames Graduation Criteria
 
 K8sGames are simulation exercises that test your foundational knowledge in controlled environments. These are your concrete learning objectives for L0 graduation.
 
@@ -220,20 +173,11 @@ K8sGames are simulation exercises that test your foundational knowledge in contr
 
 7. **Diagnostic reasoning demonstration:** Given a broken system scenario, demonstrate the observe-hypothesize-test-act-verify loop rather than jumping to solutions.
 
-8. **Agent limitation awareness:** Explain three categories of problems where agents produce unreliable output, and describe what makes each category difficult for statistical pattern matching.`,
-        },
-      ],
-    },
-    {
-      id: "4",
-      title: "Before You Specify",
-      sections: [
-        {
-          id: "0.4",
-          title: "Before You Specify",
-          key_intuition:
-            "At L0, you are not yet writing production specifications. But you are building the thinking habits that make good specifications possible. The five questions are the seed of every specification you will write.",
-          markdown: `## Before You Specify
+8. **Agent limitation awareness:** Explain three categories of problems where agents produce unreliable output, and describe what makes each category difficult for statistical pattern matching.
+
+---
+
+## Before You Specify [Durability: B - Systems/annual review]
 
 At L0, you are not yet writing production specifications. But you are building the thinking habits that make good specifications possible. This section introduces design thinking basics that you will use at every level.
 
@@ -258,20 +202,11 @@ Do not start with what you want. Start with what you cannot have. Constraints ar
 Define what goes in and what comes out before you think about how it works inside. The boundary is the contract. If the boundary is wrong, the internals do not matter.
 
 **Failure before success:**
-Think about how the system fails before you think about how it succeeds. Success paths are obvious. Failure paths are where bugs live.`,
-        },
-      ],
-    },
-    {
-      id: "5",
-      title: "Standard Verification Checklist",
-      sections: [
-        {
-          id: "0.5",
-          title: "Standard Verification Checklist",
-          key_intuition:
-            "Every piece of agent-generated code must pass a structured set of checks. These form a tiered system: standard checks for all code, elevated checks for business logic, and critical checks for security and financial code.",
-          markdown: `## Standard Verification Checklist
+Think about how the system fails before you think about how it succeeds. Success paths are obvious. Failure paths are where bugs live.
+
+---
+
+## Standard Verification Checklist [Durability: A - Foundation/permanent]
 
 Every piece of agent-generated code must pass these eight checks. These form the standard tier of verification and apply universally, regardless of the code's purpose or risk level.
 
@@ -304,21 +239,11 @@ When the code handles authentication, authorization, payments, personal data, or
 15. **Is authorization granular?** Authentication (who you are) is not authorization (what you can do). Are roles and permissions checked?
 16. **Is sensitive data encrypted in transit and at rest?** Passwords hashed with bcrypt/argon2, not MD5/SHA. TLS for all external communication.
 17. **Are audit trails complete?** Every action on sensitive data should be logged with who, what, when, and from where.
-18. **Has the code been tested with adversarial inputs?** SQL injection, XSS, path traversal, oversized payloads, malformed tokens.`,
-        },
-      ],
-    },
-    {
-      id: "6",
-      title: "Simulation Readiness",
-      sections: [
-        {
-          id: "0.6",
-          title: "Simulation Readiness",
-          key_intuition:
-            "Simulation readiness markers map your learning progress to concrete exercises that test whether you have internalized the material. Each marker has prerequisites, a description, and a readiness threshold.",
-          simulation_scenarios: ["S0.1", "S0.2", "S0.3", "S0.4"],
-          markdown: `## Simulation Readiness
+18. **Has the code been tested with adversarial inputs?** SQL injection, XSS, path traversal, oversized payloads, malformed tokens.
+
+---
+
+## Simulation Readiness [Durability: C - Practice/quarterly review]
 
 This section maps L0 learning to simulation scenarios. Each marker indicates readiness for a specific simulation exercise.
 
@@ -330,21 +255,26 @@ Simulation: Given a multi-component system diagram, narrate what happens when a 
 Ready when: You can trace a request through 5+ components without reference material and correctly predict failure propagation.
 
 **S0.2 - Log Diagnosis Simulation:**
-Prerequisite: Completion of Module 2, sections on logs and structured observation.
+Prerequisite: Completion of Module 2, sections 2.1 and 2.3.
 Simulation: Given a 200-line log excerpt from a production incident, identify the root cause and the cascade of secondary failures.
 Ready when: You can distinguish primary failures from secondary symptoms and form a correct hypothesis within 10 minutes.
 
 **S0.3 - Dashboard Triage Simulation:**
-Prerequisite: Completion of Module 2, sections on dashboards and structured observation.
+Prerequisite: Completion of Module 2, sections 2.2 and 2.3.
 Simulation: Given a live-updating dashboard (simulated), detect the onset of an incident, identify the affected signal, and propose investigation steps.
 Ready when: You notice the anomaly within 2 minutes of onset and your proposed investigation is on the correct path.
 
 **S0.4 - Diagnostic Reasoning Simulation:**
-Prerequisite: Completion of Module 3, section on diagnostic reasoning.
+Prerequisite: Completion of Module 3, section 3.1.
 Simulation: Given a broken web application and access to logs, dashboard, and source code, diagnose the issue using the observe-hypothesize-test-act-verify loop. You may not ask an agent for help.
-Ready when: You follow the diagnostic loop without skipping steps and reach the correct diagnosis within 20 minutes.`,
-        },
-      ],
-    },
-  ],
-};
+Ready when: You follow the diagnostic loop without skipping steps and reach the correct diagnosis within 20 minutes.
+
+---
+
+## Curriculum Design Notes
+
+**What this curriculum assumes the learner already has:** Basic computer literacy, ability to read simple code examples, motivation to learn software development practices. No production experience required. No CS degree required.
+
+**What this curriculum does NOT cover (and why):** Writing production code, operating agents for real projects, security remediation, system design, or team leadership - these belong to the new-grad, veteran, and senior-leader curricula respectively. MECE boundary: this curriculum covers the *pre-professional* foundation from "person who wants to work with software" to "person ready to begin supervised agent-assisted development."
+
+**Agent-tutor guidance:** The critical intuition to encode is *patience with foundations*. L0 learners want to jump to using agents because agents are exciting and visible. The tutor must consistently redirect to foundational understanding: "Before you ask the agent to build that, can you explain what a database transaction is and why it matters here?" When the learner says "the agent can handle that," the tutor should respond: "In six months, you will be responsible for evaluating whether the agent handled it correctly. What do you need to know to make that evaluation?" The goal is to build the diagnostic instinct before the intervention instinct - observe before you act, understand before you specify.

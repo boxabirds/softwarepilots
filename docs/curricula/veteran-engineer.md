@@ -4,9 +4,11 @@
 
 ---
 
-## Module 1: The Machine Beneath — Reframed for Oversight
+## Module 1: The Machine Beneath - Reframed for Oversight [Durability: A - Foundation/permanent]
 
 The veteran already understands systems. The shift is from *building* them to *overseeing their generation*.
+
+**Accountability context:** You have spent a decade being accountable for code you wrote. Now you are accountable for code you did not write but chose to ship. This is a harder form of accountability - it requires trusting your evaluation more than the agent's confidence, and it means your professional reputation rests on your judgment about someone else's output. The knowledge you have about how systems break is no longer just engineering skill - it is the foundation of your accountability as a pilot. Every production incident you have survived has calibrated your instincts, and those instincts are now your primary tool for preventing agent-generated failures.
 
 ### 1.1 From Builder to Evaluator
 
@@ -125,9 +127,11 @@ That last answer is your specification for safe agent-assisted work on that modu
 
 ---
 
-## Module 2: The Probabilistic Machine Above — Beyond the Surface
+## Module 2: The Probabilistic Machine Above - Beyond the Surface [Durability: B - Systems/annual review]
 
 The veteran may have used LLMs but likely hasn't built deep mental models of their behavior. This module builds those models by connecting agent behavior to concepts the veteran already understands.
+
+**Accountability context:** Your accountability now extends to your delegation decisions. When you delegate a task to an agent, you are making a judgment call: "This task is within the agent's reliable capability, and I can verify the output." If that judgment is wrong - if you delegate something the agent cannot handle reliably, or if you cannot adequately verify the result - the failure is yours, not the agent's. This module gives you the understanding of agent behavior needed to make those delegation judgments well. The agent has no accountability. You have all of it.
 
 ### 2.1 Agent Orchestration
 
@@ -276,7 +280,7 @@ Pick a type of task you frequently delegate (e.g., API endpoints, data migration
 
 ---
 
-## Module 3: The Accountable Human — At Scale
+## Module 3: Accountability in Practice - At Scale [Durability: A - Foundation/permanent]
 
 The veteran's accountability extends beyond individual features to system-level responsibility.
 
@@ -429,6 +433,103 @@ The goal is systemic learning — not "the agent wrote a bug" (it will, frequent
 
 **Exercise — Workflow Design:**
 Design the agent-assisted workflow for your team. Consider: who writes specifications? Who delegates? Who reviews? What are the checkpoints? What's the escalation path when agent output quality is too low? What's the fallback when the agent can't handle a task? Present this to your team and iterate based on their feedback.
+
+---
+
+## Before You Specify [Durability: B - Systems/annual review]
+
+At the veteran level, specification is system-scale architecture expressed as testable constraints. You are not specifying a function - you are specifying how components interact, what invariants must hold, and what the failure modes are across boundaries.
+
+### System-Scale Specification
+
+Before delegating a feature that spans multiple components or agent sessions:
+
+1. **Define the contracts first.** Every interface between agent-generated components must be specified with types, validation rules, error types, side effects, and performance constraints. The contract is the specification - everything else is implementation detail.
+2. **Enumerate the implicit knowledge.** What does your system do that is not documented? What workarounds exist? What ordering constraints are maintained by convention? These must be explicit in the specification because the agent cannot infer them.
+3. **Specify the non-functionals.** Performance targets with numbers. Observability requirements (what to log, what metrics to emit). Resilience behavior (what happens when dependencies fail). Agents under-specify all of these unless you over-specify them.
+4. **Define the decomposition.** Which components should the agent build together? Which must be built separately with explicit contracts? Bad decomposition creates integration bugs that are harder to fix than implementation bugs.
+5. **State the architectural constraints as verifiable rules.** Not "use hexagonal architecture" but "no function outside repository/ may import database/sql." Rules you can grep for are rules you can enforce.
+
+### Specification at the Veteran Level
+
+Your specifications should include:
+- **Architecture Decision Records (ADRs)** for any non-obvious choice, so future reviewers understand why
+- **Boundary contracts** with enough detail that two independent agent sessions produce compatible components
+- **Characterization test requirements** for any legacy code the agent will modify
+- **Risk classification** for each component (determines verification depth)
+
+---
+
+## Verification Checklists [Durability: A - Foundation/permanent]
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?** The absolute minimum.
+2. **Does it do what was specified?** Trace the main behavior against the specification.
+3. **Are there hardcoded secrets?** API keys, passwords, tokens, connection strings.
+4. **Are dependencies necessary and current?** Every agent-added dependency - needed, maintained, vulnerability-free?
+5. **Are errors handled, not swallowed?** No empty catch blocks, no generic log-and-continue.
+6. **Is input validated?** Every external value checked before use.
+7. **Are resources cleaned up?** Connections, handles, sockets closed in all paths.
+8. **Do the tests test the right things?** Tests verify the specification, not just exercise the code.
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?** Sequence matters for calculations and transformations.
+10. **Are edge cases at business boundaries handled?** Zero, negative, empty, null, maximum.
+11. **Is the logic consistent with existing business rules?** Cross-component consistency.
+12. **Are rounding and precision correct?** Financial and measurement calculations.
+13. **Is business logic testable in isolation?** Separated from infrastructure.
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?**
+15. **Is authorization granular?** Roles, permissions, resource-level access.
+16. **Is sensitive data encrypted in transit and at rest?**
+17. **Are audit trails complete?** Who, what, when, from where.
+18. **Has the code been tested with adversarial inputs?** Full OWASP top 10 coverage.
+
+### Veteran-Specific Additions
+
+- **Cross-component consistency:** Do the contracts between agent-generated components actually match? Type mismatches at boundaries are the most common integration failure.
+- **Legacy compatibility:** Does the new code respect the implicit contracts of existing code it interacts with?
+- **Performance under load:** Has the code been profiled under realistic load, not just tested with single requests?
+
+---
+
+## Simulation Readiness [Durability: C - Practice/quarterly review]
+
+### Readiness Markers
+
+**S2.1 - Bug Taxonomy Building:**
+Prerequisite: Module 1, section 1.1.
+Simulation: Over two weeks of real agent-assisted development, build a categorized taxonomy of agent failure modes specific to your stack.
+Ready when: Your taxonomy has 10+ categorized entries with detection strategies for each.
+
+**S2.2 - Architecture Constraint Extraction:**
+Prerequisite: Module 1, section 1.2.
+Simulation: Take a system you know well and extract every undocumented architectural constraint into a specification-ready format.
+Ready when: A new team member (or agent) given your constraint document would not violate any implicit rules.
+
+**S2.3 - Legacy Risk Assessment:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Map the riskiest module in your codebase - obvious behavior, hidden behavior, implicit contracts, and agent-safe boundaries.
+Ready when: Your map is comprehensive enough to serve as an agent specification for safe modification.
+
+**S2.4 - Macro Action Sizing:**
+Prerequisite: Module 2, section 2.1.
+Simulation: Decompose a real feature into macro-action-sized chunks with specifications, verification plans, and failure predictions for each.
+Ready when: Each chunk has a specification precise enough for correct agent implementation and a verification plan that catches the predicted failures.
+
+**S2.5 - Cliff Mapping:**
+Prerequisite: Module 2, section 2.3.
+Simulation: For three task types you frequently delegate, find the complexity threshold where agent output quality degrades from reliable to unreliable.
+Ready when: You have documented cliff points for your primary task types and can predict delegation success before starting.
+
+**S2.6 - Verification Pipeline Design:**
+Prerequisite: Module 3, section 3.2.
+Simulation: Design and document a complete verification pipeline for your team's most common agent-generated code type.
+Ready when: The pipeline has automated and manual stages, risk-calibrated review depth, and measurable throughput targets.
 
 ---
 

@@ -12,9 +12,9 @@ const MODULES_PER_PROFILE = 3;
 
 const EXPECTED_SECTION_COUNTS: Record<LearnerProfile, number> = {
   "level-0": 6,
-  "level-1": 10,
-  "level-10": 10,
-  "level-20": 10,
+  "level-1": 13,
+  "level-10": 13,
+  "level-20": 13,
 };
 
 describe("getCurriculumProfiles", () => {

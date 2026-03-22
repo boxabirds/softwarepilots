@@ -4,9 +4,11 @@
 
 ---
 
-## Module 1: The Machine Beneath
+## Module 1: The Machine Beneath [Durability: A - Foundation/permanent]
 
-What the manifesto calls understanding "the machine beneath" — the deterministic systems that agents generate code *for* but do not inherently understand.
+What the manifesto calls understanding "the machine beneath" - the deterministic systems that agents generate code *for* but do not inherently understand.
+
+**Accountability context:** Every section in this module exists because agent-generated code runs on real systems with real constraints, and when that code fails, someone must understand why. That someone is you. The gap between "I asked the agent to build it" and "I am responsible for what it does" is bridged by the knowledge in this module. You are transitioning from a student who writes code to a professional who is accountable for outcomes - and accountability requires understanding what the code actually does to the systems it runs on.
 
 ### 1.1 How Software Actually Breaks
 
@@ -88,9 +90,11 @@ Before you ask an agent to build something, spend 10 minutes asking: "If someone
 
 ---
 
-## Module 2: The Probabilistic Machine Above
+## Module 2: The Probabilistic Machine Above [Durability: B - Systems/annual review]
 
 Understanding LLMs not as magic but as statistical systems with specific, predictable failure modes.
+
+**Accountability context:** You are accountable not just for the code, but for your decision to trust the system that generated it. This module teaches you how that system works - not so you can build one, but so you can predict when it will fail you. A doctor who prescribes medication is accountable for understanding its mechanism of action and side effects. A pilot who delegates to an agent is accountable for understanding the agent's failure modes. Ignorance of the tool is not a defense when the tool's output causes harm.
 
 ### 2.1 What LLMs Actually Are
 
@@ -207,7 +211,7 @@ Use an agent to build a small but non-trivial feature (e.g., a caching layer wit
 
 ---
 
-## Module 3: The Accountable Human
+## Module 3: Accountability in Practice [Durability: A - Foundation/permanent]
 
 The manifesto's core claim: when AI-generated software causes harm, somebody must be clearly accountable. That somebody is the pilot.
 
@@ -313,6 +317,97 @@ Your manager or client doesn't care that an agent generated the code. They care 
 Agent capabilities change quarterly. What required zero trust six months ago might be high trust today. What agents couldn't do at all might be routine now. The pilot's learning is never done — and the most important learning is updating your trust calibration based on new evidence, not staying fixed on "agents can't do X" when they've gotten better, or "agents handle Y fine" when a new failure mode has emerged.
 
 **Key intuition to develop:** You are not the person who uses the tool. You are the person who is responsible for the outcome. The tool's confidence is not your confidence. The tool's speed is not your speed. Your speed is measured in correct, secure, verified software — and that's the only speed that matters.
+
+---
+
+## Before You Specify [Durability: B - Systems/annual review]
+
+At the new-grad level, specification is your primary tool for creating correct software. This section builds the discipline of turning intent into precise, testable requirements.
+
+### The Specification Discipline
+
+Before you open an agent session, answer these questions in writing:
+
+1. **What is the exact behavior?** Describe the feature in terms a test could verify. "Users can log in" is not testable. "A user with valid credentials receives a JWT token with a 30-minute expiry; a user with invalid credentials receives a 401 with no token" is testable.
+2. **What is the data model?** Every entity, every field, every type, every constraint. This is the single highest-leverage section of any specification.
+3. **What are the error cases?** For every happy path, enumerate at least three failure modes and specify what happens for each.
+4. **What are the security requirements?** Authentication, authorization, input validation, data protection. If you do not specify these, the agent will omit them.
+5. **What are the acceptance criteria?** Written before the agent starts, not after. These become your verification targets.
+
+### Specification Anti-patterns
+
+- **"Make it good":** Vague quality directives produce vague quality. Be specific about what "good" means.
+- **"Handle errors appropriately":** The agent's idea of "appropriate" is `catch (e) { console.log(e) }`. Specify what each error should trigger: retry? User message? Alert? Fallback behavior?
+- **"Follow best practices":** Best practices are context-dependent. Specify the actual constraints: "All database access through the repository pattern. No direct SQL in handlers."
+
+---
+
+## Verification Checklists [Durability: A - Foundation/permanent]
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?** The absolute minimum.
+2. **Does it do what was specified?** Trace the main behavior against the specification.
+3. **Are there hardcoded secrets?** API keys, passwords, tokens, connection strings.
+4. **Are dependencies necessary and current?** Every agent-added dependency - is it needed, maintained, and vulnerability-free?
+5. **Are errors handled, not swallowed?** No empty catch blocks, no generic log-and-continue patterns.
+6. **Is input validated?** Every external value checked before use.
+7. **Are resources cleaned up?** Connections, handles, and sockets closed in all paths including error paths.
+8. **Do the tests test the right things?** Tests that pass when code is wrong are worse than no tests.
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?** Sequence matters for calculations, validations, and transformations.
+10. **Are edge cases at business boundaries handled?** Zero, negative, empty, null, maximum values.
+11. **Is the logic consistent with existing business rules?** Agents do not know your other rules.
+12. **Are rounding and precision correct?** Floating-point arithmetic in financial calculations is a classic failure.
+13. **Is business logic testable in isolation?** Separated from infrastructure code.
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?** Every route, not just the obvious ones.
+15. **Is authorization granular?** Roles and permissions, not just "logged in."
+16. **Is sensitive data encrypted in transit and at rest?** Proper hashing (bcrypt/argon2), TLS everywhere.
+17. **Are audit trails complete?** Who, what, when, and from where for every sensitive action.
+18. **Has the code been tested with adversarial inputs?** SQL injection, XSS, path traversal, malformed tokens.
+
+---
+
+## Simulation Readiness [Durability: C - Practice/quarterly review]
+
+This section maps curriculum content to simulation scenarios. Each marker indicates which sections must be completed before attempting the simulation.
+
+### Readiness Markers
+
+**S1.1 - The False Green Test Suite:**
+Prerequisite: Module 1, section 1.1.
+Simulation: Review an agent-generated application with passing tests. Find the bugs the tests miss.
+Ready when: You can identify concurrency, resource, and boundary bugs that tests do not cover.
+
+**S1.2 - End-to-End Trace:**
+Prerequisite: Module 1, section 1.2.
+Simulation: Trace a user action through every system boundary and enumerate failure modes at each.
+Ready when: You can map a request through 5+ system components and identify at least 2 failure modes per boundary.
+
+**S1.3 - Security Review:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Conduct a security review of agent-generated authentication code.
+Ready when: You consistently find authorization gaps, secret exposure, and input validation failures.
+
+**S1.4 - Specification Comparison:**
+Prerequisite: Module 2, section 2.2.
+Simulation: Write a vague and a precise specification, generate code from both, and catalog the differences.
+Ready when: You can identify the cost of ambiguity and produce specifications that eliminate unnecessary variance.
+
+**S1.5 - Failure Mode Scavenger Hunt:**
+Prerequisite: Module 2, section 2.3.
+Simulation: Build a feature with deliberately vague specification and systematically identify hallucinations, assumptions, and boundary failures.
+Ready when: You can reliably detect all three categories of agent failure in a single review session.
+
+**S1.6 - Judgment Calibration:**
+Prerequisite: Module 3, section 3.3.
+Simulation: Over one week, log every trust decision on agent output and compare predictions to outcomes.
+Ready when: Your trust calibration accuracy exceeds 80% - you correctly predict when agent output is trustworthy and when it is not.
 
 ---
 

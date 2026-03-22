@@ -8,6 +8,7 @@ export const veteranCurriculum: CurriculumData = {
       "Deep production experience. Has built, broken, and fixed real systems. Strong mental models for how software fails. Risk: resists the paradigm shift - either dismisses agents as toys or over-indexes on doing everything themselves. The hardest lesson is letting go of the craft identity tied to writing code manually.",
     tutor_guidance:
       'The critical intuition to encode is *trust calibration under expertise*. Veterans have strong priors and the agent-tutor must challenge both over-skepticism ("I could write this better myself") and over-trust ("the agent handles the implementation details, I\'ll focus on architecture"). The right calibration is task-dependent and the tutor should force the learner to articulate *why* they trust or distrust specific outputs. When the veteran says "I\'d rather do this myself," the tutor should ask: "Is that because the task requires your judgment, or because delegation feels like giving up control?" When the veteran says "the agent can handle this," the tutor should ask: "What\'s the failure cost if it doesn\'t, and how will you verify?"',
+    accountability_scope: "system-of-services",
   },
   modules: [
     {
@@ -17,6 +18,7 @@ export const veteranCurriculum: CurriculumData = {
         {
           id: "1.1",
           title: "From Builder to Evaluator",
+          simulation_scenarios: ["S2.1"],
           key_intuition: "",
           markdown: `You've spent a decade building the instinct that tells you "this code smells wrong." That instinct is the most valuable thing you bring to pilotry - but you need to retrain how you apply it.
 
@@ -49,6 +51,7 @@ Over two weeks, log every bug you find in agent-generated code. Categorize each 
         {
           id: "1.2",
           title: "Architecture as Specification",
+          simulation_scenarios: ["S2.2"],
           key_intuition: "",
           markdown: `You've spent years developing architectural intuition - the sense of what belongs where, what should be separated, what invariants must hold. Agents don't have this intuition. They have pattern matching across millions of repositories, which produces plausible-looking architectures that violate your specific constraints.
 
@@ -100,6 +103,7 @@ Take a system you know well. Write down every architectural constraint that a ne
         {
           id: "1.3",
           title: "Legacy Systems and Migration",
+          simulation_scenarios: ["S2.3"],
           key_intuition: "",
           markdown: `This is where the veteran's experience is irreplaceable. Agents are trained on public repositories, which skew toward greenfield projects. Your production codebase has 10 years of decisions, workarounds, and implicit knowledge that no agent can infer.
 
@@ -144,6 +148,7 @@ That last answer is your specification for safe agent-assisted work on that modu
         {
           id: "2.1",
           title: "Agent Orchestration",
+          simulation_scenarios: ["S2.4"],
           key_intuition: "",
           markdown: `You know how to decompose systems into services. Multi-agent workflows are the same concept applied to the development process itself - different agents handling different concerns, communicating through defined interfaces.
 
@@ -175,6 +180,7 @@ Take a feature from your backlog. Decompose it into the largest chunks you'd be 
         {
           id: "2.2",
           title: "Effective Agent Delegation",
+          simulation_scenarios: ["S2.4", "S2.5"],
           key_intuition: "",
           markdown: `You have domain expertise the agent doesn't. The art of delegation is encoding that expertise into your prompts efficiently.
 
@@ -229,6 +235,7 @@ Take a feature you've already built with an agent. Look at your prompt history. 
         {
           id: "2.3",
           title: "Failure Mode Mastery",
+          simulation_scenarios: ["S2.5"],
           key_intuition: "",
           markdown: `As a veteran, you have the ability to build deeper models of agent failure than a new grad. You know what correct looks like - you just need to learn where the probabilistic machine diverges from it.
 
@@ -301,6 +308,7 @@ Pick a type of task you frequently delegate (e.g., API endpoints, data migration
         {
           id: "3.1",
           title: "Specification at System Scale",
+          simulation_scenarios: ["S2.2", "S2.4"],
           key_intuition: "",
           markdown: `Writing a spec for a single feature is one thing. Writing specifications for a system of features - where multiple agent sessions produce components that must integrate - is a different discipline.
 
@@ -338,6 +346,7 @@ Agents under-specify non-functionals because prompts under-specify them and trai
         {
           id: "3.2",
           title: "Verification Strategy",
+          simulation_scenarios: ["S2.6"],
           key_intuition: "",
           markdown: `At volume, you can't manually review every line of agent-generated code. You need a strategy that gives you confidence without requiring infinite time.
 
@@ -378,6 +387,7 @@ Design a verification pipeline for your team's most common type of agent-generat
         {
           id: "3.3",
           title: "The Identity Shift",
+          simulation_scenarios: ["S2.1"],
           key_intuition: "",
           markdown: `This is the section most veterans skip because it feels "soft." It isn't. The identity shift from "I write excellent code" to "I ensure excellent outcomes" is the prerequisite for everything else in this curriculum. Without it, you'll unconsciously resist the paradigm change and be slower than if you'd never tried.
 
@@ -423,6 +433,7 @@ Write down the 5 things you're most proud of as an engineer. For each one, ident
         {
           id: "3.4",
           title: "Process and Workflow Design",
+          simulation_scenarios: ["S2.6"],
           key_intuition: "",
           markdown: `As a veteran, you'll likely be responsible for designing how your team integrates agents into their workflow. This is not a tooling decision - it's a process architecture decision.
 
@@ -455,6 +466,133 @@ The goal is systemic learning - not "the agent wrote a bug" (it will, frequently
 
 **Exercise - Workflow Design:**
 Design the agent-assisted workflow for your team. Consider: who writes specifications? Who delegates? Who reviews? What are the checkpoints? What's the escalation path when agent output quality is too low? What's the fallback when the agent can't handle a task? Present this to your team and iterate based on their feedback.`,
+        },
+      ],
+    },
+    {
+      id: "4",
+      title: "Before You Specify",
+      sections: [
+        {
+          id: "4.1",
+          title: "Before You Specify",
+          simulation_scenarios: ["S2.2", "S2.4"],
+          key_intuition:
+            "At the veteran level, specification is system-scale architecture expressed as testable constraints. You are not specifying a function - you are specifying how components interact, what invariants must hold, and what the failure modes are across boundaries.",
+          markdown: `## Before You Specify
+
+At the veteran level, specification is system-scale architecture expressed as testable constraints. You are not specifying a function - you are specifying how components interact, what invariants must hold, and what the failure modes are across boundaries.
+
+### System-Scale Specification
+
+Before delegating a feature that spans multiple components or agent sessions:
+
+1. **Define the contracts first.** Every interface between agent-generated components must be specified with types, validation rules, error types, side effects, and performance constraints. The contract is the specification - everything else is implementation detail.
+2. **Enumerate the implicit knowledge.** What does your system do that is not documented? What workarounds exist? What ordering constraints are maintained by convention? These must be explicit in the specification because the agent cannot infer them.
+3. **Specify the non-functionals.** Performance targets with numbers. Observability requirements (what to log, what metrics to emit). Resilience behavior (what happens when dependencies fail). Agents under-specify all of these unless you over-specify them.
+4. **Define the decomposition.** Which components should the agent build together? Which must be built separately with explicit contracts? Bad decomposition creates integration bugs that are harder to fix than implementation bugs.
+5. **State the architectural constraints as verifiable rules.** Not "use hexagonal architecture" but "no function outside repository/ may import database/sql." Rules you can grep for are rules you can enforce.
+
+### Specification at the Veteran Level
+
+Your specifications should include:
+- **Architecture Decision Records (ADRs)** for any non-obvious choice, so future reviewers understand why
+- **Boundary contracts** with enough detail that two independent agent sessions produce compatible components
+- **Characterization test requirements** for any legacy code the agent will modify
+- **Risk classification** for each component (determines verification depth)`,
+        },
+      ],
+    },
+    {
+      id: "5",
+      title: "Verification Checklists",
+      sections: [
+        {
+          id: "5.1",
+          title: "Verification Checklists",
+          simulation_scenarios: ["S2.6"],
+          key_intuition:
+            "Verification at the veteran level adds cross-component consistency, legacy compatibility, and performance under load on top of the standard tiered checks.",
+          markdown: `## Verification Checklists
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?** The absolute minimum.
+2. **Does it do what was specified?** Trace the main behavior against the specification.
+3. **Are there hardcoded secrets?** API keys, passwords, tokens, connection strings.
+4. **Are dependencies necessary and current?** Every agent-added dependency - needed, maintained, vulnerability-free?
+5. **Are errors handled, not swallowed?** No empty catch blocks, no generic log-and-continue.
+6. **Is input validated?** Every external value checked before use.
+7. **Are resources cleaned up?** Connections, handles, sockets closed in all paths.
+8. **Do the tests test the right things?** Tests verify the specification, not just exercise the code.
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?** Sequence matters for calculations and transformations.
+10. **Are edge cases at business boundaries handled?** Zero, negative, empty, null, maximum.
+11. **Is the logic consistent with existing business rules?** Cross-component consistency.
+12. **Are rounding and precision correct?** Financial and measurement calculations.
+13. **Is business logic testable in isolation?** Separated from infrastructure.
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?**
+15. **Is authorization granular?** Roles, permissions, resource-level access.
+16. **Is sensitive data encrypted in transit and at rest?**
+17. **Are audit trails complete?** Who, what, when, from where.
+18. **Has the code been tested with adversarial inputs?** Full OWASP top 10 coverage.
+
+### Veteran-Specific Additions
+
+- **Cross-component consistency:** Do the contracts between agent-generated components actually match? Type mismatches at boundaries are the most common integration failure.
+- **Legacy compatibility:** Does the new code respect the implicit contracts of existing code it interacts with?
+- **Performance under load:** Has the code been profiled under realistic load, not just tested with single requests?`,
+        },
+      ],
+    },
+    {
+      id: "6",
+      title: "Simulation Readiness",
+      sections: [
+        {
+          id: "6.1",
+          title: "Simulation Readiness",
+          simulation_scenarios: ["S2.1", "S2.2", "S2.3", "S2.4", "S2.5", "S2.6"],
+          key_intuition:
+            "Simulation readiness markers map your veteran-level curriculum progress to concrete exercises that test real-world pilotry skills in your own stack and codebase.",
+          markdown: `## Simulation Readiness
+
+### Readiness Markers
+
+**S2.1 - Bug Taxonomy Building:**
+Prerequisite: Module 1, section 1.1.
+Simulation: Over two weeks of real agent-assisted development, build a categorized taxonomy of agent failure modes specific to your stack.
+Ready when: Your taxonomy has 10+ categorized entries with detection strategies for each.
+
+**S2.2 - Architecture Constraint Extraction:**
+Prerequisite: Module 1, section 1.2.
+Simulation: Take a system you know well and extract every undocumented architectural constraint into a specification-ready format.
+Ready when: A new team member (or agent) given your constraint document would not violate any implicit rules.
+
+**S2.3 - Legacy Risk Assessment:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Map the riskiest module in your codebase - obvious behavior, hidden behavior, implicit contracts, and agent-safe boundaries.
+Ready when: Your map is comprehensive enough to serve as an agent specification for safe modification.
+
+**S2.4 - Macro Action Sizing:**
+Prerequisite: Module 2, section 2.1.
+Simulation: Decompose a real feature into macro-action-sized chunks with specifications, verification plans, and failure predictions for each.
+Ready when: Each chunk has a specification precise enough for correct agent implementation and a verification plan that catches the predicted failures.
+
+**S2.5 - Cliff Mapping:**
+Prerequisite: Module 2, section 2.3.
+Simulation: For three task types you frequently delegate, find the complexity threshold where agent output quality degrades from reliable to unreliable.
+Ready when: You have documented cliff points for your primary task types and can predict delegation success before starting.
+
+**S2.6 - Verification Pipeline Design:**
+Prerequisite: Module 3, section 3.2.
+Simulation: Design and document a complete verification pipeline for your team's most common agent-generated code type.
+Ready when: The pipeline has automated and manual stages, risk-calibrated review depth, and measurable throughput targets.`,
         },
       ],
     },

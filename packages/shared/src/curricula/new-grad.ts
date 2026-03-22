@@ -8,6 +8,7 @@ export const newGradCurriculum: CurriculumData = {
       "Has theoretical foundations but limited production experience. Can write code but hasn't yet built the judgment that comes from watching systems fail at scale. Risk: over-trusts agent output because they lack the reference frame to spot confident nonsense.",
     tutor_guidance:
       "The critical intuition to encode is *calibration* - new grads don't know what they don't know, so the agent-tutor must actively probe for overconfidence and surface the learner's blind spots rather than just answering questions. When the learner says \"this looks right,\" the tutor should ask them to prove it by tracing execution, identifying assumptions, or predicting behavior under adversarial conditions. The goal is to build the habit of justified trust, not naive acceptance.",
+    accountability_scope: "single-app",
   },
   modules: [
     {
@@ -17,6 +18,7 @@ export const newGradCurriculum: CurriculumData = {
         {
           id: "1.1",
           title: "How Software Actually Breaks",
+          simulation_scenarios: ["S1.1"],
           key_intuition:
             '"Compiles and passes tests" is the *starting point* of evaluation, not the end. Your degree trained you to write code that compiles and passes tests. Pilotry requires you to evaluate whether code is correct in contexts the tests don\'t cover - and that\'s most of the contexts that matter.',
           markdown: `Your CS degree taught you how software works in theory. Pilotry requires you to understand how it breaks in practice - because agents produce code that breaks in ways that look correct.
@@ -44,6 +46,7 @@ Even in garbage-collected languages, agents create resource leaks. The most comm
         {
           id: "1.2",
           title: "Systems Thinking for Oversight",
+          simulation_scenarios: ["S1.2"],
           key_intuition:
             "Every line of agent-generated code runs inside a system with finite resources and unreliable boundaries. The agent models none of this. You must.",
           markdown: `You learned algorithms and data structures. Production software is algorithms and data structures embedded in *systems* - operating systems, networks, databases, caches, load balancers - and the system's behavior is emergent, not derivable from any single component.
@@ -69,6 +72,7 @@ Agents will happily generate code that makes 1,000 sequential HTTP calls in a lo
         {
           id: "1.3",
           title: "Security as a First-Class Concern",
+          simulation_scenarios: ["S1.3"],
           key_intuition:
             "Agents generate code that works for the honest user. Your job is to think about the dishonest user, the confused user, and the malicious user - because the agent won't.",
           markdown: `Agents generate insecure code by default. Not maliciously - they optimize for functionality, and security is a constraint that often conflicts with the shortest path to "it works."
@@ -110,6 +114,7 @@ Before you ask an agent to build something, spend 10 minutes asking: "If someone
         {
           id: "2.1",
           title: "What LLMs Actually Are",
+          simulation_scenarios: ["S1.4"],
           key_intuition:
             "The agent is a pattern-matching machine, not a reasoning engine. It's remarkably good at pattern matching - good enough to look like reasoning most of the time. The pilot's job is to recognize the moments when pattern matching fails and reasoning is required.",
           markdown: `You don't need to build a transformer to be a software pilot, but you need an accurate mental model of what's happening when you talk to one. Most misconceptions about agent capabilities come from wrong mental models.
@@ -141,6 +146,7 @@ Try this: give an agent the same moderately complex prompt three times in separa
         {
           id: "2.2",
           title: "Prompt Engineering as Specification",
+          simulation_scenarios: ["S1.4"],
           key_intuition:
             "Time spent on specification is not overhead - it's the highest-leverage activity in agent-assisted development. A 30-minute specification saves hours of evaluation and rework.",
           markdown: `Your prompt is not a request - it's a specification. The quality of agent output is directly proportional to the precision of your specification. This is the single most leveraged skill in pilotry.
@@ -179,6 +185,7 @@ Take a feature you want to build. Write two specifications: one in 2 sentences, 
         {
           id: "2.3",
           title: "Recognizing Agent Failure Modes",
+          simulation_scenarios: ["S1.5"],
           key_intuition:
             "Agent output quality is bimodal - it's either quite good or completely wrong, with very little in between. And the surface appearance gives you no signal about which mode you're in. You must verify independently.",
           markdown: `Agents fail in predictable ways. Learning these patterns is like a pilot learning to recognize wind shear - you can't prevent it, but you can detect it and respond correctly.
@@ -238,6 +245,7 @@ Use an agent to build a small but non-trivial feature (e.g., a caching layer wit
         {
           id: "3.1",
           title: "Specification as the Primary Skill",
+          simulation_scenarios: ["S1.4"],
           key_intuition:
             "",
           markdown: `In the pre-agent era, specification was optional - you could iterate toward the right thing through code. In the agent era, specification is the primary tool of production. If you can't specify it precisely, you can't get it built correctly.
@@ -267,6 +275,7 @@ Write a specification for a feature (e.g., "user can upload a profile photo"). T
         {
           id: "3.2",
           title: "Verification and Evaluation",
+          simulation_scenarios: ["S1.1", "S1.5"],
           key_intuition:
             "",
           markdown: `You will spend more time verifying agent-generated code than you would have spent writing it manually. This is not a failure of the process - it IS the process. The agent's value is that it generates *candidates* faster than you could. Your value is that you *evaluate* those candidates with judgment the agent lacks.
@@ -297,6 +306,7 @@ Have an agent generate a feature. Before you review the code, write down your pr
         {
           id: "3.3",
           title: "Judgment Under Uncertainty",
+          simulation_scenarios: ["S1.6"],
           key_intuition:
             "",
           markdown: `The hardest skill in pilotry is knowing when to trust the agent and when to verify. You can't verify everything - you'd be slower than writing it yourself. You can't trust everything - you'd be shipping bugs and vulnerabilities. The skill is calibration.
@@ -328,6 +338,7 @@ Over the course of a week, log every time you accept agent output and every time
         {
           id: "3.4",
           title: "Professional Practice",
+          simulation_scenarios: ["S1.6"],
           key_intuition:
             "You are not the person who uses the tool. You are the person who is responsible for the outcome. The tool's confidence is not your confidence. The tool's speed is not your speed. Your speed is measured in correct, secure, verified software - and that's the only speed that matters.",
           markdown: `Being a software pilot is not just a technical role - it's a professional practice with ethical weight.
@@ -349,6 +360,127 @@ Your manager or client doesn't care that an agent generated the code. They care 
 Agent capabilities change quarterly. What required zero trust six months ago might be high trust today. What agents couldn't do at all might be routine now. The pilot's learning is never done - and the most important learning is updating your trust calibration based on new evidence, not staying fixed on "agents can't do X" when they've gotten better, or "agents handle Y fine" when a new failure mode has emerged.
 
 **Key intuition to develop:** You are not the person who uses the tool. You are the person who is responsible for the outcome. The tool's confidence is not your confidence. The tool's speed is not your speed. Your speed is measured in correct, secure, verified software - and that's the only speed that matters.`,
+        },
+      ],
+    },
+    {
+      id: "4",
+      title: "Before You Specify",
+      sections: [
+        {
+          id: "4.1",
+          title: "Before You Specify",
+          simulation_scenarios: ["S1.4"],
+          key_intuition:
+            "At the new-grad level, specification is your primary tool for creating correct software. Turning intent into precise, testable requirements is the highest-leverage skill you can develop.",
+          markdown: `## Before You Specify
+
+At the new-grad level, specification is your primary tool for creating correct software. This section builds the discipline of turning intent into precise, testable requirements.
+
+### The Specification Discipline
+
+Before you open an agent session, answer these questions in writing:
+
+1. **What is the exact behavior?** Describe the feature in terms a test could verify. "Users can log in" is not testable. "A user with valid credentials receives a JWT token with a 30-minute expiry; a user with invalid credentials receives a 401 with no token" is testable.
+2. **What is the data model?** Every entity, every field, every type, every constraint. This is the single highest-leverage section of any specification.
+3. **What are the error cases?** For every happy path, enumerate at least three failure modes and specify what happens for each.
+4. **What are the security requirements?** Authentication, authorization, input validation, data protection. If you do not specify these, the agent will omit them.
+5. **What are the acceptance criteria?** Written before the agent starts, not after. These become your verification targets.
+
+### Specification Anti-patterns
+
+- **"Make it good":** Vague quality directives produce vague quality. Be specific about what "good" means.
+- **"Handle errors appropriately":** The agent's idea of "appropriate" is \`catch (e) { console.log(e) }\`. Specify what each error should trigger: retry? User message? Alert? Fallback behavior?
+- **"Follow best practices":** Best practices are context-dependent. Specify the actual constraints: "All database access through the repository pattern. No direct SQL in handlers."`,
+        },
+      ],
+    },
+    {
+      id: "5",
+      title: "Verification Checklists",
+      sections: [
+        {
+          id: "5.1",
+          title: "Verification Checklists",
+          simulation_scenarios: ["S1.1", "S1.3", "S1.5"],
+          key_intuition:
+            "Verification is tiered: standard checks for all code, elevated checks for business logic, and critical checks for security and financial code. The tier determines the depth of review.",
+          markdown: `## Verification Checklists
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?** The absolute minimum.
+2. **Does it do what was specified?** Trace the main behavior against the specification.
+3. **Are there hardcoded secrets?** API keys, passwords, tokens, connection strings.
+4. **Are dependencies necessary and current?** Every agent-added dependency - is it needed, maintained, and vulnerability-free?
+5. **Are errors handled, not swallowed?** No empty catch blocks, no generic log-and-continue patterns.
+6. **Is input validated?** Every external value checked before use.
+7. **Are resources cleaned up?** Connections, handles, and sockets closed in all paths including error paths.
+8. **Do the tests test the right things?** Tests that pass when code is wrong are worse than no tests.
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?** Sequence matters for calculations, validations, and transformations.
+10. **Are edge cases at business boundaries handled?** Zero, negative, empty, null, maximum values.
+11. **Is the logic consistent with existing business rules?** Agents do not know your other rules.
+12. **Are rounding and precision correct?** Floating-point arithmetic in financial calculations is a classic failure.
+13. **Is business logic testable in isolation?** Separated from infrastructure code.
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?** Every route, not just the obvious ones.
+15. **Is authorization granular?** Roles and permissions, not just "logged in."
+16. **Is sensitive data encrypted in transit and at rest?** Proper hashing (bcrypt/argon2), TLS everywhere.
+17. **Are audit trails complete?** Who, what, when, and from where for every sensitive action.
+18. **Has the code been tested with adversarial inputs?** SQL injection, XSS, path traversal, malformed tokens.`,
+        },
+      ],
+    },
+    {
+      id: "6",
+      title: "Simulation Readiness",
+      sections: [
+        {
+          id: "6.1",
+          title: "Simulation Readiness",
+          simulation_scenarios: ["S1.1", "S1.2", "S1.3", "S1.4", "S1.5", "S1.6"],
+          key_intuition:
+            "Simulation readiness markers map your curriculum progress to concrete exercises. Each marker has prerequisites, a description, and a threshold that tells you when you are ready.",
+          markdown: `## Simulation Readiness
+
+This section maps curriculum content to simulation scenarios. Each marker indicates which sections must be completed before attempting the simulation.
+
+### Readiness Markers
+
+**S1.1 - The False Green Test Suite:**
+Prerequisite: Module 1, section 1.1.
+Simulation: Review an agent-generated application with passing tests. Find the bugs the tests miss.
+Ready when: You can identify concurrency, resource, and boundary bugs that tests do not cover.
+
+**S1.2 - End-to-End Trace:**
+Prerequisite: Module 1, section 1.2.
+Simulation: Trace a user action through every system boundary and enumerate failure modes at each.
+Ready when: You can map a request through 5+ system components and identify at least 2 failure modes per boundary.
+
+**S1.3 - Security Review:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Conduct a security review of agent-generated authentication code.
+Ready when: You consistently find authorization gaps, secret exposure, and input validation failures.
+
+**S1.4 - Specification Comparison:**
+Prerequisite: Module 2, section 2.2.
+Simulation: Write a vague and a precise specification, generate code from both, and catalog the differences.
+Ready when: You can identify the cost of ambiguity and produce specifications that eliminate unnecessary variance.
+
+**S1.5 - Failure Mode Scavenger Hunt:**
+Prerequisite: Module 2, section 2.3.
+Simulation: Build a feature with deliberately vague specification and systematically identify hallucinations, assumptions, and boundary failures.
+Ready when: You can reliably detect all three categories of agent failure in a single review session.
+
+**S1.6 - Judgment Calibration:**
+Prerequisite: Module 3, section 3.3.
+Simulation: Over one week, log every trust decision on agent output and compare predictions to outcomes.
+Ready when: Your trust calibration accuracy exceeds 80% - you correctly predict when agent output is trustworthy and when it is not.`,
         },
       ],
     },

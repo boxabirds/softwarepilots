@@ -8,6 +8,7 @@ import type {
   LearnerProfile,
   CurriculumMeta,
   SectionMeta,
+  AccountabilityScope,
 } from "@softwarepilots/shared";
 import {
   buildGeminiContents,
@@ -19,7 +20,7 @@ import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
 /* ---- Constants ---- */
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 const SOCRATIC_TEMPERATURE = 0.4;
 const SOCRATIC_TOOL_COUNT = 7;
 const MAX_RESPONSE_SENTENCES = 3;
@@ -57,6 +58,13 @@ export interface SocraticChatResponse {
   resume_suggestion?: string;
   query_type?: string;
   topics_referenced?: string;
+  dimension?: string;
+  readiness?: string;
+  gaps?: string[];
+  claims_demonstrated?: string[];
+  claim_levels?: string[];
+  misconceptions_surfaced?: string[];
+  misconceptions_resolved?: string[];
 }
 
 /* ---- Tool builder ---- */
@@ -329,6 +337,115 @@ export function buildSocraticTools(
     });
   }
 
+  if (section.learning_map.core_claims.length > 0) {
+    const claimList = section.learning_map.core_claims
+      .map((c) => `${c.id}: ${c.statement}`)
+      .join("; ");
+    const misconceptionList = section.learning_map.key_misconceptions
+      .map((m) => m.id)
+      .join(", ");
+    declarations.push({
+      name: "claim_assessment",
+      description:
+        `Report which claims from the learning map the learner demonstrated in this exchange. ` +
+        `Call alongside other tools to track claim coverage. ` +
+        `Available claims: ${claimList}` +
+        (misconceptionList ? `. Misconception IDs: ${misconceptionList}` : ""),
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          claims_demonstrated: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description:
+              "Claim IDs the learner demonstrated understanding of in this exchange",
+          },
+          claim_levels: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description:
+              "Understanding levels (developing/solid/strong) corresponding to each claim",
+          },
+          misconceptions_surfaced: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description:
+              "Misconception IDs the learner exhibited in this exchange",
+          },
+          misconceptions_resolved: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description:
+              "Misconception IDs the learner corrected or moved past in this exchange",
+          },
+        },
+        required: ["claims_demonstrated", "claim_levels"],
+      },
+    });
+  }
+
+  if (meta.accountability_scope) {
+    declarations.push({
+      name: "accountability_probe",
+      description:
+        `Ask the learner to connect a technical concept to their accountability scope. ${sectionContext}`,
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          response: {
+            type: "STRING",
+            description:
+              "The accountability-focused question to ask the learner",
+          },
+          topic: {
+            type: "STRING",
+            description: "Brief label for the topic area being probed",
+          },
+          dimension: {
+            type: "STRING",
+            enum: ["diagnosis", "verification", "escalation", "sign_off"],
+            description:
+              "The accountability dimension being explored",
+          },
+        },
+        required: ["response", "topic", "dimension"],
+      },
+    });
+  }
+
+  if (section.simulation_scenarios && section.simulation_scenarios.length > 0) {
+    declarations.push({
+      name: "simulation_readiness_check",
+      description:
+        `Assess whether the learner is ready for related simulation scenarios. ${sectionContext}`,
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          scenario_ids: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description: "IDs of scenarios being assessed",
+          },
+          readiness: {
+            type: "STRING",
+            enum: ["not_ready", "approaching", "ready"],
+            description: "Overall readiness for the simulation scenarios",
+          },
+          gaps: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description: "Knowledge gaps that need addressing before simulation",
+          },
+          recommendation: {
+            type: "STRING",
+            description: "Next step recommendation based on readiness assessment",
+          },
+        },
+        required: ["scenario_ids", "readiness", "gaps", "recommendation"],
+      },
+    });
+  }
+
   return [{ functionDeclarations: declarations }];
 }
 
@@ -357,6 +474,7 @@ export function buildSocraticSystemPrompt(
     "",
     "== Rules ==",
     `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response`,
+    "- ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.",
     "- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.",
     "- You MUST call one or more of the provided functions",
     "- Use socratic_probe to ask probing questions",
@@ -375,6 +493,39 @@ export function buildSocraticSystemPrompt(
     "  Answer using the concept list, the learner's demonstrated coverage, and the spaced repetition schedule. Be honest and specific.",
   ];
 
+  // Inject learning map (always available on SectionMeta)
+  const lm = section.learning_map;
+  if (lm.core_claims.length > 0) {
+    lines.push(
+      "",
+      "== Section Learning Map ==",
+      "Core claims to cover (guide the learner through these):"
+    );
+    lm.core_claims.forEach((claim, i) => {
+      lines.push(`${i + 1}. [${claim.id}] ${claim.statement} - Demonstrated when: ${claim.demonstration_criteria}`);
+    });
+  }
+  if (lm.key_misconceptions.length > 0) {
+    lines.push(
+      "",
+      "Common misconceptions to watch for:"
+    );
+    for (const m of lm.key_misconceptions) {
+      lines.push(`- [${m.id}] Belief: ${m.belief} -> Correct: ${m.correction}`);
+    }
+  }
+  if (lm.key_intuition_decomposition.length > 0) {
+    lines.push(
+      "",
+      "Key intuition builds through these steps:"
+    );
+    const sorted = [...lm.key_intuition_decomposition].sort((a, b) => a.order - b.order);
+    for (const step of sorted) {
+      lines.push(`${step.order}. ${step.statement}`);
+    }
+    lines.push(`-> ${section.key_intuition}`);
+  }
+
   if (section.concepts && section.concepts.length > 0) {
     lines.push(
       "",
@@ -386,6 +537,36 @@ export function buildSocraticSystemPrompt(
     });
     lines.push(
       "Track which concepts the learner demonstrates understanding of by calling track_concepts alongside your other tool calls."
+    );
+  }
+
+  if (meta.accountability_scope) {
+    const scopeDescriptions: Record<AccountabilityScope, string> = {
+      "learning": "exploring concepts without production responsibility",
+      "single-app": "responsible for a single application's correctness and reliability",
+      "system-of-services": "accountable for interconnected services and their failure modes",
+      "org-practices": "shaping engineering practices and standards across the organization",
+    };
+    lines.push(
+      "",
+      "== Accountability Context ==",
+      `The learner's accountability scope: ${meta.accountability_scope} - ${scopeDescriptions[meta.accountability_scope]}.`,
+      "Use accountability_probe to ask the learner to connect technical concepts to their real-world responsibilities.",
+      "Frame probes around four dimensions: diagnosis (can they identify what went wrong), verification (can they confirm a fix works), escalation (do they know when to involve others), and sign_off (are they confident enough to approve a change).",
+    );
+  }
+
+  if (section.simulation_scenarios && section.simulation_scenarios.length > 0) {
+    lines.push(
+      "",
+      "== Simulation Scenarios ==",
+      "The following simulation scenarios are related to this section:",
+    );
+    section.simulation_scenarios.forEach((scenario, i) => {
+      lines.push(`${i + 1}. ${scenario}`);
+    });
+    lines.push(
+      "When the learner demonstrates sufficient understanding, use simulation_readiness_check to assess whether they are ready for these scenarios.",
     );
   }
 
@@ -424,10 +605,13 @@ const REPLY_TOOLS = new Set([
   "session_complete",
   "session_pause",
   "lesson_query",
+  "accountability_probe",
 ]);
 
 const SIDE_EFFECT_TOOLS = new Set([
   "track_concepts",
+  "claim_assessment",
+  "simulation_readiness_check",
 ]);
 
 function extractReplyText(fc: { name: string; args: Record<string, string> }): string | null {
@@ -468,6 +652,9 @@ function extractReplyText(fc: { name: string; args: Record<string, string> }): s
     case "lesson_query":
       return fc.args.response || null;
 
+    case "accountability_probe":
+      return fc.args.response || "How does this relate to your day-to-day responsibilities?";
+
     default:
       return null;
   }
@@ -500,6 +687,8 @@ function extractMetadata(
     result.query_type = fc.args.query_type;
   if (fc.args.topics_referenced && !result.topics_referenced)
     result.topics_referenced = fc.args.topics_referenced;
+  if (fc.args.dimension && !result.dimension)
+    result.dimension = fc.args.dimension;
 }
 
 function extractTrackConcepts(
@@ -526,6 +715,50 @@ function extractTrackConcepts(
     parseJsonArray(fc.args.concepts_missed) ?? result.concepts_missed;
   if (fc.args.struggle_reason)
     result.struggle_reason = fc.args.struggle_reason;
+}
+
+export function extractClaimAssessment(
+  fc: { name: string; args: Record<string, string> },
+  result: SocraticChatResponse
+): void {
+  if (fc.name !== "claim_assessment") return;
+  const parseJsonArray = (val: string | undefined): string[] | undefined => {
+    if (!val) return undefined;
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return val.split(",").map((s) => s.trim());
+    }
+  };
+  result.claims_demonstrated =
+    parseJsonArray(fc.args.claims_demonstrated) ?? result.claims_demonstrated;
+  result.claim_levels =
+    parseJsonArray(fc.args.claim_levels) ?? result.claim_levels;
+  result.misconceptions_surfaced =
+    parseJsonArray(fc.args.misconceptions_surfaced) ?? result.misconceptions_surfaced;
+  result.misconceptions_resolved =
+    parseJsonArray(fc.args.misconceptions_resolved) ?? result.misconceptions_resolved;
+}
+
+function extractSimulationReadiness(
+  fc: { name: string; args: Record<string, string> },
+  result: SocraticChatResponse
+): void {
+  if (fc.name !== "simulation_readiness_check") return;
+  const parseJsonArray = (val: string | undefined): string[] | undefined => {
+    if (!val) return undefined;
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return val.split(",").map((s) => s.trim());
+    }
+  };
+  if (fc.args.readiness) result.readiness = fc.args.readiness;
+  result.gaps = parseJsonArray(fc.args.gaps) ?? result.gaps;
+  if (fc.args.recommendation && !result.recommendation)
+    result.recommendation = fc.args.recommendation;
 }
 
 export function parseSocraticResponse(
@@ -561,6 +794,8 @@ export function parseSocraticResponse(
       extractMetadata(fc, result);
     } else if (SIDE_EFFECT_TOOLS.has(fc.name)) {
       extractTrackConcepts(fc, result);
+      extractClaimAssessment(fc, result);
+      extractSimulationReadiness(fc, result);
       if (!toolTypes.includes(fc.name)) toolTypes.push(fc.name);
     } else {
       // Unknown tool - skip gracefully
@@ -672,7 +907,9 @@ socraticChat.post("/", async (c) => {
 
     // Update progress (fire-and-forget - don't block response)
     if (learnerId) {
-      updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch(() => {});
+      updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch((err) => {
+        console.error(`[progress] Update failed learner=${learnerId} section=${body.section_id} profile=${body.profile}:`, err instanceof Error ? err.message : err);
+      });
     }
 
     // Fire-and-forget: compress conversation on session_complete
@@ -696,7 +933,9 @@ socraticChat.post("/", async (c) => {
             await persistSummary(c.env.DB, conv.id, summary);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error(`[conversation] Compression failed learner=${learnerId} section=${body.section_id}:`, err instanceof Error ? err.message : err);
+        });
     }
 
     return c.json(result);

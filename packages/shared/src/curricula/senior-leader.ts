@@ -8,6 +8,7 @@ export const seniorLeaderCurriculum: CurriculumData = {
       "Owns outcomes for teams, systems, and organizations. May or may not still write code regularly. Strong judgment about people and systems, but potentially disconnected from the day-to-day reality of agent-assisted development. Risk: treats the transition as a tooling upgrade rather than a fundamental shift in how software quality is assured, or delegates the entire paradigm shift to their teams without understanding it themselves.",
     tutor_guidance:
       'The critical intuition to encode is *organizational patience*. Senior leaders face enormous pressure to capture agent productivity gains immediately. The tutor must repeatedly surface the second-order consequences of moving fast without verification infrastructure - using real incident case studies, not abstract warnings. When the learner pushes for faster adoption, the tutor should ask: "What\'s the cost of a production incident caused by unverified agent output, and how does that compare to the cost of building the verification pipeline first?" When the learner wants to delay adoption, the tutor should ask: "What\'s the competitive cost of not capturing the productivity gains your competitors are capturing - and can you build verification infrastructure in parallel with adoption rather than sequentially?" The right answer is almost always "adopt with guardrails in parallel," and the tutor should help the learner design the guardrails.',
+    accountability_scope: "org-practices",
   },
   modules: [
     {
@@ -17,6 +18,7 @@ export const seniorLeaderCurriculum: CurriculumData = {
         {
           id: "1.1",
           title: "Risk Landscape of Agent-Generated Software",
+          simulation_scenarios: ["S3.1"],
           key_intuition: "",
           markdown: `The risks of agent-generated software are not the same as the risks of human-generated software, and your existing quality frameworks are calibrated for the wrong risks.
 
@@ -52,6 +54,7 @@ If these questions haven't been asked in your organization, that's the first thi
         {
           id: "1.2",
           title: "Quality Architecture",
+          simulation_scenarios: ["S3.1", "S3.4"],
           key_intuition: "",
           markdown: `You need to build organizational infrastructure for verifying agent-generated output. This is not a team-level decision - it's an organizational capability.
 
@@ -96,6 +99,7 @@ The framing that works: "We generate solutions faster, evaluate them with the sa
         {
           id: "1.3",
           title: "Security Posture",
+          simulation_scenarios: ["S3.1"],
           key_intuition: "",
           markdown: `Agent-assisted development introduces attack surfaces that your existing security program may not cover.
 
@@ -139,6 +143,7 @@ Commission a security review specifically targeting agent-generated code in your
         {
           id: "2.1",
           title: "Capability and Limitation Literacy",
+          simulation_scenarios: ["S3.2"],
           key_intuition: "",
           markdown: `You need to understand what agents can and can't do well enough to make resource allocation, hiring, and strategy decisions. This doesn't mean becoming a prompt engineer - it means building accurate intuitions.
 
@@ -171,6 +176,7 @@ Decision framework:
         {
           id: "2.2",
           title: "Agent Strategy",
+          simulation_scenarios: ["S3.2"],
           key_intuition: "",
           markdown: `**Build vs. buy vs. configure:**
 
@@ -225,6 +231,7 @@ Your data governance policy needs to specify:
         {
           id: "2.3",
           title: "Organizational Agent Patterns",
+          simulation_scenarios: ["S3.2", "S3.3"],
           key_intuition: "",
           markdown: `**Standardizing without killing innovation:**
 
@@ -281,6 +288,7 @@ Take the last 3 features your team shipped with agent assistance. For each, calc
         {
           id: "3.1",
           title: "Hiring and Role Definition",
+          simulation_scenarios: ["S3.3", "S3.4"],
           key_intuition: "",
           markdown: `The manifesto's most provocative claim for organizations: "Employers must hire for good judgment, producing specifications, and ensuring verification - not just coding ability." This requires rethinking how you evaluate engineering talent.
 
@@ -332,6 +340,7 @@ Some of your engineers will embrace pilotry. Some will resist. The resistance is
         {
           id: "3.2",
           title: "Culture of Accountability",
+          simulation_scenarios: ["S3.4"],
           key_intuition: "",
           markdown: `**The most important sentence in the new paradigm:**
 "I don't understand what this agent produced."
@@ -368,6 +377,7 @@ More concretely: calculate the cost of your last 3 production incidents. Compare
         {
           id: "3.3",
           title: "Specification as Organizational Discipline",
+          simulation_scenarios: ["S3.3"],
           key_intuition: "",
           markdown: `**Elevating specification from overhead to core competency:**
 In most organizations, specifications are seen as documentation overhead - something PMs write and engineers tolerate. In the agent era, specifications are the primary input to production. Their quality directly determines the quality of output.
@@ -393,6 +403,7 @@ The best organizations will have specification quality that gives them a competi
         {
           id: "3.4",
           title: "Education and Development Strategy",
+          simulation_scenarios: ["S3.5", "S3.6"],
           key_intuition: "",
           markdown: `**Building internal pilotry training programs:**
 The new grad and veteran curricula in this series are designed to be deployed within organizations. Your job as a senior leader is to create the conditions for this training to succeed.
@@ -439,6 +450,130 @@ Evaluate your organization on the following pilotry maturity model:
 *Level 5 - Leading:* Pilotry expertise as a hiring criterion and promotion factor. Contributing to industry norms and standards. Specification quality as a competitive advantage. Organizational trust calibration that accurately reflects current agent capability.
 
 Most organizations are at Level 1 or 2. The goal isn't to jump to Level 5 - it's to identify the highest-leverage investment that moves you to the next level.`,
+        },
+      ],
+    },
+    {
+      id: "4",
+      title: "Before You Specify",
+      sections: [
+        {
+          id: "4.1",
+          title: "Before You Specify",
+          simulation_scenarios: ["S3.3"],
+          key_intuition:
+            "At the senior leader level, specification is organizational infrastructure. You do not write individual feature specifications - you create the systems, templates, and standards that make specification quality consistent across your organization.",
+          markdown: `## Before You Specify
+
+At the senior leader level, specification is organizational infrastructure. You do not write individual feature specifications - you create the systems, templates, and standards that make specification quality consistent across your organization.
+
+### Organizational Specification Strategy
+
+1. **Build specification templates for your common task types.** New endpoint, new UI component, data migration, external integration. Each template prompts for the things engineers consistently forget: error behavior, non-functional requirements, acceptance criteria, security considerations.
+2. **Institute specification review as a gate.** Specifications get peer review before agent delegation, just as code gets review before merging. The review criteria: is this specification testable, complete, unambiguous? Would an engineer unfamiliar with the project produce the correct thing from this specification alone?
+3. **Track specification quality as a leading indicator.** What percentage of post-delivery issues were caused by specification gaps vs. agent errors? If specifications are the bottleneck, invest in specification quality. If agent errors dominate despite good specifications, invest in verification.
+4. **Create the feedback loop.** After every feature, catalog the specification gaps the agent exposed. Update templates. Share learnings across teams. One team's specification gap is another team's future bug.
+5. **Define risk-tier-appropriate specification depth.** Not every feature needs the same specification detail. Low-risk internal tools can use lighter specifications. Security-critical, financial, or customer-facing features require full specification with explicit threat modeling.
+
+### Specification as Competitive Advantage
+
+Organizations with consistently precise specifications get consistently better agent output. This compounds: better output requires less verification, which increases throughput, which creates capacity for more features, which accelerates learning, which improves specifications further. The investment in specification infrastructure has compounding returns that most organizations underestimate because the initial cost is visible and the compounding benefit is not.`,
+        },
+      ],
+    },
+    {
+      id: "5",
+      title: "Verification Checklists",
+      sections: [
+        {
+          id: "5.1",
+          title: "Verification Checklists",
+          simulation_scenarios: ["S3.4", "S3.5"],
+          key_intuition:
+            "As a senior leader, you do not run these checklists yourself. You ensure they exist, are enforced, and are calibrated correctly. Organizational verification governance is about tier assignment, compliance tracking, checklist evolution, and automation targets.",
+          markdown: `## Verification Checklists
+
+As a senior leader, you do not run these checklists yourself. You ensure they exist, are enforced, and are calibrated correctly.
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?**
+2. **Does it do what was specified?**
+3. **Are there hardcoded secrets?**
+4. **Are dependencies necessary and current?**
+5. **Are errors handled, not swallowed?**
+6. **Is input validated?**
+7. **Are resources cleaned up?**
+8. **Do the tests test the right things?**
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?**
+10. **Are edge cases at business boundaries handled?**
+11. **Is the logic consistent with existing business rules?**
+12. **Are rounding and precision correct?**
+13. **Is business logic testable in isolation?**
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?**
+15. **Is authorization granular?**
+16. **Is sensitive data encrypted in transit and at rest?**
+17. **Are audit trails complete?**
+18. **Has the code been tested with adversarial inputs?**
+
+### Organizational Verification Governance
+
+- **Tier assignment:** Every agent-generated changeset must have a risk tier (standard, elevated, critical) assigned during specification review, not during code review.
+- **Checklist compliance tracking:** Measure what percentage of changesets pass through the full checklist for their tier. Below 90% compliance indicates a process gap.
+- **Checklist evolution:** Review and update checklists quarterly based on incident post-mortems. If a new class of agent failure emerges, add a check. If a check consistently catches nothing, evaluate whether it is still needed.
+- **Automation targets:** Every check that can be automated should be automated. The standard 8 should be 80%+ automated in a mature organization. Elevated and critical checks require more human judgment but can be supported by tooling.`,
+        },
+      ],
+    },
+    {
+      id: "6",
+      title: "Simulation Readiness",
+      sections: [
+        {
+          id: "6.1",
+          title: "Simulation Readiness",
+          simulation_scenarios: ["S3.1", "S3.2", "S3.3", "S3.4", "S3.5", "S3.6"],
+          key_intuition:
+            "Simulation readiness at the senior leader level maps to organizational exercises that test your ability to build and govern the systems that make pilotry work at scale.",
+          markdown: `## Simulation Readiness
+
+### Readiness Markers
+
+**S3.1 - Security Audit Commission:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Commission and evaluate a security review specifically targeting agent-generated code patterns. Compare findings to your most recent general security review.
+Ready when: You can identify the delta between general security review and agent-specific review and translate it into process changes.
+
+**S3.2 - Honest ROI Calculation:**
+Prerequisite: Module 2, section 2.3.
+Simulation: Calculate true ROI for agent-assisted development including generation, specification, review, integration, debugging, and incident costs.
+Ready when: Your ROI calculation withstands scrutiny from both engineering (who want to show gains) and finance (who want to see real numbers).
+
+**S3.3 - Maturity Assessment:**
+Prerequisite: Module 3, section 3.4.
+Simulation: Evaluate your organization against the pilotry maturity model and identify the single highest-leverage investment to reach the next level.
+Ready when: Your assessment is honest (not aspirational), your investment recommendation is specific and costed, and your team agrees with the assessment.
+
+**S3.4 - Incentive Redesign:**
+Prerequisite: Module 3, section 3.2.
+Simulation: Redesign performance review criteria and team metrics to account for verification rigor, specification quality, and agent error detection alongside traditional throughput.
+Ready when: Your revised criteria would reward the engineer who catches a critical agent error as highly as the engineer who ships a feature.
+
+**S3.5 - Incident Response Protocol:**
+Prerequisite: Module 3, section 3.4.
+Simulation: Conduct a post-incident review for an agent-generated code failure using the agent-specific questions (specification gap vs. agent deviation, verification adequacy, novel failure class).
+Ready when: Your post-incident review produces systemic improvements to the specification-verification pipeline, not just individual blame.
+
+**S3.6 - Workflow Design:**
+Prerequisite: Module 3, section 3.4 (all subsections).
+Simulation: Design the complete agent-assisted workflow for your organization including specification review, risk classification, delegation protocols, verification pipeline, and escalation paths.
+Ready when: The workflow has been reviewed by engineering leads, tested on a real feature, and refined based on the test results.`,
         },
       ],
     },

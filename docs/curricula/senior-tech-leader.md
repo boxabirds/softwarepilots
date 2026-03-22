@@ -4,9 +4,11 @@
 
 ---
 
-## Module 1: The Machine Beneath — Governance and Risk
+## Module 1: The Machine Beneath - Governance and Risk [Durability: A - Foundation/permanent]
 
 The senior leader's relationship to "the machine beneath" is about organizational risk, not individual systems.
+
+**Accountability context:** At the senior leader level, accountability is structural, not individual. You are not accountable for reviewing a single piece of agent-generated code - you are accountable for creating the conditions where accountability is possible throughout your organization. If an engineer ships unreviewed agent output and it causes an incident, the engineer failed at their level of accountability. But if your organization has no verification process, no specification standards, and no risk classification - then you failed at yours. Your accountability is for the system of accountability itself: hiring people with the right judgment, building processes that surface problems before production, and creating a culture where "I do not understand this code" is a respected statement, not a career risk.
 
 ### 1.1 Risk Landscape of Agent-Generated Software
 
@@ -120,9 +122,11 @@ Commission a security review specifically targeting agent-generated code in your
 
 ---
 
-## Module 2: The Probabilistic Machine Above — Strategic Understanding
+## Module 2: The Probabilistic Machine Above - Strategic Understanding [Durability: B - Systems/annual review]
 
 The senior leader needs enough understanding to make sound organizational decisions, not to operate agents personally.
+
+**Accountability context:** You are accountable for resource allocation, strategy, and the organizational stance on agent-assisted development. Every decision here has downstream consequences for quality, security, and reliability. If you underinvest in verification infrastructure because a vendor promised 10x productivity, you own the incidents that follow. If you overinvest in controls that slow teams to a crawl, you own the competitive loss. The accountability of a senior leader in the agent era is calibrating organizational risk - not eliminating it, but sizing it correctly and investing proportionally in mitigation. This requires enough technical understanding to resist vendor hype and enough strategic judgment to avoid paralyzing caution.
 
 ### 2.1 Capability and Limitation Literacy
 
@@ -256,7 +260,7 @@ Take the last 3 features your team shipped with agent assistance. For each, calc
 
 ---
 
-## Module 3: The Accountable Human — Organizational Accountability
+## Module 3: Accountability in Practice - Organizational Accountability [Durability: A - Foundation/permanent]
 
 The senior leader's unique responsibility: creating the conditions where accountability is possible.
 
@@ -413,6 +417,100 @@ Evaluate your organization on the following pilotry maturity model:
 *Level 5 — Leading:* Pilotry expertise as a hiring criterion and promotion factor. Contributing to industry norms and standards. Specification quality as a competitive advantage. Organizational trust calibration that accurately reflects current agent capability.
 
 Most organizations are at Level 1 or 2. The goal isn't to jump to Level 5 — it's to identify the highest-leverage investment that moves you to the next level.
+
+---
+
+## Before You Specify [Durability: B - Systems/annual review]
+
+At the senior leader level, specification is organizational infrastructure. You do not write individual feature specifications - you create the systems, templates, and standards that make specification quality consistent across your organization.
+
+### Organizational Specification Strategy
+
+1. **Build specification templates for your common task types.** New endpoint, new UI component, data migration, external integration. Each template prompts for the things engineers consistently forget: error behavior, non-functional requirements, acceptance criteria, security considerations.
+2. **Institute specification review as a gate.** Specifications get peer review before agent delegation, just as code gets review before merging. The review criteria: is this specification testable, complete, unambiguous? Would an engineer unfamiliar with the project produce the correct thing from this specification alone?
+3. **Track specification quality as a leading indicator.** What percentage of post-delivery issues were caused by specification gaps vs. agent errors? If specifications are the bottleneck, invest in specification quality. If agent errors dominate despite good specifications, invest in verification.
+4. **Create the feedback loop.** After every feature, catalog the specification gaps the agent exposed. Update templates. Share learnings across teams. One team's specification gap is another team's future bug.
+5. **Define risk-tier-appropriate specification depth.** Not every feature needs the same specification detail. Low-risk internal tools can use lighter specifications. Security-critical, financial, or customer-facing features require full specification with explicit threat modeling.
+
+### Specification as Competitive Advantage
+
+Organizations with consistently precise specifications get consistently better agent output. This compounds: better output requires less verification, which increases throughput, which creates capacity for more features, which accelerates learning, which improves specifications further. The investment in specification infrastructure has compounding returns that most organizations underestimate because the initial cost is visible and the compounding benefit is not.
+
+---
+
+## Verification Checklists [Durability: A - Foundation/permanent]
+
+As a senior leader, you do not run these checklists yourself. You ensure they exist, are enforced, and are calibrated correctly.
+
+### Standard Verification (8 checks - all agent-generated code)
+
+1. **Does it compile/run without errors?**
+2. **Does it do what was specified?**
+3. **Are there hardcoded secrets?**
+4. **Are dependencies necessary and current?**
+5. **Are errors handled, not swallowed?**
+6. **Is input validated?**
+7. **Are resources cleaned up?**
+8. **Do the tests test the right things?**
+
+### Elevated Verification (+5 for business logic)
+
+9. **Are business rules in the correct order?**
+10. **Are edge cases at business boundaries handled?**
+11. **Is the logic consistent with existing business rules?**
+12. **Are rounding and precision correct?**
+13. **Is business logic testable in isolation?**
+
+### Critical Verification (+5 for security/financial)
+
+14. **Is authentication checked on every protected endpoint?**
+15. **Is authorization granular?**
+16. **Is sensitive data encrypted in transit and at rest?**
+17. **Are audit trails complete?**
+18. **Has the code been tested with adversarial inputs?**
+
+### Organizational Verification Governance
+
+- **Tier assignment:** Every agent-generated changeset must have a risk tier (standard, elevated, critical) assigned during specification review, not during code review.
+- **Checklist compliance tracking:** Measure what percentage of changesets pass through the full checklist for their tier. Below 90% compliance indicates a process gap.
+- **Checklist evolution:** Review and update checklists quarterly based on incident post-mortems. If a new class of agent failure emerges, add a check. If a check consistently catches nothing, evaluate whether it is still needed.
+- **Automation targets:** Every check that can be automated should be automated. The standard 8 should be 80%+ automated in a mature organization. Elevated and critical checks require more human judgment but can be supported by tooling.
+
+---
+
+## Simulation Readiness [Durability: C - Practice/quarterly review]
+
+### Readiness Markers
+
+**S3.1 - Security Audit Commission:**
+Prerequisite: Module 1, section 1.3.
+Simulation: Commission and evaluate a security review specifically targeting agent-generated code patterns. Compare findings to your most recent general security review.
+Ready when: You can identify the delta between general security review and agent-specific review and translate it into process changes.
+
+**S3.2 - Honest ROI Calculation:**
+Prerequisite: Module 2, section 2.3.
+Simulation: Calculate true ROI for agent-assisted development including generation, specification, review, integration, debugging, and incident costs.
+Ready when: Your ROI calculation withstands scrutiny from both engineering (who want to show gains) and finance (who want to see real numbers).
+
+**S3.3 - Maturity Assessment:**
+Prerequisite: Module 3, section 3.4.
+Simulation: Evaluate your organization against the pilotry maturity model and identify the single highest-leverage investment to reach the next level.
+Ready when: Your assessment is honest (not aspirational), your investment recommendation is specific and costed, and your team agrees with the assessment.
+
+**S3.4 - Incentive Redesign:**
+Prerequisite: Module 3, section 3.2.
+Simulation: Redesign performance review criteria and team metrics to account for verification rigor, specification quality, and agent error detection alongside traditional throughput.
+Ready when: Your revised criteria would reward the engineer who catches a critical agent error as highly as the engineer who ships a feature.
+
+**S3.5 - Incident Response Protocol:**
+Prerequisite: Module 3, section 3.4.
+Simulation: Conduct a post-incident review for an agent-generated code failure using the agent-specific questions (specification gap vs. agent deviation, verification adequacy, novel failure class).
+Ready when: Your post-incident review produces systemic improvements to the specification-verification pipeline, not just individual blame.
+
+**S3.6 - Workflow Design:**
+Prerequisite: Module 3, section 3.4 (all subsections).
+Simulation: Design the complete agent-assisted workflow for your organization including specification review, risk classification, delegation protocols, verification pipeline, and escalation paths.
+Ready when: The workflow has been reviewed by engineering leads, tested on a real feature, and refined based on the test results.
 
 ---
 
