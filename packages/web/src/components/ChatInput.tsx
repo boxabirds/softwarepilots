@@ -75,7 +75,7 @@ export function ChatInput({
 
   return (
     <div
-      className="rounded-2xl px-4 pb-3 pt-2 shadow-sm"
+      className="rounded-xl px-4 py-2 shadow-sm"
       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
     >
       {feedbackMode && (
