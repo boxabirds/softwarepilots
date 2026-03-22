@@ -149,7 +149,8 @@ export function ChatInput({
         <button
           onClick={onSubmit}
           disabled={!canSubmit}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full border-none text-base transition-colors"
+          className="flex shrink-0 items-center justify-center rounded-full border-none text-sm transition-colors"
+          style={{ width: LINE_HEIGHT + "px", height: LINE_HEIGHT + "px" }}
           style={canSubmit ? {
             background: "var(--pilot-blue)",
             color: "var(--text-on-brand)",
