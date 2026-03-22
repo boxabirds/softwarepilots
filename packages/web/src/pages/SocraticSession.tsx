@@ -280,7 +280,11 @@ export function SocraticSession() {
         section_id: sectionId,
         message: messageContent,
         context: {
-          conversation: updatedConversation.map(({ role, content }) => ({ role, content })),
+          conversation: updatedConversation.map(({ role, content, tool_type, concept }) => ({
+              role, content,
+              ...(tool_type && { tool_type }),
+              ...(concept && { concept }),
+            })),
         },
       });
 
@@ -324,7 +328,11 @@ export function SocraticSession() {
         section_id: sectionId,
         message: lastUserMsg.content,
         context: {
-          conversation: trimmed.map(({ role, content }) => ({ role, content })),
+          conversation: trimmed.map(({ role, content, tool_type, concept }) => ({
+              role, content,
+              ...(tool_type && { tool_type }),
+              ...(concept && { concept }),
+            })),
         },
       })
       .then((response) => {
@@ -378,7 +386,11 @@ export function SocraticSession() {
         section_id: sectionId,
         message: RESUME_MESSAGE,
         context: {
-          conversation: updatedConversation.map(({ role, content }) => ({ role, content })),
+          conversation: updatedConversation.map(({ role, content, tool_type, concept }) => ({
+              role, content,
+              ...(tool_type && { tool_type }),
+              ...(concept && { concept }),
+            })),
         },
       });
       const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
@@ -487,36 +499,14 @@ export function SocraticSession() {
       if (msg.role === "tutor") {
         const isError = msg.content.startsWith("Failed to reach the tutor");
         const isInstruction = msg.tool_type?.includes("provide_instruction");
+        const displayContent = isInstruction ? `\u{1F393} ${msg.content}` : msg.content;
         elements.push(
           <div key={i}>
-            {isInstruction ? (
-              <div
-                className="mr-10 mt-3 rounded-[10px] border border-blue-200 border-l-[3px] border-l-blue-500 bg-blue-50 p-4 dark:border-blue-800 dark:border-l-blue-400 dark:bg-blue-950/30"
-                data-testid="instruction-card"
-              >
-                <div className="mb-1 flex items-center gap-1.5">
-                  <span className="text-base" aria-hidden="true">&#128161;</span>
-                  <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                    Direct Instruction
-                  </span>
-                </div>
-                {msg.concept && (
-                  <span
-                    className="mb-2 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[0.6875rem] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                    data-testid="instruction-concept"
-                  >
-                    {msg.concept}
-                  </span>
-                )}
-                <div className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-foreground">{msg.content}</div>
-              </div>
-            ) : (
-              <TutorCard
-                content={msg.content}
-                onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
-                onFeedback={isError ? undefined : () => handleFeedback(msg.content, i)}
-              />
-            )}
+            <TutorCard
+              content={displayContent}
+              onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
+              onFeedback={isError ? undefined : () => handleFeedback(msg.content, i)}
+            />
             {isError && (
               <button
                 onClick={handleRetry}

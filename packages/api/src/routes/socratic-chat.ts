@@ -186,7 +186,7 @@ export function buildSocraticTools(
         properties: {
           instruction: {
             type: "STRING",
-            description: "Clear explanation of the concept",
+            description: "A thorough explanation of the concept. This is the one time you teach directly instead of questioning - make it substantive. Explain what the concept is, why it matters in practice, and give a concrete example showing it in action. Do not abbreviate.",
           },
           concept: {
             type: "STRING",
@@ -473,7 +473,7 @@ export function buildSocraticSystemPrompt(
     `Section: ${section.title}`,
     "",
     "== Rules ==",
-    `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response`,
+    `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response (except provide_instruction, which should be as thorough as needed to explain the concept clearly)`,
     "- ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.",
     "- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.",
     "- You MUST call one or more of the provided functions",
@@ -481,7 +481,7 @@ export function buildSocraticSystemPrompt(
     "- Use present_scenario to illustrate with realistic examples",
     "- Use evaluate_response when the learner provides an answer",
     "- Use surface_key_insight when the learner is approaching the key intuition",
-    "- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. After providing instruction, follow up with a question to check understanding.",
+    "- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. When providing instruction, include: (1) what the concept is, (2) why it matters in practice, (3) a concrete example. Then follow up with a question to check understanding.",
     "- Use off_topic_detected to redirect off-topic messages",
     "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
     "- Use session_pause when the learner explicitly asks to stop or take a break, shows signs of frustration, or appears fatigued. Be warm and encouraging. Never say 'you seem tired'. If the learner declines a pause offer, do not offer again for at least 5 more exchanges.",

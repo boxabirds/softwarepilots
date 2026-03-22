@@ -588,6 +588,16 @@ function UserList({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 overflow-y-auto py-2" data-testid="user-list-collapsed">
+        <button
+          onClick={() => onSelectUser(selectedUserId ?? "")}
+          title="Back to user list"
+          className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
+          data-testid="expand-user-list"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         {filteredUsers.map((u) => (
           <button
             key={u.id}
