@@ -9,9 +9,9 @@ import { _clearNarrativeCache } from "../curriculum";
 function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
-      let bindings: unknown[] = [];
+      let bindings: any[] = [];
       return {
-        bind(...values: unknown[]) {
+        bind(...values: any[]) {
           bindings = values;
           return this;
         },
@@ -58,7 +58,7 @@ function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
     async exec(_query: string): Promise<D1ExecResult> {
       throw new Error("exec not implemented in shim");
     },
-  } as D1Database;
+  } as unknown as D1Database;
 }
 
 /* ---- Auth helper ---- */
@@ -118,6 +118,7 @@ beforeEach(() => {
       status TEXT NOT NULL DEFAULT 'not_started',
       understanding_json TEXT DEFAULT '[]',
       concepts_json TEXT DEFAULT '{}',
+      claims_json TEXT DEFAULT '{}',
       started_at TEXT,
       completed_at TEXT,
       paused_at TEXT,
@@ -180,7 +181,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
 
     expect(body).toHaveProperty("overall_narrative");
     expect(body.overall_narrative).toBeNull(); // no progress = no narrative
@@ -202,7 +203,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
       buildTestEnv()
     );
 
-    const body = await res.json();
+    const body: any = await res.json();
 
     expect(body.stats.completed).toBe(0);
     expect(body.stats.in_progress).toBe(0);
@@ -234,7 +235,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
 
     expect(body.stats.completed).toBe(1);
     expect(body.stats.in_progress).toBe(1);
@@ -269,7 +270,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(body).toHaveProperty("error");
   });
 
@@ -294,7 +295,7 @@ describe("GET /api/curriculum/:profile/progress/summary", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: any = await res.json();
     expect(body.overall_narrative).toBeNull();
     expect(body.stats.in_progress).toBe(1);
   });

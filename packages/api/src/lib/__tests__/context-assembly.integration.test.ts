@@ -15,9 +15,9 @@ import { mock } from "bun:test";
 function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
     prepare(query: string) {
-      let bindings: unknown[] = [];
+      let bindings: any[] = [];
       return {
-        bind(...values: unknown[]) {
+        bind(...values: any[]) {
           bindings = values;
           return this;
         },
@@ -64,7 +64,7 @@ function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
     async exec(_query: string): Promise<D1ExecResult> {
       throw new Error("exec not implemented in shim");
     },
-  } as D1Database;
+  } as unknown as D1Database;
 }
 
 /* ---- Test fixtures ---- */
@@ -107,6 +107,7 @@ beforeEach(() => {
       status TEXT NOT NULL DEFAULT 'not_started',
       understanding_json TEXT,
       concepts_json TEXT,
+      claims_json TEXT DEFAULT '{}',
       started_at TEXT,
       completed_at TEXT,
       paused_at TEXT,

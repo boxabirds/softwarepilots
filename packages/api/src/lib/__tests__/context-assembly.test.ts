@@ -57,7 +57,7 @@ describe("compressConversation", () => {
   it("produces summary from mocked Gemini response", async () => {
     const mockSummary = "The learner explored concurrency concepts and showed solid understanding of thread safety.";
 
-    globalThis.fetch = mock(() =>
+    (globalThis as any).fetch = mock(() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -72,7 +72,7 @@ describe("compressConversation", () => {
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       )
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const result = await compressConversation(
       "fake-api-key",
@@ -88,9 +88,9 @@ describe("compressConversation", () => {
   });
 
   it("returns null on API failure", async () => {
-    globalThis.fetch = mock(() =>
+    (globalThis as any).fetch = mock(() =>
       Promise.resolve(new Response("Internal Server Error", { status: 500 }))
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const result = await compressConversation(
       "fake-api-key",
@@ -103,9 +103,9 @@ describe("compressConversation", () => {
   });
 
   it("returns null on network error", async () => {
-    globalThis.fetch = mock(() =>
+    (globalThis as any).fetch = mock(() =>
       Promise.reject(new Error("Network error"))
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const result = await compressConversation(
       "fake-api-key",
@@ -129,7 +129,7 @@ describe("compressConversation", () => {
   });
 
   it("returns null when Gemini returns empty text", async () => {
-    globalThis.fetch = mock(() =>
+    (globalThis as any).fetch = mock(() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -138,7 +138,7 @@ describe("compressConversation", () => {
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       )
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const result = await compressConversation(
       "fake-api-key",
