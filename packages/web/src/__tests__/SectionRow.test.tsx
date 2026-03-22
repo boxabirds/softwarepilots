@@ -59,37 +59,40 @@ function renderRow(
 /* ---- Tests ---- */
 
 describe("SectionRow", () => {
-  it("renders 'Start' button for not_started", () => {
+  it("renders play button for all statuses", () => {
     renderRow("not_started");
-    expect(screen.getByRole("link", { name: "Start" })).toBeTruthy();
+    expect(screen.getByTestId("play-button")).toBeTruthy();
   });
 
-  it("does not show 'Start Over' for not_started", () => {
+  it("play button links to section path", () => {
+    renderRow("not_started");
+    const link = screen.getByTestId("play-button");
+    expect(link.getAttribute("href")).toBe("/curriculum/level-1/1.1");
+  });
+
+  it("does not show reset icon for not_started", () => {
     renderRow("not_started");
     expect(screen.queryByTestId("start-over")).toBeNull();
   });
 
-  it("renders 'Continue' + 'Start Over' for in_progress", () => {
+  it("shows reset icon for in_progress", () => {
     renderRow("in_progress");
-    expect(screen.getByRole("link", { name: "Continue" })).toBeTruthy();
     expect(screen.getByTestId("start-over")).toBeTruthy();
   });
 
-  it("renders 'Review' + 'Start Over' for completed", () => {
+  it("shows reset icon for completed", () => {
     renderRow("completed");
-    expect(screen.getByRole("link", { name: "Review" })).toBeTruthy();
     expect(screen.getByTestId("start-over")).toBeTruthy();
   });
 
-  it("renders 'Review' + 'Start Over' for needs_review", () => {
+  it("shows reset icon for needs_review", () => {
     renderRow("needs_review");
-    expect(screen.getByRole("link", { name: "Review" })).toBeTruthy();
     expect(screen.getByTestId("start-over")).toBeTruthy();
   });
 
-  it("shows progress percentage when claim_progress exists", () => {
+  it("shows claim progress when claim_progress exists", () => {
     renderRow("in_progress", { demonstrated: 3, total: 6, percentage: 50 });
-    expect(screen.getByTestId("claim-text").textContent).toBe("3/6 claims");
+    expect(screen.getByTestId("claim-text").textContent).toBe("3/6");
   });
 
   it("shows 'In progress' text when no claim_progress data", () => {
@@ -104,17 +107,12 @@ describe("SectionRow", () => {
     expect(screen.getByText("Complete")).toBeTruthy();
   });
 
-  it("shows 'Review needed' text for needs_review status", () => {
+  it("shows 'Review' text for needs_review status", () => {
     renderRow("needs_review");
-    expect(screen.getByText("Review needed")).toBeTruthy();
+    expect(screen.getByText("Review")).toBeTruthy();
   });
 
-  it("shows 'Not started' text for not_started status", () => {
-    renderRow("not_started");
-    expect(screen.getByText("Not started")).toBeTruthy();
-  });
-
-  it("Start Over shows confirmation dialog and calls archive endpoint", async () => {
+  it("reset shows confirmation and calls archive endpoint", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
@@ -122,7 +120,7 @@ describe("SectionRow", () => {
     await user.click(screen.getByTestId("start-over"));
 
     expect(confirmSpy).toHaveBeenCalledWith(
-      "This will archive your current session and start fresh. Continue?",
+      "Reset progress to beginning of this lesson?",
     );
     expect(mockPost).toHaveBeenCalledWith(
       "/api/curriculum/level-1/1.1/archive",
@@ -132,7 +130,7 @@ describe("SectionRow", () => {
     confirmSpy.mockRestore();
   });
 
-  it("Start Over does nothing when confirmation is cancelled", async () => {
+  it("reset does nothing when confirmation is cancelled", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
 
@@ -143,5 +141,23 @@ describe("SectionRow", () => {
     expect(mockPost).not.toHaveBeenCalled();
 
     confirmSpy.mockRestore();
+  });
+
+  it("renders section title", () => {
+    renderRow("not_started");
+    expect(screen.getByText("Introduction to Software")).toBeTruthy();
+  });
+
+  it("play button has correct title per status", () => {
+    renderRow("not_started");
+    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Start");
+    cleanup();
+
+    renderRow("in_progress");
+    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Continue");
+    cleanup();
+
+    renderRow("completed");
+    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Review");
   });
 });
