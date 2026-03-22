@@ -366,8 +366,8 @@ function ModuleTree({
   return (
     <div>
       <h3
-        className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"
-        style={{ color: "var(--text-muted)" }}
+        className="mb-3 flex items-center gap-2 text-base font-semibold"
+        style={{ color: "var(--text-secondary)" }}
       >
         {mod.module_title}
         {hasProgress && hasClaimData && (
@@ -410,52 +410,43 @@ export function SectionRow({
   const status = progress?.status ?? "not_started";
   const sectionPath = `/curriculum/${profile}/${sec.id}`;
 
-  async function handleStartOver() {
+  const hasProgress = status !== "not_started";
+
+  async function handleReset() {
     const confirmed = window.confirm(
-      "This will archive your current session and start fresh. Continue?"
+      "Reset progress to beginning of this lesson?"
     );
     if (!confirmed) return;
 
     try {
       await apiClient.post(`/api/curriculum/${profile}/${sec.id}/archive`, {});
     } catch {
-      // Archive failed - navigate anyway so learner is not stuck
+      // Archive failed - continue anyway
     }
     navigate(sectionPath);
   }
 
   return (
     <div
-      className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm"
-      style={{
-        background: "var(--bg-subtle)",
-        border: "1px solid var(--border-light)",
-      }}
+      className="flex items-center gap-3 border-b px-1 py-2.5 text-sm last:border-b-0"
+      style={{ borderColor: "var(--border-light)" }}
       data-testid={`section-row-${sec.id}`}
     >
       {/* Title */}
       <span
-        className="min-w-0 shrink-0 font-medium"
+        className="min-w-0 flex-1 font-medium"
         style={{ color: "var(--text-secondary)" }}
       >
         {sec.title}
       </span>
 
       {/* Progress indicator */}
-      <span className="flex flex-1 items-center gap-1.5">
-        {status === "not_started" && (
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Not started
-          </span>
-        )}
+      <span className="flex shrink-0 items-center gap-1.5">
         {status === "in_progress" && progress?.claim_progress && (
           <>
-            <ProgressBadge
-              status="in_progress"
-              claimProgress={progress.claim_progress}
-            />
+            <ProgressBadge status="in_progress" claimProgress={progress.claim_progress} />
             <span className="text-xs" style={{ color: "var(--text-muted)" }} data-testid="claim-text">
-              {progress.claim_progress.demonstrated}/{progress.claim_progress.total} claims
+              {progress.claim_progress.demonstrated}/{progress.claim_progress.total}
             </span>
           </>
         )}
@@ -465,84 +456,45 @@ export function SectionRow({
           </span>
         )}
         {status === "completed" && (
-          <>
-            <ProgressBadge
-              status="completed"
-              claimProgress={progress?.claim_progress}
-            />
-            <span className="text-xs font-medium text-green-600">
-              Complete
-            </span>
-          </>
+          <span className="text-xs font-medium text-green-600">Complete</span>
         )}
         {status === "needs_review" && (
-          <>
-            <ProgressBadge
-              status="needs_review"
-              claimProgress={progress?.claim_progress}
-            />
-            <span className="text-xs font-medium text-amber-600">
-              Review needed
-            </span>
-          </>
+          <span className="text-xs font-medium text-amber-600">Review</span>
         )}
       </span>
 
-      {/* Action buttons */}
-      <span className="flex shrink-0 items-center gap-2">
-        {status === "not_started" && (
-          <Button size="sm" asChild>
-            <Link to={sectionPath}>Start</Link>
-          </Button>
+      {/* Icons - right aligned */}
+      <span className="flex shrink-0 items-center gap-1">
+        {/* Reset icon - only when progress exists */}
+        {hasProgress && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-muted"
+            style={{ color: "var(--text-muted)" }}
+            title="Reset progress"
+            data-testid="start-over"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 8a6 6 0 0 1 10.47-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M14 8a6 6 0 0 1-10.47 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M12 1.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M4 14.5v-3h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         )}
-        {status === "in_progress" && (
-          <>
-            <Button size="sm" asChild>
-              <Link to={sectionPath}>Continue</Link>
-            </Button>
-            <button
-              type="button"
-              onClick={handleStartOver}
-              className="text-xs underline"
-              style={{ color: "var(--text-muted)" }}
-              data-testid="start-over"
-            >
-              Start Over
-            </button>
-          </>
-        )}
-        {status === "completed" && (
-          <>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={sectionPath}>Review</Link>
-            </Button>
-            <button
-              type="button"
-              onClick={handleStartOver}
-              className="text-xs underline"
-              style={{ color: "var(--text-muted)" }}
-              data-testid="start-over"
-            >
-              Start Over
-            </button>
-          </>
-        )}
-        {status === "needs_review" && (
-          <>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={sectionPath}>Review</Link>
-            </Button>
-            <button
-              type="button"
-              onClick={handleStartOver}
-              className="text-xs underline"
-              style={{ color: "var(--text-muted)" }}
-              data-testid="start-over"
-            >
-              Start Over
-            </button>
-          </>
-        )}
+
+        {/* Play button - always present */}
+        <Link
+          to={sectionPath}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+          title={status === "not_started" ? "Start" : status === "completed" ? "Review" : "Continue"}
+          data-testid="play-button"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.5 2.5L11.5 7L3.5 11.5V2.5Z" fill="currentColor"/>
+          </svg>
+        </Link>
       </span>
     </div>
   );
