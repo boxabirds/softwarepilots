@@ -39,15 +39,17 @@ export function ChatInput({
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    const contentHeight = el.scrollHeight;
-    if (contentHeight > MAX_HEIGHT) {
-      el.style.height = MAX_HEIGHT + "px";
-      el.style.overflowY = "auto";
-    } else {
-      el.style.height = contentHeight + "px";
-      el.style.overflowY = "hidden";
-    }
+    // Measure how many lines the content needs by temporarily
+    // collapsing to 0 and reading scrollHeight
+    el.style.height = "0";
+    const scrolled = el.scrollHeight;
+    // scrollHeight includes browser-internal textarea padding,
+    // so round to the nearest multiple of LINE_HEIGHT to get
+    // the actual number of content lines
+    const lines = Math.max(1, Math.round(scrolled / LINE_HEIGHT));
+    const targetHeight = Math.min(lines * LINE_HEIGHT, MAX_HEIGHT);
+    el.style.height = targetHeight + "px";
+    el.style.overflowY = targetHeight >= MAX_HEIGHT ? "auto" : "hidden";
   }, [value]);
 
   const canSubmit = value.trim().length > 0 && !disabled;
@@ -142,7 +144,7 @@ export function ChatInput({
           disabled={disabled}
           rows={1}
           className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-base outline-none"
-          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)", padding: 0, margin: 0, height: LINE_HEIGHT + "px" }}
+          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)", padding: 0 }}
         />
         <button
           onClick={onSubmit}
