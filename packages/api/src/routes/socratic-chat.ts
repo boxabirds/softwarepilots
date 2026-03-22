@@ -907,14 +907,19 @@ socraticChat.post("/", async (c) => {
 
     const result = parseSocraticResponse(data!);
 
-    // Update progress (fire-and-forget - don't block response)
+    // Update progress - use waitUntil to keep the worker alive after responding.
+    // Without waitUntil, Cloudflare Workers can terminate before the DB write completes,
+    // causing progress to silently never be recorded.
+    // NOTE: executionCtx.waitUntil is only available in Cloudflare Workers runtime.
+    // The getter throws in test environments, so we use a try-catch wrapper.
     if (learnerId) {
-      updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch((err) => {
+      const progressPromise = updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch((err) => {
         console.error(`[progress] Update failed learner=${learnerId} section=${body.section_id} profile=${body.profile}:`, err instanceof Error ? err.message : err);
       });
+      try { c.executionCtx.waitUntil(progressPromise); } catch { /* test env: no executionCtx */ }
     }
 
-    // Fire-and-forget: compress conversation on session_complete
+    // Compress conversation on session_complete - also needs waitUntil
     if (result.tool_type?.includes("session_complete") && learnerId) {
       const allMessages = [
         ...conversation,
@@ -922,7 +927,7 @@ socraticChat.post("/", async (c) => {
         { role: "tutor" as const, content: result.reply },
       ];
       const model = c.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-      compressConversation(c.env.GEMINI_API_KEY, model, allMessages, section.title)
+      const compressionPromise = compressConversation(c.env.GEMINI_API_KEY, model, allMessages, section.title)
         .then(async (summary) => {
           if (!summary) return;
           // Find the active conversation to persist summary
@@ -938,6 +943,7 @@ socraticChat.post("/", async (c) => {
         .catch((err) => {
           console.error(`[conversation] Compression failed learner=${learnerId} section=${body.section_id}:`, err instanceof Error ? err.message : err);
         });
+      try { c.executionCtx.waitUntil(compressionPromise); } catch { /* test env: no executionCtx */ }
     }
 
     return c.json(result);
