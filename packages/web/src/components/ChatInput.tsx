@@ -75,7 +75,7 @@ export function ChatInput({
 
   return (
     <div
-      className="rounded-2xl px-4 py-3 shadow-sm"
+      className="rounded-2xl px-4 pb-3 pt-2 shadow-sm"
       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
     >
       {feedbackMode && (
@@ -141,7 +141,7 @@ export function ChatInput({
           placeholder={effectivePlaceholder}
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-base outline-none"
+          className="min-w-0 flex-1 resize-none border-none bg-transparent p-0 font-sans text-base outline-none"
           style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)" }}
         />
         <button
