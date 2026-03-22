@@ -80,7 +80,7 @@ function ProfileMenu({ initial, displayName }: { initial: string; displayName?: 
         {initial}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-40 rounded-md py-1 shadow-lg" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}>
+        <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-md py-1 shadow-lg" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}>
           {displayName && (
             <div className="px-3 py-2 text-xs" style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
               {displayName}

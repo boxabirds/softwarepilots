@@ -544,7 +544,7 @@ export function SocraticSession() {
                 {truncatedQuoteDisplay}
               </div>
             )}
-            <div className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-foreground">{responseText}</div>
+            <div className="whitespace-pre-wrap text-[0.75rem] leading-relaxed text-foreground">{responseText}</div>
           </ChatCard>
         );
       }
