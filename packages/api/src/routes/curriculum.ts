@@ -15,7 +15,7 @@ import {
   buildNarrativePrompt,
   generateNarrative,
 } from "../lib/narrative";
-import { getOrCreateEnrollment } from "../lib/enrollment-store";
+import { getOrCreateEnrollment, getEnrollment, getEnrollmentConcepts, countTopicsCovered } from "../lib/enrollment-store";
 import type { ProgressStats, SectionProgressData } from "../lib/narrative";
 import {
   compressConversation,
@@ -319,10 +319,30 @@ curriculum.get("/:profile/progress/summary", async (c) => {
     }
   }
 
+  // Compute topic coverage from enrollment concepts
+  let topics: { covered: number; total: number } | undefined;
+  try {
+    const enrollment = await getEnrollment(c.env.DB, learnerId, profile);
+    if (enrollment) {
+      const enrollmentConcepts = await getEnrollmentConcepts(c.env.DB, enrollment.id);
+      // Collect all learning maps for this curriculum
+      const allMaps = await Promise.all(
+        Array.from(sectionLookup.keys()).map((sid) =>
+          resolveLearningMap(c.env.DB, profile, sid, learnerId)
+        )
+      );
+      const validMaps = allMaps.filter((m): m is NonNullable<typeof m> => m !== null);
+      topics = countTopicsCovered(enrollmentConcepts, validMaps);
+    }
+  } catch {
+    // Non-critical
+  }
+
   return c.json({
     overall_narrative: overallNarrative,
     sections: sectionProgressData,
     stats,
+    ...(topics ? { topics } : {}),
     concepts_due_for_review: dueConcepts.map((d) => ({
       concept: d.concept,
       section_id: d.section_id,

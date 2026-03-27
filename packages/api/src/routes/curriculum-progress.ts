@@ -13,7 +13,7 @@ import { getCurriculumSections, getLearningMapForProfile, getLearningMap } from 
 import type { SectionLearningMap } from "@softwarepilots/shared";
 import { getLearningMapFromDB } from "../lib/learning-map-store";
 import { getVersionContentHash } from "../lib/curriculum-store";
-import { getEnrollment } from "../lib/enrollment-store";
+import { getEnrollment, getEnrollmentConcepts, updateEnrollmentConcepts } from "../lib/enrollment-store";
 
 /**
  * Resolve a learning map: try DB first (keyed by enrollment's content hash),
@@ -655,6 +655,48 @@ export async function updateSectionProgress(
       sectionId
     )
     .run();
+
+  // Sync concepts to enrollment (cross-module spaced repetition)
+  await syncConceptsToEnrollment(db, learnerId, profile, response);
+}
+
+/**
+ * After any section progress update, sync demonstrated concepts to the enrollment.
+ * The enrollment holds the unified concept map across all sections.
+ */
+async function syncConceptsToEnrollment(
+  db: D1Database,
+  learnerId: string,
+  profile: string,
+  response: SocraticResponse,
+): Promise<void> {
+  const concepts = response.concepts_demonstrated;
+  const levels = response.concept_levels;
+  if (!concepts || concepts.length === 0) return;
+
+  try {
+    const enrollment = await getEnrollment(db, learnerId, profile);
+    if (!enrollment) return;
+
+    let enrollmentConcepts = await getEnrollmentConcepts(db, enrollment.id);
+    const now = new Date();
+    const needsInstruction = response.tool_type?.includes(PROVIDE_INSTRUCTION_TOOL_TYPE) ?? false;
+
+    for (let i = 0; i < concepts.length; i++) {
+      const concept = concepts[i];
+      const level = levels?.[i] ?? "emerging";
+      const isInstructed = needsInstruction && concept === response.concept;
+      enrollmentConcepts = updateConceptAssessment(
+        enrollmentConcepts, concept, level, now,
+        isInstructed ? { needed_instruction: true, struggle_reason: response.struggle_reason } : undefined,
+      );
+    }
+
+    await updateEnrollmentConcepts(db, enrollment.id, enrollmentConcepts);
+  } catch {
+    // Non-critical: enrollment concept sync failure should not break section progress
+    console.warn(`[progress] Failed to sync concepts to enrollment for learner=${learnerId} profile=${profile}`);
+  }
 }
 
 /* ---- Query helper for GET endpoint ---- */
@@ -671,6 +713,18 @@ export async function getProgressForProfile(
     .bind(learnerId, profile)
     .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "claims_json" | "updated_at">>();
 
+  // Read enrollment concepts once for claim decay evaluation across all sections
+  let enrollmentConceptsJson: string | null = null;
+  try {
+    const enrollment = await getEnrollment(db, learnerId, profile);
+    if (enrollment) {
+      const concepts = await getEnrollmentConcepts(db, enrollment.id);
+      enrollmentConceptsJson = Object.keys(concepts).length > 0 ? JSON.stringify(concepts) : null;
+    }
+  } catch {
+    // Fall through to section-level concepts
+  }
+
   return Promise.all((results || []).map(async (row) => {
     const entries = JSON.parse(row.understanding_json || "[]") as Array<
       Record<string, string>
@@ -685,7 +739,7 @@ export async function getProgressForProfile(
     let effectiveClaimsJson = row.claims_json;
     let effectiveStatus = row.status;
     if (row.status === STATUS_COMPLETED && learningMap && learningMap.core_claims.length > 0) {
-      const decayedClaims = evaluateClaimDecay(row.claims_json, row.concepts_json, learningMap);
+      const decayedClaims = evaluateClaimDecay(row.claims_json, enrollmentConceptsJson ?? row.concepts_json, learningMap);
       effectiveClaimsJson = JSON.stringify(decayedClaims);
       const decayedProgress = computeClaimProgress(effectiveClaimsJson, learningMap);
       if (!decayedProgress.meets_threshold) {
