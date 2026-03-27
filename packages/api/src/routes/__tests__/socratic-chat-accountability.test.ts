@@ -11,6 +11,7 @@ import {
 } from "@softwarepilots/shared";
 import type { CurriculumMeta, SectionMeta } from "@softwarepilots/shared";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
+import { TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES } from "./test-schema";
 
 /* ---- Helpers ---- */
 
@@ -319,7 +320,7 @@ describe("parseSocraticResponse - simulation_readiness_check", () => {
 
 describe("buildSocraticSystemPrompt - accountability context", () => {
   it("includes accountability context block for single-app scope", () => {
-    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, []);
+    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("== Accountability Context ==");
     expect(prompt).toContain("single-app");
     expect(prompt).toContain(
@@ -329,7 +330,7 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
   });
 
   it("includes correct description for learning scope", () => {
-    const prompt = buildSocraticSystemPrompt(L0_META, L0_SECTION_WITH_SIMS, []);
+    const prompt = buildSocraticSystemPrompt(L0_META, L0_SECTION_WITH_SIMS, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("learning");
     expect(prompt).toContain(
       "exploring concepts without production responsibility"
@@ -340,7 +341,7 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
     const vetMeta = getCurriculumMeta("level-10");
     const vetSections = getCurriculumSections("level-10");
     const vetSection = getSection("level-10", vetSections[0].id);
-    const prompt = buildSocraticSystemPrompt(vetMeta, vetSection, []);
+    const prompt = buildSocraticSystemPrompt(vetMeta, vetSection, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("system-of-services");
     expect(prompt).toContain(
       "accountable for interconnected services and their failure modes"
@@ -351,7 +352,7 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
     const slMeta = getCurriculumMeta("level-20");
     const slSections = getCurriculumSections("level-20");
     const slSection = getSection("level-20", slSections[0].id);
-    const prompt = buildSocraticSystemPrompt(slMeta, slSection, []);
+    const prompt = buildSocraticSystemPrompt(slMeta, slSection, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("org-practices");
     expect(prompt).toContain(
       "shaping engineering practices and standards across the organization"
@@ -359,7 +360,7 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
   });
 
   it("includes four accountability dimensions in prompt", () => {
-    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, []);
+    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("diagnosis");
     expect(prompt).toContain("verification");
     expect(prompt).toContain("escalation");
@@ -370,7 +371,9 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
     const prompt = buildSocraticSystemPrompt(
       META_NO_ENRICHMENT,
       SECTION_NO_ENRICHMENT,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("== Accountability Context ==");
     expect(prompt).not.toContain("accountability_probe");
@@ -379,7 +382,7 @@ describe("buildSocraticSystemPrompt - accountability context", () => {
 
 describe("buildSocraticSystemPrompt - simulation scenarios", () => {
   it("includes simulation scenario references when section has them", () => {
-    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, []);
+    const prompt = buildSocraticSystemPrompt(L1_META, L1_SECTION_WITH_SIMS, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("== Simulation Scenarios ==");
     expect(prompt).toContain("simulation_readiness_check");
     for (const scenario of L1_SECTION_WITH_SIMS.simulation_scenarios!) {
@@ -391,7 +394,9 @@ describe("buildSocraticSystemPrompt - simulation scenarios", () => {
     const prompt = buildSocraticSystemPrompt(
       META_NO_ENRICHMENT,
       SECTION_NO_ENRICHMENT,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("== Simulation Scenarios ==");
     expect(prompt).not.toContain("simulation_readiness_check");

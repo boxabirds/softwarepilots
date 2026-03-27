@@ -8,6 +8,7 @@ import {
   getCurriculumSections,
   getSection,
 } from "@softwarepilots/shared";
+import { TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES } from "./test-schema";
 
 /* ---- Helpers ---- */
 
@@ -37,7 +38,7 @@ describe("provide_instruction tool definition", () => {
 });
 
 describe("system prompt sentence limit exemption", () => {
-  const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+  const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
 
   it("contains exception for provide_instruction in the sentence limit", () => {
     expect(prompt).toContain(

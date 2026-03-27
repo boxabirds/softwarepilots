@@ -36,6 +36,17 @@ export const ENROLLMENT_TABLES_SQL = `
     updated_at TEXT DEFAULT (datetime('now')),
     UNIQUE (learner_id, profile)
   );
+  CREATE TABLE IF NOT EXISTS prompts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    content TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by TEXT,
+    reason TEXT,
+    UNIQUE(key, version)
+  );
   CREATE TABLE IF NOT EXISTS learning_maps (
     profile TEXT NOT NULL,
     section_id TEXT NOT NULL,
@@ -89,5 +100,71 @@ export function seedCurriculumVersions(sqliteDb: InstanceType<typeof Database>):
       `INSERT OR IGNORE INTO curriculum_versions (id, profile, version, content_json, content_hash, created_by, reason)
        VALUES (?, ?, 1, ?, ?, 'test', 'test seed')`
     ).run(`cv-${p.profile}`, p.profile, contentJson, contentHash);
+  }
+}
+
+/* ---- Prompt test constants and seeding ---- */
+
+export const TEST_SOCRATIC_PERSONA = `You are a Socratic tutor for "{{section_title}}" in the {{profile}} software pilotry curriculum.`;
+
+export const TEST_SOCRATIC_RULES = `- NEVER refer to the learner in third person ('the learner', 'the student'). Always address them directly as 'you'. Your responses are spoken TO the learner, not ABOUT them.
+- When creating scenarios, be internally consistent. Do not describe something as 'comprehensive' if the details contradict that (e.g., do not say 'comprehensive test suite' then mention only 15 unit tests for a complex service).
+- Maximum {{max_response_sentences}} sentences per response (except provide_instruction, which should be as thorough as needed to explain the concept clearly)
+- ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.
+- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.
+- You MUST call one or more of the provided functions
+- Use socratic_probe to ask probing questions
+- Use present_scenario to illustrate with realistic examples
+- Use evaluate_response when the learner provides an answer
+- Use surface_key_insight when the learner is approaching the key intuition
+- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. When providing instruction, include: (1) what the concept is, (2) why it matters in practice, (3) a concrete example. Then follow up with a question to check understanding.
+- Use off_topic_detected to redirect off-topic messages
+- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.
+- Use session_pause when the learner explicitly asks to stop or take a break, shows signs of frustration, or appears fatigued. Be warm and encouraging. Never say 'you seem tired'. If the learner declines a pause offer, do not offer again for at least 5 more exchanges.
+- Use lesson_query when the learner asks about the learning process itself:
+  - 'What are the learning objectives?' / 'What's the point of this section?'
+  - 'What topics haven't I covered?' / 'What's left?'
+  - 'What needs more attention?' / 'What should I review?'
+  - 'How am I doing?' / 'How much have I covered?'
+  Answer using the concept list, the learner's demonstrated coverage, and the spaced repetition schedule. Be honest and specific.`;
+
+export const TEST_REVIEW_PERSONA = `You are a Socratic tutor conducting a brief review session for the {{profile}} software pilotry curriculum.
+
+== Review Session Rules ==
+You are reviewing concepts the learner demonstrated previously but has not revisited recently.
+Your goal is to PROBE FOR RECALL, not teach new material.
+- Ask targeted questions to verify the learner still understands each concept
+- If they demonstrate recall, acknowledge it and move to the next concept
+- If they struggle, give a brief reminder and re-probe
+- Keep the session brief: 2-5 exchanges total
+- Use the track_concepts tool to update concept mastery levels
+- Use the claim_assessment tool if claims are relevant
+- When all overdue concepts have been addressed, call session_complete
+
+== Response Rules ==
+- ALWAYS use 'you/your' to address the learner directly
+- NEVER refer to the learner in third person
+- Keep responses to 1-3 sentences
+- ALWAYS acknowledge the learner's previous message before asking the next question`;
+
+function escapeSql(str: string): string {
+  return str.replace(/'/g, "''");
+}
+
+/**
+ * Seed the prompts table with the 3 Socratic prompt keys.
+ * Call after creating tables for tests that hit the socratic route.
+ */
+export function seedPrompts(sqliteDb: InstanceType<typeof Database>): void {
+  const prompts = [
+    { key: "socratic.persona", content: TEST_SOCRATIC_PERSONA },
+    { key: "socratic.rules", content: TEST_SOCRATIC_RULES },
+    { key: "review.persona", content: TEST_REVIEW_PERSONA },
+  ];
+  for (const p of prompts) {
+    sqliteDb.prepare(
+      `INSERT OR IGNORE INTO prompts (key, content, version, created_by, reason)
+       VALUES (?, ?, 1, 'test', 'test seed')`
+    ).run(p.key, p.content);
   }
 }

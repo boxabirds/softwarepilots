@@ -12,6 +12,7 @@ import {
   getCurriculumProfiles,
 } from "@softwarepilots/shared";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
+import { TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES } from "./test-schema";
 
 /* ---- Helpers ---- */
 
@@ -103,24 +104,27 @@ describe("buildSocraticSystemPrompt", () => {
       const meta = getCurriculumMeta(p.profile);
       const sections = getCurriculumSections(p.profile);
       const section = getSection(p.profile, sections[0].id);
-      const prompt = buildSocraticSystemPrompt(meta, section, []);
+      const prompt = buildSocraticSystemPrompt(meta, section, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
       expect(prompt).toContain(meta.tutor_guidance);
     }
   });
 
   it("includes section key_intuition", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain(TEST_SECTION.key_intuition);
   });
 
   it("includes section title and profile", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const resolvedPersona = TEST_SOCRATIC_PERSONA
+      .replace("{{section_title}}", TEST_SECTION.title)
+      .replace("{{profile}}", TEST_META.profile);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], resolvedPersona, TEST_SOCRATIC_RULES);
     expect(prompt).toContain(TEST_SECTION.title);
     expect(prompt).toContain(TEST_META.profile);
   });
 
   it("includes Socratic instruction to never lecture", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("Default to Socratic questioning");
   });
 
@@ -132,7 +136,9 @@ describe("buildSocraticSystemPrompt", () => {
     const prompt = buildSocraticSystemPrompt(
       TEST_META,
       TEST_SECTION,
-      conversation
+      conversation,
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).toContain("2 previous exchanges");
   });
@@ -533,7 +539,9 @@ describe("buildSocraticSystemPrompt with concepts", () => {
     const prompt = buildSocraticSystemPrompt(
       TEST_META,
       SECTION_WITH_CONCEPTS,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).toContain("Section Concepts");
     expect(prompt).toContain("1. concurrency");
@@ -546,7 +554,9 @@ describe("buildSocraticSystemPrompt with concepts", () => {
     const prompt = buildSocraticSystemPrompt(
       TEST_META,
       SECTION_WITHOUT_CONCEPTS,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("Section Concepts");
     expect(prompt).not.toContain("track_concepts");
@@ -814,7 +824,7 @@ describe("session_pause parser", () => {
 
 describe("session_pause system prompt guidance", () => {
   it("includes session_pause guidance in system prompt", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("session_pause");
     expect(prompt).toContain("frustration");
     expect(prompt).toContain("fatigued");
@@ -890,7 +900,7 @@ describe("lesson_query parser", () => {
 
 describe("lesson_query system prompt guidance", () => {
   it("includes lesson_query guidance in system prompt", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("lesson_query");
     expect(prompt).toContain("learning objectives");
     expect(prompt).toContain("What topics haven't I covered");
@@ -1018,7 +1028,9 @@ describe("accountability_probe system prompt", () => {
     const prompt = buildSocraticSystemPrompt(
       META_WITH_ACCOUNTABILITY,
       TEST_SECTION,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).toContain("Accountability Context");
     expect(prompt).toContain("single-app");
@@ -1033,7 +1045,9 @@ describe("accountability_probe system prompt", () => {
     const prompt = buildSocraticSystemPrompt(
       META_WITHOUT_ACCOUNTABILITY,
       TEST_SECTION,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("Accountability Context");
     expect(prompt).not.toContain("accountability_probe");
@@ -1157,7 +1171,9 @@ describe("simulation_readiness_check system prompt", () => {
     const prompt = buildSocraticSystemPrompt(
       TEST_META,
       SECTION_WITH_SIMULATIONS,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).toContain("Simulation Scenarios");
     expect(prompt).toContain("sim-outage-01");
@@ -1169,7 +1185,9 @@ describe("simulation_readiness_check system prompt", () => {
     const prompt = buildSocraticSystemPrompt(
       TEST_META,
       SECTION_WITHOUT_SIMULATIONS,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("Simulation Scenarios");
     expect(prompt).not.toContain("simulation_readiness_check");
@@ -1214,7 +1232,9 @@ describe("backward compatibility with non-enriched curricula", () => {
     const prompt = buildSocraticSystemPrompt(
       META_WITHOUT_ACCOUNTABILITY,
       SECTION_WITHOUT_SIMULATIONS,
-      []
+      [],
+      TEST_SOCRATIC_PERSONA,
+      TEST_SOCRATIC_RULES
     );
     expect(prompt).not.toContain("Accountability Context");
     expect(prompt).not.toContain("Simulation Scenarios");

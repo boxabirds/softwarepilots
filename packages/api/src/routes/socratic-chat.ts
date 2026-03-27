@@ -13,6 +13,7 @@ import {
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
 import { getOrCreateEnrollment } from "../lib/enrollment-store";
 import { loadCurriculumForEnrollment, extractMeta, findSection } from "../lib/curriculum-store";
+import { getPrompt, resolveTemplate } from "../lib/prompts";
 import { buildCurriculumContext, buildConversationContext, compressConversation, persistSummary } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
@@ -457,27 +458,11 @@ export function buildReviewSystemPrompt(
   meta: CurriculumMeta,
   section: SectionMeta,
   conversation: Array<{ role: "user" | "tutor"; content: string }>,
+  reviewPersona: string,
   progressContext?: string,
 ): string {
   const lines = [
-    `You are a Socratic tutor conducting a brief review session for the ${meta.profile} software pilotry curriculum.`,
-    "",
-    "== Review Session Rules ==",
-    "You are reviewing concepts the learner demonstrated previously but has not revisited recently.",
-    "Your goal is to PROBE FOR RECALL, not teach new material.",
-    "- Ask targeted questions to verify the learner still understands each concept",
-    "- If they demonstrate recall, acknowledge it and move to the next concept",
-    "- If they struggle, give a brief reminder and re-probe",
-    "- Keep the session brief: 2-5 exchanges total",
-    "- Use the track_concepts tool to update concept mastery levels",
-    "- Use the claim_assessment tool if claims are relevant",
-    "- When all overdue concepts have been addressed, call session_complete",
-    "",
-    "== Response Rules ==",
-    "- ALWAYS use 'you/your' to address the learner directly",
-    "- NEVER refer to the learner in third person",
-    "- Keep responses to 1-3 sentences",
-    "- ALWAYS acknowledge the learner's previous message before asking the next question",
+    reviewPersona,
   ];
 
   if (progressContext) {
@@ -513,12 +498,14 @@ export function buildSocraticSystemPrompt(
   meta: CurriculumMeta,
   section: SectionMeta,
   conversation: Array<{ role: "user" | "tutor"; content: string }>,
+  persona: string,
+  rules: string,
   progressContext?: string,
   curriculumContext?: string,
   conversationContext?: string
 ): string {
   const lines = [
-    `You are a Socratic tutor for "${section.title}" in the ${meta.profile} software pilotry curriculum.`,
+    persona,
     "",
     "== Pedagogical Approach ==",
     meta.tutor_guidance,
@@ -531,26 +518,7 @@ export function buildSocraticSystemPrompt(
     `Section: ${section.title}`,
     "",
     "== Rules ==",
-    "- NEVER refer to the learner in third person ('the learner', 'the student'). Always address them directly as 'you'. Your responses are spoken TO the learner, not ABOUT them.",
-    "- When creating scenarios, be internally consistent. Do not describe something as 'comprehensive' if the details contradict that (e.g., do not say 'comprehensive test suite' then mention only 15 unit tests for a complex service).",
-    `- Maximum ${MAX_RESPONSE_SENTENCES} sentences per response (except provide_instruction, which should be as thorough as needed to explain the concept clearly)`,
-    "- ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.",
-    "- Default to Socratic questioning. Only switch to direct instruction (provide_instruction) when questioning demonstrably isn't working.",
-    "- You MUST call one or more of the provided functions",
-    "- Use socratic_probe to ask probing questions",
-    "- Use present_scenario to illustrate with realistic examples",
-    "- Use evaluate_response when the learner provides an answer",
-    "- Use surface_key_insight when the learner is approaching the key intuition",
-    "- Use provide_instruction ONLY when Socratic questioning has demonstrably failed: the learner said 'I don't know', gave the same wrong answer multiple times, or shows no progression after several turns of low confidence. When providing instruction, include: (1) what the concept is, (2) why it matters in practice, (3) a concrete example. Then follow up with a question to check understanding.",
-    "- Use off_topic_detected to redirect off-topic messages",
-    "- Use session_complete when all key concepts in the section have been covered and the learner has demonstrated understanding of the key insight. Include a summary and list of concepts covered.",
-    "- Use session_pause when the learner explicitly asks to stop or take a break, shows signs of frustration, or appears fatigued. Be warm and encouraging. Never say 'you seem tired'. If the learner declines a pause offer, do not offer again for at least 5 more exchanges.",
-    "- Use lesson_query when the learner asks about the learning process itself:",
-    "  - 'What are the learning objectives?' / 'What's the point of this section?'",
-    "  - 'What topics haven't I covered?' / 'What's left?'",
-    "  - 'What needs more attention?' / 'What should I review?'",
-    "  - 'How am I doing?' / 'How much have I covered?'",
-    "  Answer using the concept list, the learner's demonstrated coverage, and the spaced repetition schedule. Be honest and specific.",
+    rules,
   ];
 
   // Inject learning map (optional - may not exist for dynamically generated content)
@@ -929,14 +897,27 @@ socraticChat.post("/", async (c) => {
       // Non-critical: proceed without conversation context
     }
   }
+  // Fetch prompts from DB and resolve template variables
   let systemPrompt: string;
   const isReviewMode = body.mode === "review";
 
   if (isReviewMode && learnerId) {
-    // Review mode: build a prompt focused on probing overdue concepts
-    systemPrompt = buildReviewSystemPrompt(meta, section, conversation, progressContext || undefined);
+    const reviewPrompt = await getPrompt(c.env.DB, "review.persona");
+    const resolvedReview = resolveTemplate(reviewPrompt.content, { profile: meta.profile });
+    systemPrompt = buildReviewSystemPrompt(meta, section, conversation, resolvedReview, progressContext || undefined);
   } else {
-    systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
+    const [personaPrompt, rulesPrompt] = await Promise.all([
+      getPrompt(c.env.DB, "socratic.persona"),
+      getPrompt(c.env.DB, "socratic.rules"),
+    ]);
+    const resolvedPersona = resolveTemplate(personaPrompt.content, {
+      section_title: section.title,
+      profile: meta.profile,
+    });
+    const resolvedRules = resolveTemplate(rulesPrompt.content, {
+      max_response_sentences: String(MAX_RESPONSE_SENTENCES),
+    });
+    systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, resolvedPersona, resolvedRules, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
   }
   const tools = buildSocraticTools(section, meta);
 

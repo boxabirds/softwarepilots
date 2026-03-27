@@ -18,6 +18,7 @@ import {
 } from "../../lib/enrollment-store";
 import { evaluateClaimDecay, computeClaimProgress } from "../curriculum-progress";
 import { buildReviewSystemPrompt } from "../socratic-chat";
+import { TEST_REVIEW_PERSONA } from "./test-schema";
 import type { SectionLearningMap, CurriculumMeta, SectionMeta, Claim } from "@softwarepilots/shared";
 
 /* ---- D1 shim ---- */
@@ -177,26 +178,26 @@ describe("Review-needed detection", () => {
 
 describe("Review mode prompt", () => {
   it("includes review session rules", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain("Review Session Rules");
     expect(prompt).toContain("PROBE FOR RECALL");
     expect(prompt).toContain("not teach new material");
   });
 
   it("includes section key intuition", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain(TEST_SECTION.key_intuition);
   });
 
   it("includes learning map claims for reference", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain("claim-1");
     expect(prompt).toContain("claim-2");
     expect(prompt).toContain("claim-3");
   });
 
   it("includes first message instructions when no conversation", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain("First Message");
     expect(prompt).toContain("greeting");
   });
@@ -204,23 +205,23 @@ describe("Review mode prompt", () => {
   it("omits first message instructions when conversation exists", () => {
     const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [
       { role: "user", content: "Hello" },
-    ]);
+    ], TEST_REVIEW_PERSONA);
     expect(prompt).not.toContain("First Message");
   });
 
   it("includes progress context when provided", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], "Section 0.1: in_progress");
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA, "Section 0.1: in_progress");
     expect(prompt).toContain("Learner Progress Context");
     expect(prompt).toContain("Section 0.1: in_progress");
   });
 
   it("instructs to keep session brief (2-5 exchanges)", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain("2-5 exchanges");
   });
 
   it("instructs to use track_concepts tool", () => {
-    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildReviewSystemPrompt(TEST_META, TEST_SECTION, [], TEST_REVIEW_PERSONA);
     expect(prompt).toContain("track_concepts");
   });
 });

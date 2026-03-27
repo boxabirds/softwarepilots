@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import { Database } from "bun:sqlite";
 import type { Env } from "../../env";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
-import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions, seedPrompts } from "./test-schema";
 
 /* ---- Gemini mock response builders ---- */
 
@@ -127,6 +127,7 @@ beforeEach(() => {
   `);
   sqliteDb.exec(ENROLLMENT_TABLES_SQL);
   seedCurriculumVersions(sqliteDb);
+  seedPrompts(sqliteDb);
   sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner', 'Test')");
   sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner-123', 'Test 123')");
   sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner-456', 'Test 456')");

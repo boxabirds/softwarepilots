@@ -13,7 +13,7 @@ import {
   applyClaimUpdates,
 } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
-import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions, TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES } from "./test-schema";
 import {
   getCurriculumMeta,
   getCurriculumSections,
@@ -462,7 +462,7 @@ describe("buildProgressContext with claims", () => {
 
 describe("buildSocraticSystemPrompt with learning map", () => {
   it("includes core claims and demonstration criteria", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     expect(prompt).toContain("Section Learning Map");
     expect(prompt).toContain("Core claims to cover");
     // Check that actual claim content from the learning map is present
@@ -475,7 +475,7 @@ describe("buildSocraticSystemPrompt with learning map", () => {
   });
 
   it("includes misconceptions with corrections", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     if (TEST_SECTION.learning_map.key_misconceptions.length > 0) {
       expect(prompt).toContain("Common misconceptions to watch for");
       const firstMisconception = TEST_SECTION.learning_map.key_misconceptions[0];
@@ -485,7 +485,7 @@ describe("buildSocraticSystemPrompt with learning map", () => {
   });
 
   it("includes key intuition decomposition steps", () => {
-    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, []);
+    const prompt = buildSocraticSystemPrompt(TEST_META, TEST_SECTION, [], TEST_SOCRATIC_PERSONA, TEST_SOCRATIC_RULES);
     if (TEST_SECTION.learning_map.key_intuition_decomposition.length > 0) {
       expect(prompt).toContain("Key intuition builds through these steps");
       const firstStep = TEST_SECTION.learning_map.key_intuition_decomposition[0];
