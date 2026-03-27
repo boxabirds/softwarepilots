@@ -105,13 +105,14 @@ async function main() {
     console.error("\nApplying to D1...");
     const envFlag = env ? `--env ${env}` : "";
     const remoteFlag = env ? "--remote" : "--local";
+    const dbName = env ? `softwarepilots-db-${env}` : "softwarepilots-db";
 
     // Write SQL to temp file (avoids shell escaping issues with large JSON)
     const tmpFile = resolve(PROJECT_ROOT, ".seed-curriculum-tmp.sql");
     await Bun.write(tmpFile, sql);
 
     try {
-      const cmd = `cd "${API_DIR}" && npx wrangler d1 execute softwarepilots-db ${remoteFlag} ${envFlag} --file="${tmpFile}"`;
+      const cmd = `cd "${API_DIR}" && npx wrangler d1 execute ${dbName} ${remoteFlag} ${envFlag} --file="${tmpFile}"`;
       execSync(cmd, { stdio: "inherit" });
       console.error("\nSeed complete.");
     } finally {
