@@ -16,6 +16,7 @@ import {
   generateNarrative,
 } from "../lib/narrative";
 import { getOrCreateEnrollment, getEnrollment, getEnrollmentConcepts, countTopicsCovered } from "../lib/enrollment-store";
+import { loadCurriculumForEnrollment, extractSections, findSection } from "../lib/curriculum-store";
 import type { ProgressStats, SectionProgressData } from "../lib/narrative";
 import {
   compressConversation,
@@ -74,8 +75,25 @@ curriculum.get("/", (c) => {
 });
 
 /* GET /:profile - list sections for a profile */
-curriculum.get("/:profile", (c) => {
+curriculum.get("/:profile", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string | undefined;
   const profile = c.req.param("profile");
+
+  // Try versioned content from enrollment
+  if (learnerId) {
+    try {
+      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
+      if (versioned) {
+        const sections = extractSections(versioned.content);
+        // Return without markdown (same shape as getCurriculumSections)
+        return c.json(sections.map(({ markdown: _m, ...rest }) => rest));
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // Fallback to compiled TypeScript
   try {
     return c.json(getCurriculumSections(profile));
   } catch {
@@ -221,15 +239,33 @@ curriculum.get("/:profile/progress/summary", async (c) => {
 
   const rows = rawRows || [];
 
-  // Build section lookup from curriculum
+  // Build section lookup - try versioned content first, fall back to compiled
   let sectionLookup: Map<string, { title: string; module_id: string; module_title: string }>;
+
+  // Primary: load from enrollment's pinned version
+  let versionedSections: ReturnType<typeof extractSections> | null = null;
   try {
-    const sections = getCurriculumSections(profile);
-    sectionLookup = new Map(
-      sections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
-    );
+    const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
+    if (versioned) {
+      versionedSections = extractSections(versioned.content);
+    }
   } catch {
-    sectionLookup = new Map();
+    // Fall through to compiled content
+  }
+
+  if (versionedSections) {
+    sectionLookup = new Map(
+      versionedSections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
+    );
+  } else {
+    try {
+      const sections = getCurriculumSections(profile);
+      sectionLookup = new Map(
+        sections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
+      );
+    } catch {
+      sectionLookup = new Map();
+    }
   }
 
   // Map progress rows by section_id
@@ -401,9 +437,25 @@ curriculum.get("/:profile/review-needed", async (c) => {
 });
 
 /* GET /:profile/:sectionId - get section with markdown (must be before conversation routes) */
-curriculum.get("/:profile/:sectionId", (c) => {
+curriculum.get("/:profile/:sectionId", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string | undefined;
   const profile = c.req.param("profile");
   const sectionId = c.req.param("sectionId");
+
+  // Try versioned content from enrollment
+  if (learnerId) {
+    try {
+      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
+      if (versioned) {
+        const section = findSection(versioned.content, sectionId);
+        if (section) return c.json(section);
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // Fallback to compiled TypeScript
   try {
     return c.json(getSection(profile, sectionId));
   } catch {

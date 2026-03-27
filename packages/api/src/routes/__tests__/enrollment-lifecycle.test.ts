@@ -15,6 +15,9 @@ import {
   loadCurriculumForEnrollment,
   getVersionHistory,
   getVersionContentHash,
+  extractMeta,
+  extractSections,
+  findSection,
 } from "../../lib/curriculum-store";
 
 /* ---- D1 shim ---- */
@@ -395,5 +398,73 @@ describe("Fallback behavior", () => {
 
     const result = await loadCurriculumByVersion(db, TEST_PROFILE, 1);
     expect(result).toBeNull();
+  });
+});
+
+/* ---- Content serving from versioned data ---- */
+
+describe("Content serving from versioned data", () => {
+  it("extractMeta returns CurriculumMeta from versioned content", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    const versioned = await loadCurriculumByVersion(db, TEST_PROFILE, 1);
+
+    const meta = extractMeta(versioned!.content);
+    expect(meta.profile).toBe("level-0");
+    expect(meta.title).toBe("Level 0");
+    expect(meta.tutor_guidance).toBe("Simple language");
+  });
+
+  it("extractSections returns SectionMeta[] with module info and concepts", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    const versioned = await loadCurriculumByVersion(db, TEST_PROFILE, 1);
+
+    const sections = extractSections(versioned!.content);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].id).toBe("0.1");
+    expect(sections[0].module_id).toBe("1");
+    expect(sections[0].module_title).toBe("Basics");
+    expect(sections[0].title).toBe("Vocab");
+    expect(sections[0].markdown).toContain("Server");
+    expect(sections[0].key_intuition).toBe("Name things");
+    expect(sections[0].concepts).toContain("Server");
+  });
+
+  it("findSection returns matching section", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    const versioned = await loadCurriculumByVersion(db, TEST_PROFILE, 1);
+
+    const section = findSection(versioned!.content, "0.1");
+    expect(section).not.toBeNull();
+    expect(section!.title).toBe("Vocab");
+  });
+
+  it("findSection returns null for non-existent section", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    const versioned = await loadCurriculumByVersion(db, TEST_PROFILE, 1);
+
+    const section = findSection(versioned!.content, "99.99");
+    expect(section).toBeNull();
+  });
+
+  it("v1 learner gets v1 section content even after v2 is published", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    await getOrCreateEnrollment(db, TEST_LEARNER_ID, TEST_PROFILE); // pinned to v1
+
+    await publishVersion(db, TEST_PROFILE, UPDATED_CURRICULUM, UPDATED_HASH);
+
+    // Load from enrollment -> should get v1 content
+    const versioned = await loadCurriculumForEnrollment(db, TEST_LEARNER_ID, TEST_PROFILE);
+    const section = findSection(versioned!.content, "0.1");
+    expect(section!.title).toBe("Vocab"); // v1 title, not "Vocab v2"
+  });
+
+  it("new learner after v2 gets v2 section content", async () => {
+    await publishVersion(db, TEST_PROFILE, SAMPLE_CURRICULUM, SAMPLE_HASH);
+    await publishVersion(db, TEST_PROFILE, UPDATED_CURRICULUM, UPDATED_HASH);
+    await getOrCreateEnrollment(db, TEST_LEARNER_2, TEST_PROFILE); // pinned to v2
+
+    const versioned = await loadCurriculumForEnrollment(db, TEST_LEARNER_2, TEST_PROFILE);
+    const section = findSection(versioned!.content, "0.1");
+    expect(section!.title).toBe("Vocab v2"); // v2 title
   });
 });

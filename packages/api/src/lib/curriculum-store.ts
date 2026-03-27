@@ -6,7 +6,8 @@
  * All versions are preserved for audit and for learners pinned to older versions.
  */
 
-import type { CurriculumData } from "@softwarepilots/shared";
+import type { CurriculumData, CurriculumMeta, SectionMeta } from "@softwarepilots/shared";
+import { extractConcepts } from "@softwarepilots/shared";
 
 /* ---- Types ---- */
 
@@ -220,4 +221,61 @@ export async function getVersionContentHash(
     .first<{ content_hash: string }>();
 
   return row?.content_hash ?? null;
+}
+
+/* ---- Content accessors (extract meta/sections from CurriculumData) ---- */
+
+/**
+ * Extract CurriculumMeta from versioned CurriculumData.
+ */
+export function extractMeta(data: CurriculumData): CurriculumMeta {
+  return { ...data.meta };
+}
+
+/**
+ * Extract all sections from versioned CurriculumData as SectionMeta[].
+ * Adds module_id, module_title, and concepts (extracted from markdown).
+ * learning_map is left undefined - resolved separately from the DB.
+ */
+export function extractSections(data: CurriculumData): SectionMeta[] {
+  const sections: SectionMeta[] = [];
+  for (const mod of data.modules) {
+    for (const sec of mod.sections) {
+      sections.push({
+        id: sec.id,
+        module_id: mod.id,
+        module_title: mod.title,
+        title: sec.title,
+        markdown: sec.markdown,
+        key_intuition: sec.key_intuition,
+        concepts: extractConcepts(sec.markdown),
+        ...(sec.simulation_scenarios && { simulation_scenarios: sec.simulation_scenarios }),
+      });
+    }
+  }
+  return sections;
+}
+
+/**
+ * Find a single section by ID from versioned CurriculumData.
+ * Returns null if not found.
+ */
+export function findSection(data: CurriculumData, sectionId: string): SectionMeta | null {
+  for (const mod of data.modules) {
+    for (const sec of mod.sections) {
+      if (sec.id === sectionId) {
+        return {
+          id: sec.id,
+          module_id: mod.id,
+          module_title: mod.title,
+          title: sec.title,
+          markdown: sec.markdown,
+          key_intuition: sec.key_intuition,
+          concepts: extractConcepts(sec.markdown),
+          ...(sec.simulation_scenarios && { simulation_scenarios: sec.simulation_scenarios }),
+        };
+      }
+    }
+  }
+  return null;
 }

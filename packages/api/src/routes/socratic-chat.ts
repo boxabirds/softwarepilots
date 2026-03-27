@@ -16,6 +16,7 @@ import {
 } from "../lib/gemini";
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
 import { getOrCreateEnrollment } from "../lib/enrollment-store";
+import { loadCurriculumForEnrollment, extractMeta, findSection } from "../lib/curriculum-store";
 import { buildCurriculumContext, buildConversationContext, compressConversation, persistSummary } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
@@ -895,25 +896,40 @@ socraticChat.post("/", async (c) => {
     return c.json({ error: "message is required" }, 400);
   }
 
-  // Ensure enrollment exists (creates if first section start)
+  // Ensure enrollment exists and load content from pinned version
   const learnerId = c.get("learnerId" as never) as string | undefined;
+  let meta: CurriculumMeta;
+  let section: SectionMeta;
+
+  // Primary path: load from enrollment's pinned curriculum version in DB
+  let loadedFromDB = false;
   if (learnerId) {
     try {
       await getOrCreateEnrollment(c.env.DB, learnerId, body.profile);
+      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, body.profile);
+      if (versioned) {
+        const dbMeta = extractMeta(versioned.content);
+        const dbSection = findSection(versioned.content, body.section_id);
+        if (dbSection) {
+          meta = dbMeta;
+          section = dbSection;
+          loadedFromDB = true;
+        }
+      }
     } catch {
-      // Non-critical: proceed without enrollment
+      // Fall through to compiled content
     }
   }
 
-  // Load curriculum and section
-  let meta: CurriculumMeta;
-  let section: SectionMeta;
-  try {
-    meta = getCurriculumMeta(body.profile);
-    section = getSection(body.profile, body.section_id);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid profile or section";
-    return c.json({ error: message }, 400);
+  // Fallback: compiled TypeScript content
+  if (!loadedFromDB) {
+    try {
+      meta = getCurriculumMeta(body.profile);
+      section = getSection(body.profile, body.section_id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid profile or section";
+      return c.json({ error: message }, 400);
+    }
   }
 
   // Build system prompt and tools
