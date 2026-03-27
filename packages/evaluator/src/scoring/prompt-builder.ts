@@ -23,7 +23,8 @@ interface SubmissionContent {
 
 export function buildEvaluationPrompt(
   rubric: Rubric,
-  content: SubmissionContent
+  content: SubmissionContent,
+  systemTemplate: string
 ): { system: string; user: string } {
   const dimensionList = rubric.dimensions
     .map(
@@ -36,29 +37,7 @@ export function buildEvaluationPrompt(
     .map(([key, guidance]) => `IMPORTANT for ${key}: ${guidance}`)
     .join("\n\n");
 
-  const system = `You are an educational evaluator for the Software Pilotry Foundation Course.
-You are scoring exercise "${rubric.title}" (${rubric.id}).
-
-CONTEXT: ${rubric.step_summary}
-
-The learner's descriptions under "Modifications" explain what THEY CHANGED and why - not the original code. Evaluate them in that context.
-
-${guidanceBlocks}
-
-Score the learner's submission on each dimension using a 1-10 scale.
-Provide specific, constructive feedback for each dimension. Keep feedback concise (1-2 sentences).
-
-Dimensions to evaluate:
-${dimensionList}
-
-You MUST respond with valid JSON matching this exact schema:
-{
-  "scores": [
-    { "key": "<dimension_key>", "score": <1-10>, "feedback": "<specific feedback>" }
-  ]
-}
-
-Do not include any text outside the JSON object.`;
+  const system = systemTemplate;
 
   const modificationsText =
     content.modifications.length > 0

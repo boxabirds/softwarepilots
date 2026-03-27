@@ -3,6 +3,7 @@ import {
   GEMINI_API_URL,
 } from "../lib/gemini";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
+import { getPrompt, resolveTemplate } from "../lib/prompts";
 import type {
   SimulationScenario,
   SimulationPhase,
@@ -172,123 +173,81 @@ export function buildSimulationTutorTools(): Array<{
 export function buildSimulationTutorPrompt(
   scenario: SimulationScenario,
   actionLog: ActionLogEntry[],
-  currentPhase: SimulationPhase
+  currentPhase: SimulationPhase,
+  tutorTemplate: string
 ): string {
-  const lines: string[] = [
-    "You are an experienced simulation tutor observing a trainee working through an incident response scenario.",
-    "",
-    "== Scenario ==",
-    `Title: ${scenario.title}`,
-    `Level: ${scenario.level} / Tier: ${scenario.tier}`,
-    `Briefing: ${scenario.briefing}`,
-    "",
-    "== Root Causes (Expert Knowledge - DO NOT reveal directly) ==",
-  ];
+  // Assemble dynamic sections
+  const rootCauseLines = scenario.root_causes
+    .map((rc) => `- [${rc.id}] ${rc.description}`)
+    .join("\n");
 
-  for (const rc of scenario.root_causes) {
-    lines.push(`- [${rc.id}] ${rc.description}`);
-  }
+  const aiAgentBlock = scenario.ai_agent_behavior
+    ? [
+        "",
+        "== AI Agent Behavior ==",
+        `Behavior: ${scenario.ai_agent_behavior.behavior}`,
+        `Personality: ${scenario.ai_agent_behavior.personality}`,
+        `Knowledge gaps: ${scenario.ai_agent_behavior.knowledge_gaps.join(", ")}`,
+      ].join("\n")
+    : "";
 
-  lines.push(
-    "",
-    "== Expert Diagnostic Path ==",
-    "The correct approach involves identifying these root causes through systematic observation, diagnosis, and verification.",
-    "The trainee should discover these through their own investigation, not from direct hints.",
-  );
+  const coachingBlock = scenario.tutor_context?.coaching_prompt
+    ? [
+        "",
+        "== Scenario-Specific Coaching ==",
+        scenario.tutor_context.coaching_prompt,
+      ].join("\n")
+    : "";
 
-  if (scenario.ai_agent_behavior) {
-    lines.push(
-      "",
-      "== AI Agent Behavior ==",
-      `Behavior: ${scenario.ai_agent_behavior.behavior}`,
-      `Personality: ${scenario.ai_agent_behavior.personality}`,
-      `Knowledge gaps: ${scenario.ai_agent_behavior.knowledge_gaps.join(", ")}`,
-    );
-  }
+  const metricsBlock = currentPhase.telemetry_snapshot.metrics.length > 0
+    ? "\n\nCurrent metrics:\n" + currentPhase.telemetry_snapshot.metrics
+        .map((m) => {
+          const thresholdInfo = m.threshold !== undefined ? ` (threshold: ${m.threshold})` : "";
+          return `  - ${m.name}: ${m.value} ${m.unit} [${m.status}]${thresholdInfo}`;
+        })
+        .join("\n")
+    : "";
 
-  lines.push(
-    "",
-    "== Intervention Thresholds ==",
-    `Stall threshold: ${scenario.intervention_thresholds.stall_seconds} seconds without meaningful action`,
-    `Wrong direction threshold: ${scenario.intervention_thresholds.wrong_direction_count} actions in the wrong direction`,
-    `Fixation loop threshold: ${scenario.intervention_thresholds.fixation_loop_count} repeated similar actions`,
-  );
+  const logsBlock = currentPhase.telemetry_snapshot.logs.length > 0
+    ? "\n\nRecent logs:\n" + currentPhase.telemetry_snapshot.logs
+        .map((log) => `  - [${log.level}] ${log.service}: ${log.message}`)
+        .join("\n")
+    : "";
 
-  if (scenario.tutor_context?.coaching_prompt) {
-    lines.push(
-      "",
-      "== Scenario-Specific Coaching ==",
-      scenario.tutor_context.coaching_prompt,
-    );
-  }
-
-  lines.push(
-    "",
-    "== Common Misconceptions ==",
-    "Watch for the trainee:",
-    "- Fixating on a single metric without cross-referencing",
-    "- Trusting AI agent suggestions without verification",
-    "- Skipping log analysis and going straight to action",
-    "- Not escalating when signals warrant it",
-    "- Applying fixes without understanding root cause",
-  );
-
-  lines.push(
-    "",
-    "== Current Phase ==",
-    `Phase: ${currentPhase.id}`,
-    `Narrative: ${currentPhase.narrative}`,
-    `Dashboard state: ${currentPhase.telemetry_snapshot.dashboard_state}`,
-  );
-
-  if (currentPhase.telemetry_snapshot.metrics.length > 0) {
-    lines.push("", "Current metrics:");
-    for (const m of currentPhase.telemetry_snapshot.metrics) {
-      const thresholdInfo = m.threshold !== undefined ? ` (threshold: ${m.threshold})` : "";
-      lines.push(`  - ${m.name}: ${m.value} ${m.unit} [${m.status}]${thresholdInfo}`);
-    }
-  }
-
-  if (currentPhase.telemetry_snapshot.logs.length > 0) {
-    lines.push("", "Recent logs:");
-    for (const log of currentPhase.telemetry_snapshot.logs) {
-      lines.push(`  - [${log.level}] ${log.service}: ${log.message}`);
-    }
-  }
-
-  lines.push(
-    "",
-    "== Trainee Action Log ==",
-  );
-
+  let actionLogBlock: string;
   if (actionLog.length === 0) {
-    lines.push("No actions taken yet.");
+    actionLogBlock = "No actions taken yet.";
   } else {
-    for (const entry of actionLog) {
-      lines.push(
-        `  [${entry.timestamp}] ${entry.category}/${entry.label} ` +
-        `(diagnostic_value: ${entry.diagnostic_value}, phase: ${entry.phase_id})`
-      );
-    }
+    actionLogBlock = actionLog
+      .map(
+        (entry) =>
+          `  [${entry.timestamp}] ${entry.category}/${entry.label} ` +
+          `(diagnostic_value: ${entry.diagnostic_value}, phase: ${entry.phase_id})`
+      )
+      .join("\n");
   }
 
-  lines.push(
-    "",
-    "== Instructions ==",
-    "Choose exactly one observation tool. Default to observe_silently unless intervention criteria are met.",
-    "",
-    "Intervention criteria:",
-    `- If the trainee has stalled for more than ${scenario.intervention_thresholds.stall_seconds} seconds, consider gentle_nudge or direct_intervention.`,
-    `- If the trainee has taken ${scenario.intervention_thresholds.wrong_direction_count} or more wrong-direction actions, use gentle_nudge (first time) or direct_intervention (repeated).`,
-    `- If the trainee is repeating the same type of action ${scenario.intervention_thresholds.fixation_loop_count} or more times (fixation loop), use gentle_nudge or direct_intervention.`,
-    "- If the trainee makes a decision that demonstrates good engineering judgment, use highlight_good_judgment.",
-    "- At key decision points (before applying a fix, before escalating, before signing off), use accountability_moment.",
-    "- In all other cases, use observe_silently.",
-    "",
-    "You MUST call exactly one of the provided tool functions. Never respond with plain text.",
-  );
+  // Resolve the template with all variables
+  const resolved = resolveTemplate(tutorTemplate, {
+    scenario_title: scenario.title,
+    scenario_level: scenario.level,
+    scenario_tier: scenario.tier,
+    scenario_briefing: scenario.briefing,
+    root_causes: rootCauseLines,
+    ai_agent_block: aiAgentBlock,
+    stall_seconds: String(scenario.intervention_thresholds.stall_seconds),
+    wrong_direction_count: String(scenario.intervention_thresholds.wrong_direction_count),
+    fixation_loop_count: String(scenario.intervention_thresholds.fixation_loop_count),
+    coaching_block: coachingBlock,
+    phase_id: currentPhase.id,
+    phase_narrative: currentPhase.narrative,
+    dashboard_state: currentPhase.telemetry_snapshot.dashboard_state,
+    metrics_block: metricsBlock,
+    logs_block: logsBlock,
+    action_log: actionLogBlock,
+  });
 
-  return lines.join("\n");
+  return resolved;
 }
 
 /* ---- Gemini caller and response parser ---- */
@@ -343,7 +302,8 @@ export async function evaluateAction(
   thresholds: InterventionThresholds
 ): Promise<TutorObservation> {
   const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  const systemPrompt = buildSimulationTutorPrompt(scenario, actionLog, currentPhase);
+  const tutorPrompt = await getPrompt(env.DB, "simulation.tutor");
+  const systemPrompt = buildSimulationTutorPrompt(scenario, actionLog, currentPhase, tutorPrompt.content);
   const tools = buildSimulationTutorTools();
 
   // Build a single user message summarising the latest action for Gemini to evaluate
@@ -431,145 +391,121 @@ export interface PriorSessionSummary {
 export function buildDebriefPrompt(
   scenario: SimulationScenario,
   events: SimulationEvent[],
+  debriefTemplate: string,
   priorSessions?: PriorSessionSummary[],
 ): string {
-  const lines: string[] = [
-    "You are an expert simulation debrief analyst. Your job is to produce a structured JSON debrief of a trainee's performance in an incident response simulation.",
-    "",
-    "== Scenario Context ==",
-    `Title: ${scenario.title}`,
-    `Level: ${scenario.level} / Tier: ${scenario.tier}`,
-    `Briefing: ${scenario.briefing}`,
-    "",
-    "== Root Causes (the correct answers) ==",
-  ];
+  // Assemble dynamic sections
+  const rootCauseLines = scenario.root_causes
+    .map((rc) => `- [${rc.id}] ${rc.description}`)
+    .join("\n");
 
-  for (const rc of scenario.root_causes) {
-    lines.push(`- [${rc.id}] ${rc.description}`);
-  }
+  const aiAgentBlock = scenario.ai_agent_behavior
+    ? [
+        "",
+        "== AI Agent Configuration ==",
+        `Behavior: ${scenario.ai_agent_behavior.behavior}`,
+        `Personality: ${scenario.ai_agent_behavior.personality}`,
+        `Knowledge gaps: ${scenario.ai_agent_behavior.knowledge_gaps.join(", ")}`,
+        "Note: The trainee should have verified AI suggestions rather than trusting them blindly.",
+      ].join("\n")
+    : "";
 
-  lines.push(
-    "",
-    "== Expert Diagnostic Path ==",
-    "The ideal approach involves systematically identifying each root cause through observation, diagnosis, and verification.",
-    "Expert steps should include: reviewing metrics, checking logs, correlating signals, diagnosing root cause, verifying fix, escalating if needed.",
-  );
-
-  if (scenario.ai_agent_behavior) {
-    lines.push(
-      "",
-      "== AI Agent Configuration ==",
-      `Behavior: ${scenario.ai_agent_behavior.behavior}`,
-      `Personality: ${scenario.ai_agent_behavior.personality}`,
-      `Knowledge gaps: ${scenario.ai_agent_behavior.knowledge_gaps.join(", ")}`,
-      "Note: The trainee should have verified AI suggestions rather than trusting them blindly.",
-    );
-  }
-
-  lines.push(
-    "",
-    "== Full Event Log ==",
-  );
-
+  let eventLogBlock: string;
   if (events.length === 0) {
-    lines.push("No events recorded.");
+    eventLogBlock = "No events recorded.";
   } else {
-    for (const event of events) {
-      const data = JSON.stringify(event.event_data);
-      lines.push(`  [${event.created_at}] ${event.event_type}: ${data}`);
-    }
+    eventLogBlock = events
+      .map((event) => `  [${event.created_at}] ${event.event_type}: ${JSON.stringify(event.event_data)}`)
+      .join("\n");
   }
 
   // Extract tutor observations from events
   const tutorEvents = events.filter((e) => e.event_type === "tutor_intervention");
-  if (tutorEvents.length > 0) {
-    lines.push(
-      "",
-      "== Tutor Observations Made During Session ==",
-    );
-    for (const te of tutorEvents) {
-      lines.push(`  [${te.created_at}] ${JSON.stringify(te.event_data)}`);
-    }
-  }
+  const tutorBlock = tutorEvents.length > 0
+    ? [
+        "",
+        "== Tutor Observations Made During Session ==",
+        ...tutorEvents.map((te) => `  [${te.created_at}] ${JSON.stringify(te.event_data)}`),
+      ].join("\n")
+    : "";
 
   // Extract agent interactions from events
   const agentEvents = events.filter((e) => e.event_type === "agent_query");
-  if (agentEvents.length > 0) {
-    lines.push(
-      "",
-      "== AI Agent Interactions ==",
-    );
-    for (const ae of agentEvents) {
-      lines.push(`  [${ae.created_at}] ${JSON.stringify(ae.event_data)}`);
-    }
-  }
+  const agentBlock = agentEvents.length > 0
+    ? [
+        "",
+        "== AI Agent Interactions ==",
+        ...agentEvents.map((ae) => `  [${ae.created_at}] ${JSON.stringify(ae.event_data)}`),
+      ].join("\n")
+    : "";
 
   // Prior sessions for progression
+  let priorSessionsBlock = "";
   if (priorSessions && priorSessions.length > 0) {
-    lines.push(
+    const priorLines = [
       "",
       "== Prior Session Attempts ==",
       `The trainee has ${priorSessions.length} prior attempt(s) at this scenario.`,
-    );
+    ];
     for (const ps of priorSessions) {
-      lines.push(
+      priorLines.push(
         `  Session ${ps.session_id} (completed ${ps.completed_at}):`,
         `    Good judgment moments: ${ps.debrief.good_judgment_moments.length}`,
         `    Missed signals: ${ps.debrief.missed_signals.length}`,
         `    Accountability: ${ps.debrief.accountability_assessment.overall}`,
       );
     }
-    lines.push(
-      "",
-      "Include a 'progression' field comparing this attempt to prior ones.",
-    );
+    priorLines.push("", "Include a 'progression' field comparing this attempt to prior ones.");
+    priorSessionsBlock = priorLines.join("\n");
   }
 
-  if (scenario.tutor_context?.debrief_prompt) {
-    lines.push(
-      "",
-      "== Scenario-Specific Debrief Guidance ==",
-      scenario.tutor_context.debrief_prompt,
-    );
-  }
+  const debriefGuidanceBlock = scenario.tutor_context?.debrief_prompt
+    ? [
+        "",
+        "== Scenario-Specific Debrief Guidance ==",
+        scenario.tutor_context.debrief_prompt,
+      ].join("\n")
+    : "";
 
-  lines.push(
-    "",
-    "== Output Format ==",
-    "Return ONLY valid JSON matching this exact structure (no markdown, no backticks, no explanation):",
-    JSON.stringify({
-      good_judgment_moments: [
-        { action: "string - what the trainee did", why_it_was_good: "string - why it was good", timestamp: "string - when it happened" },
-      ],
-      missed_signals: [
-        { signal: "string - what they missed", what_to_check: "string - what they should have done", when_it_was_visible: "string - when it was available" },
-      ],
-      expert_path_comparison: {
-        expert_steps: ["string - step an expert would take"],
-        trainee_steps: ["string - step the trainee actually took"],
-        divergence_points: ["string - where and why the trainee diverged from expert path"],
-      },
-      accountability_assessment: {
-        verified: "boolean - did trainee verify before acting",
-        escalated_when_needed: "boolean - did trainee escalate appropriately",
-        documented_reasoning: "boolean - did trainee document/explain their reasoning",
-        overall: "string - 1-2 sentence overall assessment",
-      },
-      progression: priorSessions && priorSessions.length > 0
-        ? { previous_attempt_summary: "string - brief summary of prior attempts", improvement_areas: ["string - areas of improvement or regression"] }
-        : undefined,
-    }, null, 2),
-    "",
-    "Rules:",
-    "- Populate arrays based on actual event data. If the trainee did nothing notable, use empty arrays.",
-    "- For timestamps, use the event timestamps from the log.",
-    "- For expert_steps, describe what an expert would do for this specific scenario.",
-    "- For trainee_steps, describe what the trainee actually did based on the event log.",
-    "- Be specific and reference actual events, not generic advice.",
-    "- Return ONLY the JSON object. No surrounding text, markdown, or code fences.",
-  );
+  const outputSchema = JSON.stringify({
+    good_judgment_moments: [
+      { action: "string - what the trainee did", why_it_was_good: "string - why it was good", timestamp: "string - when it happened" },
+    ],
+    missed_signals: [
+      { signal: "string - what they missed", what_to_check: "string - what they should have done", when_it_was_visible: "string - when it was available" },
+    ],
+    expert_path_comparison: {
+      expert_steps: ["string - step an expert would take"],
+      trainee_steps: ["string - step the trainee actually took"],
+      divergence_points: ["string - where and why the trainee diverged from expert path"],
+    },
+    accountability_assessment: {
+      verified: "boolean - did trainee verify before acting",
+      escalated_when_needed: "boolean - did trainee escalate appropriately",
+      documented_reasoning: "boolean - did trainee document/explain their reasoning",
+      overall: "string - 1-2 sentence overall assessment",
+    },
+    progression: priorSessions && priorSessions.length > 0
+      ? { previous_attempt_summary: "string - brief summary of prior attempts", improvement_areas: ["string - areas of improvement or regression"] }
+      : undefined,
+  }, null, 2);
 
-  return lines.join("\n");
+  const resolved = resolveTemplate(debriefTemplate, {
+    scenario_title: scenario.title,
+    scenario_level: scenario.level,
+    scenario_tier: scenario.tier,
+    scenario_briefing: scenario.briefing,
+    root_causes: rootCauseLines,
+    ai_agent_block: aiAgentBlock,
+    event_log: eventLogBlock,
+    tutor_observations_block: tutorBlock,
+    agent_interactions_block: agentBlock,
+    prior_sessions_block: priorSessionsBlock,
+    debrief_guidance_block: debriefGuidanceBlock,
+    output_schema: outputSchema,
+  });
+
+  return resolved;
 }
 
 /* ---- Minimal fallback debrief ---- */
@@ -610,7 +546,8 @@ export async function generateDebrief(
   priorSessions?: PriorSessionSummary[],
 ): Promise<SimulationDebrief> {
   const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  const systemPrompt = buildDebriefPrompt(scenario, events, priorSessions);
+  const debriefPromptRow = await getPrompt(env.DB, "simulation.debrief");
+  const systemPrompt = buildDebriefPrompt(scenario, events, debriefPromptRow.content, priorSessions);
 
   const userMessage = `Generate a structured debrief for session ${session.id}. The trainee completed ${events.length} events across the simulation.`;
 

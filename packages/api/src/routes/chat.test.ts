@@ -25,6 +25,18 @@ const baseContext = (): ChatRequest["context"] => ({
   conversation: [],
 });
 
+/* ---- Prompt fixtures ---- */
+
+const TEST_PERSONA = 'You are a Socratic tutor for "The Compiler Moment" (Module 2).';
+const TEST_ROLE = [
+  "Your role:",
+  "- Guide the learner to understand concepts through questions, not direct answers",
+  "- Keep responses to 2-3 sentences maximum",
+  "- Never give away the solution - help them discover it",
+  "- Be encouraging but honest",
+].join("\n");
+const TEST_TOOL_INSTRUCTION = "You MUST call one or more of the provided functions. Use help_with_curriculum for on-topic questions, provided_step_answer when the learner provides their answer/prediction/reflection, and off_topic_detected for anything unrelated to this exercise or programming.";
+
 /* ---- Gemini response builders ---- */
 
 const helpCurriculumResponse = (response: string, topic: string): GeminiFunctionCallResponse => ({
@@ -279,30 +291,30 @@ describe("buildTutorTools", () => {
 
 describe("buildTutorSystemPrompt", () => {
   it("includes exercise title and module ID", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("The Compiler Moment");
     expect(prompt).toContain("Module 2");
   });
 
   it("includes module description when present", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("compiler moment");
   });
 
   it("uses contextScope instead of meta.topics when provided", () => {
     const contextScope = ["variable assignment", "Python", "programming language", "predict"];
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), contextScope);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION, contextScope);
     expect(prompt).toContain("This exercise explores: variable assignment, Python, programming language, predict");
   });
 
   it("falls back to meta.topics when contextScope is not provided", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("This exercise explores: variable assignment");
     expect(prompt).not.toContain("Python");
   });
 
   it("includes starter code", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("price = 10");
     expect(prompt).toContain("str(price + tax)");
   });
@@ -310,14 +322,14 @@ describe("buildTutorSystemPrompt", () => {
   it("includes code diff instead of full current code when changed", () => {
     const ctx = baseContext();
     ctx.code = ctx.code.replace("price = 10", "price = 20");
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx, TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("Code Changes");
     expect(prompt).toContain("changed:");
     expect(prompt).toContain("price = 20");
   });
 
   it("shows no changes when code matches starter", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("(no changes from starter code)");
   });
 
@@ -327,7 +339,7 @@ describe("buildTutorSystemPrompt", () => {
       { code: "print(1)", output: "1" },
       { code: "print(2)", output: "TypeError: can only concatenate str" },
     ];
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx, TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("Run #1 output: 1");
     expect(prompt).toContain("Run #2 output: TypeError");
   });
@@ -335,14 +347,14 @@ describe("buildTutorSystemPrompt", () => {
   it("includes learner predictions", () => {
     const ctx = baseContext();
     ctx.submitted_inputs = { 0: "Total: 12.0 | Cheap? False" };
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx, TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain('Step 0: "Total: 12.0 | Cheap? False"');
   });
 
   it("includes current step context with expectation", () => {
     const ctx = baseContext();
     ctx.current_step = 0;
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx, TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("Step 0:");
     expect(prompt).toContain("prediction of what the code will print");
   });
@@ -350,12 +362,12 @@ describe("buildTutorSystemPrompt", () => {
   it("shows experiment step has no text input expected", () => {
     const ctx = baseContext();
     ctx.current_step = 1; // experiment step
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx);
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, ctx, TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).toContain("no text input");
   });
 
   it("omits run history when no snapshots", () => {
-    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext());
+    const prompt = buildTutorSystemPrompt(EXERCISE_21_META, EXERCISE_21_STEPS, baseContext(), TEST_PERSONA, TEST_ROLE, TEST_TOOL_INSTRUCTION);
     expect(prompt).not.toContain("Run History");
   });
 });

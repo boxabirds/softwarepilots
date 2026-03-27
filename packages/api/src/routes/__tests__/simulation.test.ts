@@ -218,6 +218,27 @@ beforeEach(() => {
   `);
 
   sqliteDb.exec(`
+    CREATE TABLE prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by TEXT,
+      reason TEXT
+    )
+  `);
+
+  // Seed minimal prompt templates for simulation tests
+  const tutorTpl = "You are a simulation tutor.\\n== Scenario ==\\nTitle: {{scenario_title}}\\nLevel: {{scenario_level}} / Tier: {{scenario_tier}}\\nBriefing: {{scenario_briefing}}\\n\\n== Root Causes ==\\n{{root_causes}}\\n{{ai_agent_block}}\\n\\n== Intervention Thresholds ==\\nStall: {{stall_seconds}}s, Wrong: {{wrong_direction_count}}, Fixation: {{fixation_loop_count}}\\n{{coaching_block}}\\n\\n== Phase ==\\n{{phase_id}}: {{phase_narrative}} ({{dashboard_state}}){{metrics_block}}{{logs_block}}\\n\\n== Action Log ==\\n{{action_log}}\\n\\nChoose exactly one tool.";
+  const debriefTpl = "You are a debrief analyst.\\n== Scenario ==\\nTitle: {{scenario_title}}\\nLevel: {{scenario_level}} / Tier: {{scenario_tier}}\\nBriefing: {{scenario_briefing}}\\n\\n== Root Causes ==\\n{{root_causes}}\\n{{ai_agent_block}}\\n\\n== Events ==\\n{{event_log}}\\n{{tutor_observations_block}}\\n{{agent_interactions_block}}\\n{{prior_sessions_block}}\\n{{debrief_guidance_block}}\\n\\n== Output ==\\n{{output_schema}}\\n\\nReturn ONLY valid JSON.";
+  const agentTpl = "You are an AI assistant.\\nPersonality: {{personality}}\\nBehavior: {{behavior}}\\n{{knowledge_gaps}}\\nPhase: {{current_phase}}\\nScenario: {{scenario_title}}";
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.tutor', '${tutorTpl}', 1, 0)`);
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.debrief', '${debriefTpl}', 1, 0)`);
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.agent_fallback', '${agentTpl}', 1, 0)`);
+
+  sqliteDb.exec(`
     INSERT INTO learners (id, email, display_name, auth_provider, auth_subject)
     VALUES ('${LEARNER_ID}', 'sim@test.com', 'Sim Tester', 'github', '456')
   `);
@@ -1160,10 +1181,31 @@ describe("evaluateAction integration with mock Gemini", () => {
 
   const { evaluateAction } = require("../simulation-tutor");
 
+  // Mock DB that returns prompt templates for evaluateAction
+  const mockPromptDB = {
+    prepare() {
+      return {
+        bind(key: string) {
+          return {
+            async first() {
+              const templates: Record<string, string> = {
+                "simulation.tutor": "Tutor for {{scenario_title}}.{{root_causes}}{{ai_agent_block}}Thresholds:{{stall_seconds}},{{wrong_direction_count}},{{fixation_loop_count}}{{coaching_block}}Phase:{{phase_id}}{{phase_narrative}}{{dashboard_state}}{{metrics_block}}{{logs_block}}Log:{{action_log}}",
+                "simulation.debrief": "Debrief for {{scenario_title}}.{{root_causes}}{{ai_agent_block}}Events:{{event_log}}{{tutor_observations_block}}{{agent_interactions_block}}{{prior_sessions_block}}{{debrief_guidance_block}}Schema:{{output_schema}}",
+              };
+              const content = templates[key];
+              if (!content) return null;
+              return { id: 1, key, content, version: 1, deleted: 0 };
+            },
+          };
+        },
+      };
+    },
+  };
+
   const mockEnvBase = {
     GEMINI_API_KEY: "test-key",
     GEMINI_MODEL: "test-model",
-    DB: {} as unknown,
+    DB: mockPromptDB as unknown,
     EVALUATOR: {} as unknown,
     ENVIRONMENT: "test",
     GITHUB_CLIENT_ID: "",

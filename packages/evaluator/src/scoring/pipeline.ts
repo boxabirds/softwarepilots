@@ -9,6 +9,31 @@ const MAX_RETRIES = 1;
 const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
+/* ---- Inline prompt helpers (evaluator is a separate Worker, no shared lib) ---- */
+
+const TEMPLATE_PATTERN = /\{\{(\w+(?:\.\w+)*)\}\}/g;
+
+async function getPromptContent(db: D1Database, key: string): Promise<string> {
+  const result = await db
+    .prepare(
+      `SELECT content FROM prompts WHERE key = ? AND deleted = 0 ORDER BY version DESC LIMIT 1`
+    )
+    .bind(key)
+    .first<{ content: string }>();
+  if (!result) {
+    throw new Error(`Prompt not found: "${key}". Run the seed script to populate prompts.`);
+  }
+  return result.content;
+}
+
+function resolveTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(TEMPLATE_PATTERN, (match, varName: string) => {
+    if (varName in vars) return vars[varName];
+    console.warn(`[prompts] Unresolved template variable: ${match}`);
+    return match;
+  });
+}
+
 interface SubmissionRow {
   id: string;
   content_json: string;
@@ -39,9 +64,23 @@ export async function evaluateSubmission(
     ? JSON.parse(submission.self_assessment_json)
     : null;
 
-  // 3. Build prompt and call Gemini
+  // 3. Fetch prompt template from DB and resolve variables
   const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  const { system, user } = buildEvaluationPrompt(rubric, content);
+  const dimensionList = rubric.dimensions
+    .map((d) => `- "${d.key}" (weight ${d.weight}): ${d.description}`)
+    .join("\n");
+  const guidanceBlocks = Object.entries(rubric.scoring_guidance)
+    .map(([key, guidance]) => `IMPORTANT for ${key}: ${guidance}`)
+    .join("\n\n");
+  const systemTemplate = await getPromptContent(env.DB, "evaluator.system");
+  const resolvedSystem = resolveTemplate(systemTemplate, {
+    rubric_title: rubric.title,
+    rubric_id: rubric.id,
+    step_summary: rubric.step_summary,
+    guidance_blocks: guidanceBlocks,
+    dimension_list: dimensionList,
+  });
+  const { system, user } = buildEvaluationPrompt(rubric, content, resolvedSystem);
   const modelResponse = await callGeminiWithRetry(env, model, system, user);
 
   // 4. Parse response

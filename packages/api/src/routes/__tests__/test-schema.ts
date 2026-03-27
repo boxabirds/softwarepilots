@@ -155,11 +155,22 @@ function escapeSql(str: string): string {
  * Seed the prompts table with the 3 Socratic prompt keys.
  * Call after creating tables for tests that hit the socratic route.
  */
+const TEST_SUMMARIZATION_INSTRUCTIONS = `You are summarizing a tutoring conversation for future context.
+Preserve the following in your summary:
+- Topics discussed and key questions asked
+- Concepts the learner understood well
+- Concepts the learner struggled with
+- Key insights or breakthroughs
+- Where the conversation left off
+
+Write a concise paragraph (3-5 sentences). Do not use bullet points.`;
+
 export function seedPrompts(sqliteDb: InstanceType<typeof Database>): void {
   const prompts = [
     { key: "socratic.persona", content: TEST_SOCRATIC_PERSONA },
     { key: "socratic.rules", content: TEST_SOCRATIC_RULES },
     { key: "review.persona", content: TEST_REVIEW_PERSONA },
+    { key: "summarization.instructions", content: TEST_SUMMARIZATION_INSTRUCTIONS },
   ];
   for (const p of prompts) {
     sqliteDb.prepare(

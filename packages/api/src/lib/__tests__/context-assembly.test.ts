@@ -45,6 +45,16 @@ describe("buildCurriculumContext", () => {
   });
 });
 
+const TEST_SUMMARIZATION_PROMPT = `You are summarizing a tutoring conversation for future context.
+Preserve the following in your summary:
+- Topics discussed and key questions asked
+- Concepts the learner understood well
+- Concepts the learner struggled with
+- Key insights or breakthroughs
+- Where the conversation left off
+
+Write a concise paragraph (3-5 sentences). Do not use bullet points.`;
+
 /* ---- compressConversation ---- */
 
 describe("compressConversation", () => {
@@ -81,7 +91,8 @@ describe("compressConversation", () => {
         { role: "tutor", content: "What do you know about concurrency?" },
         { role: "user", content: "It means running things at the same time." },
       ],
-      "Introduction to Concurrency"
+      "Introduction to Concurrency",
+      TEST_SUMMARIZATION_PROMPT
     );
 
     expect(result).toBe(mockSummary);
@@ -96,7 +107,8 @@ describe("compressConversation", () => {
       "fake-api-key",
       "gemini-2.0-flash",
       [{ role: "user", content: "Hello" }],
-      "Test Section"
+      "Test Section",
+      TEST_SUMMARIZATION_PROMPT
     );
 
     expect(result).toBeNull();
@@ -111,7 +123,8 @@ describe("compressConversation", () => {
       "fake-api-key",
       "gemini-2.0-flash",
       [{ role: "user", content: "Hello" }],
-      "Test Section"
+      "Test Section",
+      TEST_SUMMARIZATION_PROMPT
     );
 
     expect(result).toBeNull();
@@ -122,7 +135,8 @@ describe("compressConversation", () => {
       "fake-api-key",
       "gemini-2.0-flash",
       [],
-      "Test Section"
+      "Test Section",
+      TEST_SUMMARIZATION_PROMPT
     );
 
     expect(result).toBeNull();
@@ -144,7 +158,8 @@ describe("compressConversation", () => {
       "fake-api-key",
       "gemini-2.0-flash",
       [{ role: "user", content: "Hello" }],
-      "Test Section"
+      "Test Section",
+      TEST_SUMMARIZATION_PROMPT
     );
 
     expect(result).toBeNull();

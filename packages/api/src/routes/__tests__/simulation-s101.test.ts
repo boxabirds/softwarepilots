@@ -12,6 +12,58 @@ import { s101AgentAssistedDiagnosis } from "@softwarepilots/shared";
 import { buildSimulationTutorPrompt } from "../simulation-tutor";
 import type { ActionLogEntry } from "../simulation-tutor";
 
+/* ---- Test prompt template ---- */
+
+const TEST_TUTOR_TEMPLATE = `You are an experienced simulation tutor observing a trainee working through an incident response scenario.
+
+== Scenario ==
+Title: {{scenario_title}}
+Level: {{scenario_level}} / Tier: {{scenario_tier}}
+Briefing: {{scenario_briefing}}
+
+== Root Causes (Expert Knowledge - DO NOT reveal directly) ==
+{{root_causes}}
+
+== Expert Diagnostic Path ==
+The correct approach involves identifying these root causes through systematic observation, diagnosis, and verification.
+The trainee should discover these through their own investigation, not from direct hints.
+{{ai_agent_block}}
+
+== Intervention Thresholds ==
+Stall threshold: {{stall_seconds}} seconds without meaningful action
+Wrong direction threshold: {{wrong_direction_count}} actions in the wrong direction
+Fixation loop threshold: {{fixation_loop_count}} repeated similar actions
+{{coaching_block}}
+
+== Common Misconceptions ==
+Watch for the trainee:
+- Fixating on a single metric without cross-referencing
+- Trusting AI agent suggestions without verification
+- Skipping log analysis and going straight to action
+- Not escalating when signals warrant it
+- Applying fixes without understanding root cause
+
+== Current Phase ==
+Phase: {{phase_id}}
+Narrative: {{phase_narrative}}
+Dashboard state: {{dashboard_state}}{{metrics_block}}{{logs_block}}
+
+== Trainee Action Log ==
+{{action_log}}
+
+== Instructions ==
+Choose exactly one observation tool. Default to observe_silently unless intervention criteria are met.
+
+Intervention criteria:
+- If the trainee has stalled for more than {{stall_seconds}} seconds, consider gentle_nudge or direct_intervention.
+- If the trainee has taken {{wrong_direction_count}} or more wrong-direction actions, use gentle_nudge (first time) or direct_intervention (repeated).
+- If the trainee is repeating the same type of action {{fixation_loop_count}} or more times (fixation loop), use gentle_nudge or direct_intervention.
+- If the trainee makes a decision that demonstrates good engineering judgment, use highlight_good_judgment.
+- At key decision points (before applying a fix, before escalating, before signing off), use accountability_moment.
+- In all other cases, use observe_silently.
+
+You MUST call exactly one of the provided tool functions. Never respond with plain text.`;
+
 /* ---- Constants ---- */
 
 const LEARNER_ID = "test-learner-s101";
@@ -244,6 +296,26 @@ beforeEach(() => {
   `);
 
   sqliteDb.exec(`
+    CREATE TABLE prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by TEXT,
+      reason TEXT
+    )
+  `);
+
+  const tutorTpl = "You are a simulation tutor.\\n== Scenario ==\\nTitle: {{scenario_title}}\\nLevel: {{scenario_level}} / Tier: {{scenario_tier}}\\nBriefing: {{scenario_briefing}}\\n\\n== Root Causes ==\\n{{root_causes}}\\n{{ai_agent_block}}\\n\\n== Intervention Thresholds ==\\nStall: {{stall_seconds}}s, Wrong: {{wrong_direction_count}}, Fixation: {{fixation_loop_count}}\\n{{coaching_block}}\\n\\n== Phase ==\\n{{phase_id}}: {{phase_narrative}} ({{dashboard_state}}){{metrics_block}}{{logs_block}}\\n\\n== Action Log ==\\n{{action_log}}\\n\\nChoose exactly one tool.";
+  const debriefTpl = "You are a debrief analyst.\\n== Scenario ==\\nTitle: {{scenario_title}}\\nLevel: {{scenario_level}} / Tier: {{scenario_tier}}\\nBriefing: {{scenario_briefing}}\\n\\n== Root Causes ==\\n{{root_causes}}\\n{{ai_agent_block}}\\n\\n== Events ==\\n{{event_log}}\\n{{tutor_observations_block}}\\n{{agent_interactions_block}}\\n{{prior_sessions_block}}\\n{{debrief_guidance_block}}\\n\\n== Output ==\\n{{output_schema}}\\n\\nReturn ONLY valid JSON.";
+  const agentTpl = "You are an AI assistant.\\nPersonality: {{personality}}\\nBehavior: {{behavior}}\\n{{knowledge_gaps}}\\nPhase: {{current_phase}}\\nScenario: {{scenario_title}}";
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.tutor', '${tutorTpl}', 1, 0)`);
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.debrief', '${debriefTpl}', 1, 0)`);
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.agent_fallback', '${agentTpl}', 1, 0)`);
+
+  sqliteDb.exec(`
     INSERT INTO learners (id, email, display_name, auth_provider, auth_subject)
     VALUES ('${LEARNER_ID}', 's101@test.com', 'S101 Tester', 'github', '789')
   `);
@@ -314,7 +386,7 @@ describe("S10.1 independent reasoning path", () => {
       },
     ];
 
-    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase);
+    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase, TEST_TUTOR_TEMPLATE);
 
     // Should include coaching prompt with highlight_good_judgment guidance
     expect(prompt).toContain("highlight_good_judgment");
@@ -387,7 +459,7 @@ describe("S10.1 AI-following path", () => {
       },
     ];
 
-    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase);
+    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase, TEST_TUTOR_TEMPLATE);
 
     // Should include coaching about accountability when following AI blindly
     expect(prompt).toContain("accountability_moment");
@@ -431,7 +503,7 @@ describe("S10.1 fixation loop", () => {
       },
     ];
 
-    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase);
+    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase, TEST_TUTOR_TEMPLATE);
 
     // The prompt should include fixation loop threshold info
     expect(prompt).toContain("Fixation loop threshold");
@@ -731,7 +803,7 @@ describe("S10.1 single-service tunnel vision", () => {
       },
     ];
 
-    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase);
+    const prompt = buildSimulationTutorPrompt(scenario, actionLog, phase, TEST_TUTOR_TEMPLATE);
 
     // The coaching prompt should contain guidance about tunnel vision
     expect(prompt).toContain("three services");

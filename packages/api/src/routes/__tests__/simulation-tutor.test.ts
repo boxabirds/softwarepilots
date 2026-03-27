@@ -111,6 +111,116 @@ const TEST_ACTION_LOG: ActionLogEntry[] = [
   },
 ];
 
+/* ---- Test prompt templates ---- */
+
+const TEST_TUTOR_TEMPLATE = `You are an experienced simulation tutor observing a trainee working through an incident response scenario.
+
+== Scenario ==
+Title: {{scenario_title}}
+Level: {{scenario_level}} / Tier: {{scenario_tier}}
+Briefing: {{scenario_briefing}}
+
+== Root Causes (Expert Knowledge - DO NOT reveal directly) ==
+{{root_causes}}
+
+== Expert Diagnostic Path ==
+The correct approach involves identifying these root causes through systematic observation, diagnosis, and verification.
+The trainee should discover these through their own investigation, not from direct hints.
+{{ai_agent_block}}
+
+== Intervention Thresholds ==
+Stall threshold: {{stall_seconds}} seconds without meaningful action
+Wrong direction threshold: {{wrong_direction_count}} actions in the wrong direction
+Fixation loop threshold: {{fixation_loop_count}} repeated similar actions
+{{coaching_block}}
+
+== Common Misconceptions ==
+Watch for the trainee:
+- Fixating on a single metric without cross-referencing
+- Trusting AI agent suggestions without verification
+- Skipping log analysis and going straight to action
+- Not escalating when signals warrant it
+- Applying fixes without understanding root cause
+
+== Current Phase ==
+Phase: {{phase_id}}
+Narrative: {{phase_narrative}}
+Dashboard state: {{dashboard_state}}{{metrics_block}}{{logs_block}}
+
+== Trainee Action Log ==
+{{action_log}}
+
+== Instructions ==
+Choose exactly one observation tool. Default to observe_silently unless intervention criteria are met.
+
+Intervention criteria:
+- If the trainee has stalled for more than {{stall_seconds}} seconds, consider gentle_nudge or direct_intervention.
+- If the trainee has taken {{wrong_direction_count}} or more wrong-direction actions, use gentle_nudge (first time) or direct_intervention (repeated).
+- If the trainee is repeating the same type of action {{fixation_loop_count}} or more times (fixation loop), use gentle_nudge or direct_intervention.
+- If the trainee makes a decision that demonstrates good engineering judgment, use highlight_good_judgment.
+- At key decision points (before applying a fix, before escalating, before signing off), use accountability_moment.
+- In all other cases, use observe_silently.
+
+You MUST call exactly one of the provided tool functions. Never respond with plain text.`;
+
+const TEST_DEBRIEF_TEMPLATE = `You are an expert simulation debrief analyst. Your job is to produce a structured JSON debrief of a trainee's performance in an incident response simulation.
+
+== Scenario Context ==
+Title: {{scenario_title}}
+Level: {{scenario_level}} / Tier: {{scenario_tier}}
+Briefing: {{scenario_briefing}}
+
+== Root Causes (the correct answers) ==
+{{root_causes}}
+
+== Expert Diagnostic Path ==
+The ideal approach involves systematically identifying each root cause through observation, diagnosis, and verification.
+Expert steps should include: reviewing metrics, checking logs, correlating signals, diagnosing root cause, verifying fix, escalating if needed.
+{{ai_agent_block}}
+
+== Full Event Log ==
+{{event_log}}
+{{tutor_observations_block}}
+{{agent_interactions_block}}
+{{prior_sessions_block}}
+{{debrief_guidance_block}}
+
+== Output Format ==
+Return ONLY valid JSON matching this exact structure (no markdown, no backticks, no explanation):
+{{output_schema}}
+
+Rules:
+- Populate arrays based on actual event data. If the trainee did nothing notable, use empty arrays.
+- For timestamps, use the event timestamps from the log.
+- For expert_steps, describe what an expert would do for this specific scenario.
+- For trainee_steps, describe what the trainee actually did based on the event log.
+- Be specific and reference actual events, not generic advice.
+- Return ONLY the JSON object. No surrounding text, markdown, or code fences.`;
+
+/* ---- Mock DB for prompt fetching ---- */
+
+function createMockPromptDB(): D1Database {
+  const prompts: Record<string, string> = {
+    "simulation.tutor": TEST_TUTOR_TEMPLATE,
+    "simulation.debrief": TEST_DEBRIEF_TEMPLATE,
+  };
+  return {
+    prepare() {
+      return {
+        bind(key: string) {
+          return {
+            async first() {
+              const content = prompts[key];
+              if (!content) return null;
+              return { id: 1, key, content, version: 1, deleted: 0, created_at: "2026-01-01", created_by: null, reason: null };
+            },
+          };
+        },
+      };
+    },
+  } as unknown as D1Database;
+}
+
 /* ---- buildSimulationTutorTools ---- */
 
 describe("buildSimulationTutorTools", () => {
@@ -203,13 +313,13 @@ describe("buildSimulationTutorTools", () => {
 
 describe("buildSimulationTutorPrompt", () => {
   it("includes scenario title and briefing", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain(TEST_SCENARIO.title);
     expect(prompt).toContain(TEST_SCENARIO.briefing);
   });
 
   it("includes root causes", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain("rc-1");
     expect(prompt).toContain("Connection pool exhaustion");
     expect(prompt).toContain("rc-2");
@@ -217,14 +327,14 @@ describe("buildSimulationTutorPrompt", () => {
   });
 
   it("includes intervention thresholds", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain("120 seconds");
     expect(prompt).toContain("3 or more wrong-direction actions");
     expect(prompt).toContain("3 or more times");
   });
 
   it("includes current phase telemetry", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain("error_rate");
     expect(prompt).toContain("5.2");
     expect(prompt).toContain("critical");
@@ -232,13 +342,13 @@ describe("buildSimulationTutorPrompt", () => {
   });
 
   it("includes current phase logs", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain("api-gateway");
     expect(prompt).toContain("Connection refused");
   });
 
   it("shows 'No actions taken yet' for empty action log", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain("No actions taken yet");
   });
 
@@ -246,7 +356,8 @@ describe("buildSimulationTutorPrompt", () => {
     const prompt = buildSimulationTutorPrompt(
       TEST_SCENARIO,
       TEST_ACTION_LOG,
-      TEST_PHASE
+      TEST_PHASE,
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("2026-03-22T10:01:00Z");
     expect(prompt).toContain("Check monitoring dashboard");
@@ -254,7 +365,7 @@ describe("buildSimulationTutorPrompt", () => {
   });
 
   it("instructs to choose exactly one observation tool", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).toContain(
       "Choose exactly one observation tool. Default to observe_silently unless intervention criteria are met."
     );
@@ -264,7 +375,8 @@ describe("buildSimulationTutorPrompt", () => {
     const prompt = buildSimulationTutorPrompt(
       TEST_SCENARIO,
       TEST_ACTION_LOG,
-      TEST_PHASE
+      TEST_PHASE,
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).not.toContain("\u2014"); // em-dash
     expect(prompt).not.toContain("\u2013"); // en-dash
@@ -282,7 +394,8 @@ describe("buildSimulationTutorPrompt", () => {
     const prompt = buildSimulationTutorPrompt(
       scenarioWithAgent,
       [],
-      TEST_PHASE
+      TEST_PHASE,
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("sometimes_wrong");
     expect(prompt).toContain("Eager but imprecise");
@@ -300,14 +413,15 @@ describe("buildSimulationTutorPrompt", () => {
     const prompt = buildSimulationTutorPrompt(
       scenarioWithTutor,
       [],
-      TEST_PHASE
+      TEST_PHASE,
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("Scenario-Specific Coaching");
     expect(prompt).toContain("OBSERVE BEFORE ACT");
   });
 
   it("does not include coaching section when tutor_context is absent", () => {
-    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE);
+    const prompt = buildSimulationTutorPrompt(TEST_SCENARIO, [], TEST_PHASE, TEST_TUTOR_TEMPLATE);
     expect(prompt).not.toContain("Scenario-Specific Coaching");
   });
 });
@@ -320,7 +434,7 @@ describe("evaluateAction", () => {
     const mockEnv = {
       GEMINI_API_KEY: "invalid-key-that-will-fail",
       GEMINI_MODEL: "nonexistent-model",
-      DB: {} as unknown,
+      DB: createMockPromptDB(),
       EVALUATOR: {} as unknown,
       ENVIRONMENT: "test",
       GITHUB_CLIENT_ID: "",
@@ -413,34 +527,34 @@ const TEST_PRIOR_SESSIONS: PriorSessionSummary[] = [
 
 describe("buildDebriefPrompt", () => {
   it("includes scenario context", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain(TEST_SCENARIO.title);
     expect(prompt).toContain(TEST_SCENARIO.briefing);
     expect(prompt).toContain(TEST_SCENARIO.tier);
   });
 
   it("includes root causes", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("rc-1");
     expect(prompt).toContain("Connection pool exhaustion");
     expect(prompt).toContain("rc-2");
   });
 
   it("includes full event log with timestamps", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("2026-03-22T10:00:00Z");
     expect(prompt).toContain("session_started");
     expect(prompt).toContain("check-dashboard");
   });
 
   it("includes agent interactions section when present", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("AI Agent Interactions");
     expect(prompt).toContain("What should I check?");
   });
 
   it("includes tutor observations section when present", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("Tutor Observations");
     expect(prompt).toContain("gentle_nudge");
   });
@@ -454,14 +568,14 @@ describe("buildDebriefPrompt", () => {
         knowledge_gaps: ["connection pooling"],
       },
     };
-    const prompt = buildDebriefPrompt(scenarioWithAgent, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(scenarioWithAgent, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("confidently_wrong");
     expect(prompt).toContain("Overconfident senior dev");
     expect(prompt).toContain("connection pooling");
   });
 
   it("includes output format instructions with JSON structure", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("good_judgment_moments");
     expect(prompt).toContain("missed_signals");
     expect(prompt).toContain("expert_path_comparison");
@@ -470,12 +584,12 @@ describe("buildDebriefPrompt", () => {
   });
 
   it("handles empty event log", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, []);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, [], TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("No events recorded");
   });
 
   it("includes prior sessions for progression when provided", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_PRIOR_SESSIONS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE, TEST_PRIOR_SESSIONS);
     expect(prompt).toContain("Prior Session Attempts");
     expect(prompt).toContain("prev-session-1");
     expect(prompt).toContain("1 prior attempt(s)");
@@ -483,7 +597,7 @@ describe("buildDebriefPrompt", () => {
   });
 
   it("does not include progression section when no prior sessions", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).not.toContain("Prior Session Attempts");
   });
 
@@ -495,18 +609,18 @@ describe("buildDebriefPrompt", () => {
         debrief_prompt: "Focus the debrief on observe-before-act habit",
       },
     };
-    const prompt = buildDebriefPrompt(scenarioWithTutor, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(scenarioWithTutor, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("Scenario-Specific Debrief Guidance");
     expect(prompt).toContain("observe-before-act habit");
   });
 
   it("does not include debrief guidance section when tutor_context is absent", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE);
     expect(prompt).not.toContain("Scenario-Specific Debrief Guidance");
   });
 
   it("does not contain em-dashes", () => {
-    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_PRIOR_SESSIONS);
+    const prompt = buildDebriefPrompt(TEST_SCENARIO, TEST_EVENTS, TEST_DEBRIEF_TEMPLATE, TEST_PRIOR_SESSIONS);
     expect(prompt).not.toContain("\u2014"); // em-dash
     expect(prompt).not.toContain("\u2013"); // en-dash
   });
@@ -519,6 +633,7 @@ describe("generateDebrief", () => {
     const mockEnv = {
       GEMINI_API_KEY: "invalid-key-that-will-fail",
       GEMINI_MODEL: "nonexistent-model",
+      DB: createMockPromptDB(),
     } as unknown as import("../../env").Env;
 
     const result = await generateDebrief(
@@ -541,6 +656,7 @@ describe("generateDebrief", () => {
     const mockEnv = {
       GEMINI_API_KEY: "invalid-key",
       GEMINI_MODEL: "nonexistent",
+      DB: createMockPromptDB(),
     } as unknown as import("../../env").Env;
 
     const result = await generateDebrief(
@@ -559,6 +675,7 @@ describe("generateDebrief", () => {
     const mockEnv = {
       GEMINI_API_KEY: "invalid-key",
       GEMINI_MODEL: "nonexistent",
+      DB: createMockPromptDB(),
     } as unknown as import("../../env").Env;
 
     const result = await generateDebrief(
@@ -589,6 +706,7 @@ describe("generateDebrief", () => {
     const mockEnv = {
       GEMINI_API_KEY: "invalid-key",
       GEMINI_MODEL: "nonexistent",
+      DB: createMockPromptDB(),
     } as unknown as import("../../env").Env;
 
     const result = await generateDebrief(
@@ -671,14 +789,15 @@ describe("S0.4 tutor context integration", () => {
     const prompt = buildSimulationTutorPrompt(
       s04FirstSoloDiagnosis,
       [],
-      s04FirstSoloDiagnosis.phases[0]
+      s04FirstSoloDiagnosis.phases[0],
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("Scenario-Specific Coaching");
     expect(prompt).toContain("OBSERVE BEFORE ACT");
   });
 
   it("debrief prompt integrates into debrief system prompt", () => {
-    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, []);
+    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, [], TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("Scenario-Specific Debrief Guidance");
     expect(prompt).toContain("observe-before-act");
   });
@@ -741,14 +860,15 @@ describe("S1.1 tutor context and agent prompt integration", () => {
     const prompt = buildSimulationTutorPrompt(
       s1_1_falseGreenTestSuite,
       [],
-      s1_1_falseGreenTestSuite.phases[0]
+      s1_1_falseGreenTestSuite.phases[0],
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("Scenario-Specific Coaching");
     expect(prompt).toContain("VERIFICATION DISCIPLINE");
   });
 
   it("debrief prompt integrates into debrief system prompt", () => {
-    const prompt = buildDebriefPrompt(s1_1_falseGreenTestSuite, []);
+    const prompt = buildDebriefPrompt(s1_1_falseGreenTestSuite, [], TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("Scenario-Specific Debrief Guidance");
     expect(prompt).toContain("agent trust calibration");
   });
@@ -849,14 +969,15 @@ describe("S10.1 tutor context and agent prompt integration", () => {
     const prompt = buildSimulationTutorPrompt(
       s101AgentAssistedDiagnosis,
       [],
-      s101AgentAssistedDiagnosis.phases[0]
+      s101AgentAssistedDiagnosis.phases[0],
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("Scenario-Specific Coaching");
     expect(prompt).toContain("INDEPENDENT REASONING");
   });
 
   it("debrief prompt integrates into debrief system prompt", () => {
-    const prompt = buildDebriefPrompt(s101AgentAssistedDiagnosis, []);
+    const prompt = buildDebriefPrompt(s101AgentAssistedDiagnosis, [], TEST_DEBRIEF_TEMPLATE);
     expect(prompt).toContain("Scenario-Specific Debrief Guidance");
     expect(prompt).toContain("independent reasoning");
   });
@@ -865,7 +986,8 @@ describe("S10.1 tutor context and agent prompt integration", () => {
     const prompt = buildSimulationTutorPrompt(
       s101AgentAssistedDiagnosis,
       [],
-      s101AgentAssistedDiagnosis.phases[0]
+      s101AgentAssistedDiagnosis.phases[0],
+      TEST_TUTOR_TEMPLATE
     );
     expect(prompt).toContain("AI Agent Behavior");
     expect(prompt).toContain("confidently_wrong");

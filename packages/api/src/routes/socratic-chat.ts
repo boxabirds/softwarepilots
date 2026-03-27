@@ -980,7 +980,8 @@ socraticChat.post("/", async (c) => {
         { role: "tutor" as const, content: result.reply },
       ];
       const model = c.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-      const compressionPromise = compressConversation(c.env.GEMINI_API_KEY, model, allMessages, section.title)
+      const summarizationPrompt = await getPrompt(c.env.DB, "summarization.instructions");
+      const compressionPromise = compressConversation(c.env.GEMINI_API_KEY, model, allMessages, section.title, summarizationPrompt.content)
         .then(async (summary) => {
           if (!summary) return;
           // Find the active conversation to persist summary

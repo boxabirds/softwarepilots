@@ -11,6 +11,7 @@ import type {
 import { listScenarios } from "@softwarepilots/shared";
 import { GEMINI_API_URL } from "../lib/gemini";
 import { generateDebrief } from "./simulation-tutor";
+import { getPrompt, resolveTemplate } from "../lib/prompts";
 import type { PriorSessionSummary } from "./simulation-tutor";
 
 /* ---- Constants ---- */
@@ -468,21 +469,21 @@ simulation.post("/ask-agent", async (c) => {
 
   // Build agent system prompt - use scenario-specific prompt when available
   const agentConfig = scenario.ai_agent_behavior;
-  const systemPrompt = agentConfig.agent_system_prompt
-    ? agentConfig.agent_system_prompt
-    : [
-        `You are an AI assistant embedded in a simulation.`,
-        `Your personality: ${agentConfig.personality}`,
-        `Your behavior mode: ${agentConfig.behavior}`,
-        agentConfig.knowledge_gaps.length > 0
-          ? `You have knowledge gaps in: ${agentConfig.knowledge_gaps.join(", ")}. When asked about these topics, respond according to your behavior mode.`
-          : "",
-        `Current simulation phase: ${session.current_phase}`,
-        `Scenario: ${scenario.title}`,
-        `Keep responses concise and in-character.`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+  let systemPrompt: string;
+  if (agentConfig.agent_system_prompt) {
+    systemPrompt = agentConfig.agent_system_prompt;
+  } else {
+    const fallbackPrompt = await getPrompt(c.env.DB, "simulation.agent_fallback");
+    systemPrompt = resolveTemplate(fallbackPrompt.content, {
+      personality: agentConfig.personality,
+      behavior: agentConfig.behavior,
+      knowledge_gaps: agentConfig.knowledge_gaps.length > 0
+        ? `You have knowledge gaps in: ${agentConfig.knowledge_gaps.join(", ")}. When asked about these topics, respond according to your behavior mode.`
+        : "",
+      current_phase: session.current_phase,
+      scenario_title: scenario.title,
+    });
+  }
 
   // Call Gemini
   try {

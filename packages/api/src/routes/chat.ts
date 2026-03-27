@@ -7,6 +7,7 @@ import {
   callGeminiWithTools,
   parseGeminiToolResponse,
 } from "../lib/gemini";
+import { getPrompt, resolveTemplate } from "../lib/prompts";
 
 // Re-export Gemini functions so existing consumers (tests, etc.) still work
 export { buildGeminiContents, callGeminiWithTools, parseGeminiToolResponse };
@@ -214,8 +215,22 @@ chat.post("/", async (c) => {
   // Build dynamic tools for current step with accumulated context
   const tools = buildTutorTools(currentStep, contextScope, meta.title);
 
+  // Fetch prompts from DB and resolve template variables
+  const moduleId = meta.id.split(".")[0];
+  const [personaPrompt, rolePrompt, toolInstructionPrompt] = await Promise.all([
+    getPrompt(c.env.DB, "exercise.persona"),
+    getPrompt(c.env.DB, "exercise.role"),
+    getPrompt(c.env.DB, "exercise.tool_instruction"),
+  ]);
+  const resolvedPersona = resolveTemplate(personaPrompt.content, {
+    title: meta.title,
+    module_id: moduleId,
+  });
+  const resolvedRole = rolePrompt.content;
+  const resolvedToolInstruction = toolInstructionPrompt.content;
+
   // Build system prompt with rich context
-  const systemPrompt = buildTutorSystemPrompt(meta, steps, body.context, contextScope);
+  const systemPrompt = buildTutorSystemPrompt(meta, steps, body.context, resolvedPersona, resolvedRole, resolvedToolInstruction, contextScope);
 
   // Build conversation history for Gemini multi-turn
   const contents = buildGeminiContents(body.context.conversation, body.message);
@@ -237,12 +252,13 @@ export function buildTutorSystemPrompt(
   meta: ExerciseMeta,
   steps: PyodideStep[],
   context: ChatRequest["context"],
+  persona: string,
+  role: string,
+  toolInstruction: string,
   contextScope?: string[]
 ): string {
-  const moduleId = meta.id.split(".")[0];
-
   const lines = [
-    `You are a Socratic tutor for "${meta.title}" (Module ${moduleId}).`,
+    persona,
   ];
 
   if (meta.module_description) {
@@ -251,11 +267,7 @@ export function buildTutorSystemPrompt(
 
   lines.push(
     "",
-    "Your role:",
-    "- Guide the learner to understand concepts through questions, not direct answers",
-    "- Keep responses to 2-3 sentences maximum",
-    "- Never give away the solution - help them discover it",
-    "- Be encouraging but honest",
+    role,
     "",
     `This exercise explores: ${(contextScope ?? meta.topics).join(", ")}`,
     "",
@@ -297,7 +309,7 @@ export function buildTutorSystemPrompt(
 
   lines.push(
     "",
-    "You MUST call one or more of the provided functions. Use help_with_curriculum for on-topic questions, provided_step_answer when the learner provides their answer/prediction/reflection, and off_topic_detected for anything unrelated to this exercise or programming."
+    toolInstruction
   );
 
   return lines.join("\n");

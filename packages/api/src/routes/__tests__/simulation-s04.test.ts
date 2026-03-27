@@ -9,6 +9,92 @@ import type {
 } from "@softwarepilots/shared";
 import { s04FirstSoloDiagnosis } from "@softwarepilots/shared";
 
+/* ---- Test prompt templates ---- */
+
+const TEST_TUTOR_TEMPLATE = `You are an experienced simulation tutor observing a trainee working through an incident response scenario.
+
+== Scenario ==
+Title: {{scenario_title}}
+Level: {{scenario_level}} / Tier: {{scenario_tier}}
+Briefing: {{scenario_briefing}}
+
+== Root Causes (Expert Knowledge - DO NOT reveal directly) ==
+{{root_causes}}
+
+== Expert Diagnostic Path ==
+The correct approach involves identifying these root causes through systematic observation, diagnosis, and verification.
+The trainee should discover these through their own investigation, not from direct hints.
+{{ai_agent_block}}
+
+== Intervention Thresholds ==
+Stall threshold: {{stall_seconds}} seconds without meaningful action
+Wrong direction threshold: {{wrong_direction_count}} actions in the wrong direction
+Fixation loop threshold: {{fixation_loop_count}} repeated similar actions
+{{coaching_block}}
+
+== Common Misconceptions ==
+Watch for the trainee:
+- Fixating on a single metric without cross-referencing
+- Trusting AI agent suggestions without verification
+- Skipping log analysis and going straight to action
+- Not escalating when signals warrant it
+- Applying fixes without understanding root cause
+
+== Current Phase ==
+Phase: {{phase_id}}
+Narrative: {{phase_narrative}}
+Dashboard state: {{dashboard_state}}{{metrics_block}}{{logs_block}}
+
+== Trainee Action Log ==
+{{action_log}}
+
+== Instructions ==
+Choose exactly one observation tool. Default to observe_silently unless intervention criteria are met.
+
+Intervention criteria:
+- If the trainee has stalled for more than {{stall_seconds}} seconds, consider gentle_nudge or direct_intervention.
+- If the trainee has taken {{wrong_direction_count}} or more wrong-direction actions, use gentle_nudge (first time) or direct_intervention (repeated).
+- If the trainee is repeating the same type of action {{fixation_loop_count}} or more times (fixation loop), use gentle_nudge or direct_intervention.
+- If the trainee makes a decision that demonstrates good engineering judgment, use highlight_good_judgment.
+- At key decision points (before applying a fix, before escalating, before signing off), use accountability_moment.
+- In all other cases, use observe_silently.
+
+You MUST call exactly one of the provided tool functions. Never respond with plain text.`;
+
+const TEST_DEBRIEF_TEMPLATE = `You are an expert simulation debrief analyst. Your job is to produce a structured JSON debrief of a trainee's performance in an incident response simulation.
+
+== Scenario Context ==
+Title: {{scenario_title}}
+Level: {{scenario_level}} / Tier: {{scenario_tier}}
+Briefing: {{scenario_briefing}}
+
+== Root Causes (the correct answers) ==
+{{root_causes}}
+
+== Expert Diagnostic Path ==
+The ideal approach involves systematically identifying each root cause through observation, diagnosis, and verification.
+Expert steps should include: reviewing metrics, checking logs, correlating signals, diagnosing root cause, verifying fix, escalating if needed.
+{{ai_agent_block}}
+
+== Full Event Log ==
+{{event_log}}
+{{tutor_observations_block}}
+{{agent_interactions_block}}
+{{prior_sessions_block}}
+{{debrief_guidance_block}}
+
+== Output Format ==
+Return ONLY valid JSON matching this exact structure (no markdown, no backticks, no explanation):
+{{output_schema}}
+
+Rules:
+- Populate arrays based on actual event data. If the trainee did nothing notable, use empty arrays.
+- For timestamps, use the event timestamps from the log.
+- For expert_steps, describe what an expert would do for this specific scenario.
+- For trainee_steps, describe what the trainee actually did based on the event log.
+- Be specific and reference actual events, not generic advice.
+- Return ONLY the JSON object. No surrounding text, markdown, or code fences.`;
+
 /* ---- D1 shim over bun:sqlite ---- */
 
 function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
@@ -296,6 +382,26 @@ beforeEach(() => {
   `);
 
   sqliteDb.exec(`
+    CREATE TABLE prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by TEXT,
+      reason TEXT
+    )
+  `);
+
+  sqliteDb.exec(`
+    INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.tutor', '${TEST_TUTOR_TEMPLATE.replace(/'/g, "''")}', 1, 0)
+  `);
+  sqliteDb.exec(`
+    INSERT INTO prompts (key, content, version, deleted) VALUES ('simulation.debrief', '${TEST_DEBRIEF_TEMPLATE.replace(/'/g, "''")}', 1, 0)
+  `);
+
+  sqliteDb.exec(`
     INSERT INTO learners (id, email, display_name, auth_provider, auth_subject)
     VALUES ('${LEARNER_ID}', 's04@test.com', 'S04 Tester', 'github', '789')
   `);
@@ -532,7 +638,7 @@ describe("S0.4 observe-before-act detection", () => {
   it("buildSimulationTutorPrompt includes coaching_prompt content", () => {
     const { buildSimulationTutorPrompt } = require("../simulation-tutor");
     const phase = s04FirstSoloDiagnosis.phases[0];
-    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, [], phase);
+    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, [], phase, TEST_TUTOR_TEMPLATE);
 
     expect(prompt).toContain("OBSERVE BEFORE ACT");
     expect(prompt).toContain("highlight_good_judgment");
@@ -552,7 +658,7 @@ describe("S0.4 observe-before-act detection", () => {
         phase_id: "alert-received",
       },
     ];
-    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, actionLog, phase);
+    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, actionLog, phase, TEST_TUTOR_TEMPLATE);
 
     expect(prompt).toContain("check-logs");
     expect(prompt).toContain("observe/Check application logs");
@@ -653,7 +759,7 @@ describe("S0.4 stall detection", () => {
   it("tutor prompt includes stall threshold of 60 seconds", () => {
     const { buildSimulationTutorPrompt } = require("../simulation-tutor");
     const phase = s04FirstSoloDiagnosis.phases[0];
-    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, [], phase);
+    const prompt = buildSimulationTutorPrompt(s04FirstSoloDiagnosis, [], phase, TEST_TUTOR_TEMPLATE);
 
     expect(prompt).toContain("60 seconds");
     expect(prompt).toContain("stall");
@@ -687,7 +793,7 @@ describe("S0.4 debrief content", () => {
         created_at: "2026-01-15T14:31:00.000Z",
       },
     ];
-    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, events);
+    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, events, TEST_DEBRIEF_TEMPLATE);
 
     // Should include debrief-specific guidance
     expect(prompt).toContain("observe-before-act");
@@ -713,7 +819,7 @@ describe("S0.4 debrief content", () => {
         created_at: "2026-01-15T14:32:00.000Z",
       },
     ];
-    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, events);
+    const prompt = buildDebriefPrompt(s04FirstSoloDiagnosis, events, TEST_DEBRIEF_TEMPLATE);
 
     expect(prompt).toContain("restart-service");
     expect(prompt).toContain("check-logs");

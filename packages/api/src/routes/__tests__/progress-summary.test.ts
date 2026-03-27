@@ -142,6 +142,20 @@ beforeEach(() => {
     )
   `);
 
+  sqliteDb.exec(`
+    CREATE TABLE prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by TEXT,
+      reason TEXT
+    )
+  `);
+  sqliteDb.exec(`INSERT INTO prompts (key, content, version, deleted) VALUES ('narrative.instructions', 'You are a learning coach summarizing a student''s curriculum progress.\nWrite a brief, encouraging 2-3 sentence narrative summary of their progress.\nBe specific about what they''ve accomplished and what''s ahead.\nDo not use bullet points or headers. Just plain prose.', 1, 0)`);
+
   sqliteDb.exec(ENROLLMENT_TABLES_SQL);
   seedCurriculumVersions(sqliteDb);
 

@@ -48,11 +48,18 @@ const SAMPLE_SECTIONS: SectionProgressData[] = [
   },
 ];
 
+const TEST_INSTRUCTIONS = [
+  "You are a learning coach summarizing a student's curriculum progress.",
+  "Write a brief, encouraging 2-3 sentence narrative summary of their progress.",
+  "Be specific about what they've accomplished and what's ahead.",
+  "Do not use bullet points or headers. Just plain prose.",
+].join("\n");
+
 /* ---- Tests ---- */
 
 describe("buildNarrativePrompt", () => {
   it("includes completion stats", () => {
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 2);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 2, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Completed sections: 3 of 10");
     expect(prompt).toContain("In progress: 2");
@@ -60,13 +67,13 @@ describe("buildNarrativePrompt", () => {
   });
 
   it("includes concepts due for review count", () => {
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 5);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 5, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Concepts due for review: 5");
   });
 
   it("includes strongest areas from completed sections", () => {
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Strongest areas:");
     expect(prompt).toContain("thread safety");
@@ -74,27 +81,27 @@ describe("buildNarrativePrompt", () => {
   });
 
   it("includes struggle areas from in-progress sections", () => {
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Areas needing work:");
     expect(prompt).toContain("cache coherence");
   });
 
   it("includes paused count when paused > 0", () => {
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, MIXED_STATS, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Paused: 1");
   });
 
   it("omits paused line when paused is 0", () => {
     const statsNoPaused: ProgressStats = { ...MIXED_STATS, paused: 0 };
-    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, statsNoPaused, 0);
+    const prompt = buildNarrativePrompt(SAMPLE_SECTIONS, statsNoPaused, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).not.toContain("Paused:");
   });
 
   it("handles empty progress gracefully", () => {
-    const prompt = buildNarrativePrompt([], EMPTY_STATS, 0);
+    const prompt = buildNarrativePrompt([], EMPTY_STATS, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Completed sections: 0 of 10");
     expect(prompt).toContain("In progress: 0");
@@ -121,7 +128,7 @@ describe("buildNarrativePrompt", () => {
       total: 1,
     };
 
-    const prompt = buildNarrativePrompt(noConceptSections, stats, 0);
+    const prompt = buildNarrativePrompt(noConceptSections, stats, 0, TEST_INSTRUCTIONS);
 
     expect(prompt).toContain("Completed sections: 1 of 1");
     expect(prompt).not.toContain("Strongest areas:");

@@ -119,16 +119,6 @@ export function buildCurriculumContext(
 
 /* ---- Conversation compression ---- */
 
-const SUMMARIZATION_PROMPT = `You are summarizing a tutoring conversation for future context.
-Preserve the following in your summary:
-- Topics discussed and key questions asked
-- Concepts the learner understood well
-- Concepts the learner struggled with
-- Key insights or breakthroughs
-- Where the conversation left off
-
-Write a concise paragraph (3-5 sentences). Do not use bullet points.`;
-
 const SUMMARIZATION_TEMPERATURE = 0.3;
 
 /**
@@ -139,7 +129,8 @@ export async function compressConversation(
   apiKey: string,
   model: string,
   messages: Array<{ role: "user" | "tutor"; content: string }>,
-  sectionTitle: string
+  sectionTitle: string,
+  summarizationPrompt: string
 ): Promise<string | null> {
   if (!messages || messages.length === 0) return null;
 
@@ -147,7 +138,7 @@ export async function compressConversation(
     .map((m) => `${m.role === "user" ? "Learner" : "Tutor"}: ${m.content}`)
     .join("\n");
 
-  const prompt = `${SUMMARIZATION_PROMPT}\n\nSection: "${sectionTitle}"\n\nConversation:\n${conversationText}`;
+  const prompt = `${summarizationPrompt}\n\nSection: "${sectionTitle}"\n\nConversation:\n${conversationText}`;
 
   try {
     const url = `${GEMINI_API_URL}/${model}:generateContent?key=${apiKey}`;

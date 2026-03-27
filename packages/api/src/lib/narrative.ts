@@ -36,14 +36,12 @@ export interface SectionProgressData {
 export function buildNarrativePrompt(
   progressData: SectionProgressData[],
   stats: ProgressStats,
-  dueConceptsCount: number
+  dueConceptsCount: number,
+  instructions: string
 ): string {
   const lines: string[] = [];
 
-  lines.push("You are a learning coach summarizing a student's curriculum progress.");
-  lines.push("Write a brief, encouraging 2-3 sentence narrative summary of their progress.");
-  lines.push("Be specific about what they've accomplished and what's ahead.");
-  lines.push("Do not use bullet points or headers. Just plain prose.");
+  lines.push(instructions);
   lines.push("");
   lines.push("## Progress Data");
   lines.push(`Completed sections: ${stats.completed} of ${stats.total}`);

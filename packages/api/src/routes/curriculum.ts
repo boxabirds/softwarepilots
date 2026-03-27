@@ -18,6 +18,7 @@ import {
   compressConversation,
   persistSummary,
 } from "../lib/context-assembly";
+import { getPrompt, resolveTemplate } from "../lib/prompts";
 
 /* ---- Valid profiles and section ID pattern ---- */
 
@@ -334,7 +335,8 @@ curriculum.get("/:profile/progress/summary", async (c) => {
       overallNarrative = cached.narrative;
     } else {
       try {
-        const prompt = buildNarrativePrompt(sectionProgressData, stats, dueConcepts.length);
+        const narrativeInstructions = await getPrompt(c.env.DB, "narrative.instructions");
+        const prompt = buildNarrativePrompt(sectionProgressData, stats, dueConcepts.length, narrativeInstructions.content);
         const model = c.env.GEMINI_MODEL ?? "gemini-flash-latest";
         overallNarrative = await generateNarrative(c.env.GEMINI_API_KEY, model, prompt);
         narrativeCache.set(cacheKey, { narrative: overallNarrative, timestamp: now });
@@ -574,7 +576,10 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
     } catch { /* use sectionId as fallback */ }
 
     const messages = JSON.parse(conv.messages_json) as Array<{ role: "user" | "tutor"; content: string }>;
-    compressConversation(c.env.GEMINI_API_KEY, c.env.GEMINI_MODEL || "gemini-flash-latest", messages, sectionTitle)
+    getPrompt(c.env.DB, "summarization.instructions")
+      .then((summarizationPrompt) =>
+        compressConversation(c.env.GEMINI_API_KEY, c.env.GEMINI_MODEL || "gemini-flash-latest", messages, sectionTitle, summarizationPrompt.content)
+      )
       .then((summary) => {
         if (summary) {
           persistSummary(c.env.DB, conv.id, summary).catch(() => {});
