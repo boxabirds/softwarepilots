@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import type { Env } from "../env";
 import { getProgressForProfile, computeClaimProgress } from "./curriculum-progress";
-import { getCurriculumSections, getCurriculumProfiles } from "@softwarepilots/shared";
-import { publishVersion, getVersionHistory } from "../lib/curriculum-store";
+import { getCurriculumProfiles } from "@softwarepilots/shared";
+import { publishVersion, getVersionHistory, loadCurriculumByVersion, getCurrentVersion, extractSections } from "../lib/curriculum-store";
 
 const admin = new Hono<{ Bindings: Env }>();
 
@@ -88,13 +88,11 @@ admin.get("/users", async (c) => {
 
     const profiles = [];
     for (const { profile } of activeProfiles ?? []) {
-      let sections: ReturnType<typeof getCurriculumSections>;
-      try {
-        sections = getCurriculumSections(profile);
-      } catch {
-        // Unknown profile - skip
-        continue;
-      }
+      const ver = await getCurrentVersion(c.env.DB, profile);
+      if (!ver) continue;
+      const vData = await loadCurriculumByVersion(c.env.DB, profile, ver);
+      if (!vData) continue;
+      const sections = extractSections(vData.content);
       const totalSections = sections.length;
 
       const { results: progressRows } = await c.env.DB.prepare(

@@ -6,6 +6,7 @@ import {
   buildProgressContext,
 } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -109,6 +110,9 @@ beforeEach(() => {
       PRIMARY KEY (learner_id, profile, section_id)
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   // Seed test learner
   sqliteDb
@@ -419,6 +423,13 @@ describe("concept tracking via updateSectionProgress", () => {
   it("resolves section titles for valid profiles", async () => {
     // Use a real profile with real section IDs
     const REAL_PROFILE = "level-1";
+    // Create enrollment so content can be loaded from DB
+    sqliteDb
+      .prepare(
+        `INSERT OR IGNORE INTO enrollments (id, learner_id, profile, curriculum_version)
+         VALUES (?, ?, ?, 1)`
+      )
+      .run("enroll-title-test", TEST_LEARNER_ID, REAL_PROFILE);
     sqliteDb
       .prepare(
         `INSERT INTO curriculum_progress (learner_id, profile, section_id, status, understanding_json, started_at, updated_at)

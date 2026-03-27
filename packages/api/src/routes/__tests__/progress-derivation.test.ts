@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { updateSectionProgress } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -108,6 +109,9 @@ beforeEach(() => {
       PRIMARY KEY (learner_id, profile, section_id)
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   sqliteDb
     .prepare(

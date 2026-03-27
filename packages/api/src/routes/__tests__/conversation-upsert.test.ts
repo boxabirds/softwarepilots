@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /**
  * Regression test: PUT /api/curriculum/:profile/:sectionId/conversation
@@ -110,6 +111,9 @@ beforeEach(() => {
     CREATE INDEX idx_curriculum_conversations_learner
       ON curriculum_conversations(learner_id, profile, section_id);
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   // Seed a learner
   sqliteDb.exec(`

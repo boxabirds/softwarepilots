@@ -19,6 +19,7 @@ import { Hono } from "hono";
 import { Database } from "bun:sqlite";
 import type { Env } from "../../env";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -165,6 +166,9 @@ describe("progress tracking e2e repro", () => {
         summary TEXT
       )
     `);
+
+    sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+    seedCurriculumVersions(sqliteDb);
 
     // Seed a test learner (simulating what auth.ts callback does)
     sqliteDb

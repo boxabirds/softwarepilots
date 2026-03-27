@@ -1,10 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
-import {
-  getCurriculumProfiles,
-  getCurriculumSections,
-  getSection,
-} from "@softwarepilots/shared";
+import { getCurriculumProfiles } from "@softwarepilots/shared";
 import { getProgressForProfile, computeClaimProgress, resolveLearningMap } from "./curriculum-progress";
 import {
   parseConceptsJson,
@@ -16,7 +12,7 @@ import {
   generateNarrative,
 } from "../lib/narrative";
 import { getOrCreateEnrollment, getEnrollment, getEnrollmentConcepts, countTopicsCovered } from "../lib/enrollment-store";
-import { loadCurriculumForEnrollment, extractSections, findSection } from "../lib/curriculum-store";
+import { loadCurriculumForEnrollment, loadCurriculumByVersion, getCurrentVersion, extractMeta, extractSections, findSection } from "../lib/curriculum-store";
 import type { ProgressStats, SectionProgressData } from "../lib/narrative";
 import {
   compressConversation,
@@ -79,26 +75,25 @@ curriculum.get("/:profile", async (c) => {
   const learnerId = c.get("learnerId" as never) as string | undefined;
   const profile = c.req.param("profile");
 
-  // Try versioned content from enrollment
-  if (learnerId) {
-    try {
-      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
-      if (versioned) {
-        const sections = extractSections(versioned.content);
-        // Return without markdown (same shape as getCurriculumSections)
-        return c.json(sections.map(({ markdown: _m, ...rest }) => rest));
-      }
-    } catch {
-      // Fall through
+  // Load from DB - try enrollment first, then latest version
+  let versioned = learnerId
+    ? await loadCurriculumForEnrollment(c.env.DB, learnerId, profile)
+    : null;
+
+  if (!versioned) {
+    // No enrollment yet - load latest version for browsing
+    const currentVersion = await getCurrentVersion(c.env.DB, profile);
+    if (currentVersion) {
+      versioned = await loadCurriculumByVersion(c.env.DB, profile, currentVersion);
     }
   }
 
-  // Fallback to compiled TypeScript
-  try {
-    return c.json(getCurriculumSections(profile));
-  } catch {
-    return c.json({ error: `Unknown profile: ${profile}` }, 404);
+  if (!versioned) {
+    return c.json({ error: `No curriculum found for profile "${profile}". Run the seed script.` }, 404);
   }
+
+  const sections = extractSections(versioned.content);
+  return c.json(sections.map(({ markdown: _m, ...rest }) => rest));
 });
 
 /* GET /:profile/progress/debug - diagnostic endpoint for operators */
@@ -106,13 +101,15 @@ curriculum.get("/:profile/progress/debug", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
   const profile = c.req.param("profile");
 
-  // Validate profile
-  let expectedSectionCount: number;
-  try {
-    expectedSectionCount = getCurriculumSections(profile).length;
-  } catch {
+  // Validate profile and get section count from DB
+  const currentVersion = await getCurrentVersion(c.env.DB, profile);
+  if (!currentVersion) {
     return c.json({ error: `Invalid profile: ${profile}` }, 400);
   }
+  const versionedData = await loadCurriculumByVersion(c.env.DB, profile, currentVersion);
+  const expectedSectionCount = versionedData
+    ? extractSections(versionedData.content).length
+    : 0;
 
   // Check if learner exists
   const learnerRow = await c.env.DB.prepare(
@@ -258,14 +255,7 @@ curriculum.get("/:profile/progress/summary", async (c) => {
       versionedSections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
     );
   } else {
-    try {
-      const sections = getCurriculumSections(profile);
-      sectionLookup = new Map(
-        sections.map((s) => [s.id, { title: s.title, module_id: s.module_id, module_title: s.module_title }])
-      );
-    } catch {
-      sectionLookup = new Map();
-    }
+    sectionLookup = new Map();
   }
 
   // Map progress rows by section_id
@@ -442,28 +432,28 @@ curriculum.get("/:profile/:sectionId", async (c) => {
   const profile = c.req.param("profile");
   const sectionId = c.req.param("sectionId");
 
-  // Try versioned content from enrollment
-  if (learnerId) {
-    try {
-      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
-      if (versioned) {
-        const section = findSection(versioned.content, sectionId);
-        if (section) return c.json(section);
-      }
-    } catch {
-      // Fall through
+  // Load from DB - try enrollment first, then latest version
+  let versioned = learnerId
+    ? await loadCurriculumForEnrollment(c.env.DB, learnerId, profile)
+    : null;
+
+  if (!versioned) {
+    const currentVersion = await getCurrentVersion(c.env.DB, profile);
+    if (currentVersion) {
+      versioned = await loadCurriculumByVersion(c.env.DB, profile, currentVersion);
     }
   }
 
-  // Fallback to compiled TypeScript
-  try {
-    return c.json(getSection(profile, sectionId));
-  } catch {
-    return c.json(
-      { error: `Section "${sectionId}" not found for profile "${profile}"` },
-      404,
-    );
+  if (!versioned) {
+    return c.json({ error: `No curriculum found for profile "${profile}"` }, 404);
   }
+
+  const section = findSection(versioned.content, sectionId);
+  if (!section) {
+    return c.json({ error: `Section "${sectionId}" not found in profile "${profile}"` }, 404);
+  }
+
+  return c.json(section);
 });
 
 /* PUT /:profile/:sectionId/conversation - save (upsert) conversation */
@@ -576,8 +566,11 @@ curriculum.delete("/:profile/:sectionId/conversation", async (c) => {
   if (conv) {
     let sectionTitle = sectionId;
     try {
-      const sec = getSection(profile, sectionId);
-      sectionTitle = sec.title;
+      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, profile);
+      if (versioned) {
+        const sec = findSection(versioned.content, sectionId);
+        if (sec) sectionTitle = sec.title;
+      }
     } catch { /* use sectionId as fallback */ }
 
     const messages = JSON.parse(conv.messages_json) as Array<{ role: "user" | "tutor"; content: string }>;
@@ -599,10 +592,7 @@ curriculum.post("/:profile/:sectionId/archive", async (c) => {
   const profile = c.req.param("profile");
   const sectionId = c.req.param("sectionId");
 
-  // Validate profile via getCurriculumSections
-  try {
-    getCurriculumSections(profile);
-  } catch {
+  if (!isValidProfile(profile)) {
     return c.json({ error: `Invalid profile: ${profile}` }, 400);
   }
 

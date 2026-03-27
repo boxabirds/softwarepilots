@@ -9,10 +9,10 @@ import {
   getConceptsDueForReview,
 } from "../lib/spaced-repetition";
 import type { ConceptsMap, ConceptUpdateOptions } from "../lib/spaced-repetition";
-import { getCurriculumSections, getLearningMapForProfile, getLearningMap } from "@softwarepilots/shared";
+import { getLearningMapForProfile, getLearningMap } from "@softwarepilots/shared";
 import type { SectionLearningMap } from "@softwarepilots/shared";
 import { getLearningMapFromDB } from "../lib/learning-map-store";
-import { getVersionContentHash } from "../lib/curriculum-store";
+import { getVersionContentHash, loadCurriculumForEnrollment, extractSections } from "../lib/curriculum-store";
 import { getEnrollment, getEnrollmentConcepts, updateEnrollmentConcepts } from "../lib/enrollment-store";
 
 /**
@@ -795,13 +795,17 @@ export async function buildProgressContext(
     return "";
   }
 
-  // Build a lookup from section_id -> title using the curriculum registry
+  // Build a lookup from section_id -> title from enrollment's versioned content
   let sectionTitleMap: Map<string, string>;
   try {
-    const sections = getCurriculumSections(profile);
-    sectionTitleMap = new Map(sections.map((s) => [s.id, s.title]));
+    const versioned = await loadCurriculumForEnrollment(db, learnerId, profile);
+    if (versioned) {
+      const sections = extractSections(versioned.content);
+      sectionTitleMap = new Map(sections.map((s) => [s.id, s.title]));
+    } else {
+      sectionTitleMap = new Map();
+    }
   } catch {
-    // If the profile is invalid, fall back to IDs only
     sectionTitleMap = new Map();
   }
 

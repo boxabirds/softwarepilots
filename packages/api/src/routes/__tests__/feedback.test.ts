@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1 shim over bun:sqlite ---- */
 
@@ -103,6 +104,9 @@ beforeEach(() => {
     );
     CREATE INDEX idx_feedback_section ON curriculum_feedback(profile, section_id);
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   // Seed a learner
   sqliteDb.exec(`

@@ -437,16 +437,15 @@ describe("socratic-chat route validation", () => {
     expect(json.error).toContain("profile");
   });
 
-  it("returns 400 for unknown section", async () => {
+  it("returns 401 for unknown section without auth", async () => {
     const res = await makeRequest({
       profile: "level-1",
       section_id: "nonexistent-99",
       message: "hello",
       context: { conversation: [] },
     });
-    expect(res.status).toBe(400);
-    const json = await parseJson(res);
-    expect(json.error).toContain("nonexistent-99");
+    // Auth is checked before section validation - no learnerId = 401
+    expect(res.status).toBe(401);
   });
 
   it("returns 400 for empty message", async () => {
@@ -472,16 +471,15 @@ describe("socratic-chat route validation", () => {
     expect(json.error).toContain("message");
   });
 
-  it("returns 400 for unknown profile", async () => {
+  it("returns 401 for unknown profile without auth", async () => {
     const res = await makeRequest({
       profile: "astronaut",
       section_id: "1.1",
       message: "hello",
       context: { conversation: [] },
     });
-    expect(res.status).toBe(400);
-    const json = await parseJson(res);
-    expect(json.error).toContain("astronaut");
+    // Auth is checked before profile validation - no learnerId = 401
+    expect(res.status).toBe(401);
   });
 });
 

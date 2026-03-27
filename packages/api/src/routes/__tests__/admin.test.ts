@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -122,6 +123,9 @@ beforeEach(async () => {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   sqliteDb
     .prepare(

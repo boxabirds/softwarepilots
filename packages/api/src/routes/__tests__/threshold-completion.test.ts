@@ -11,6 +11,7 @@ import {
 } from "../curriculum-progress";
 import type { SocraticResponse, ClaimsMap } from "../curriculum-progress";
 import type { SectionLearningMap, Claim } from "@softwarepilots/shared";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim ---- */
 
@@ -137,6 +138,10 @@ beforeEach(() => {
       PRIMARY KEY (learner_id, profile, section_id)
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
+
   sqliteDb
     .prepare(
       "INSERT INTO learners (id, email, display_name, auth_provider, auth_subject) VALUES (?, ?, ?, ?, ?)"

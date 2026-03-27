@@ -1,9 +1,5 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
-import {
-  getCurriculumMeta,
-  getSection,
-} from "@softwarepilots/shared";
 import type {
   LearnerProfile,
   CurriculumMeta,
@@ -896,40 +892,22 @@ socraticChat.post("/", async (c) => {
     return c.json({ error: "message is required" }, 400);
   }
 
-  // Ensure enrollment exists and load content from pinned version
+  // Load content from enrollment's pinned curriculum version in DB
   const learnerId = c.get("learnerId" as never) as string | undefined;
-  let meta: CurriculumMeta;
-  let section: SectionMeta;
-
-  // Primary path: load from enrollment's pinned curriculum version in DB
-  let loadedFromDB = false;
-  if (learnerId) {
-    try {
-      await getOrCreateEnrollment(c.env.DB, learnerId, body.profile);
-      const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, body.profile);
-      if (versioned) {
-        const dbMeta = extractMeta(versioned.content);
-        const dbSection = findSection(versioned.content, body.section_id);
-        if (dbSection) {
-          meta = dbMeta;
-          section = dbSection;
-          loadedFromDB = true;
-        }
-      }
-    } catch {
-      // Fall through to compiled content
-    }
+  if (!learnerId) {
+    return c.json({ error: "Authentication required" }, 401);
   }
 
-  // Fallback: compiled TypeScript content
-  if (!loadedFromDB) {
-    try {
-      meta = getCurriculumMeta(body.profile);
-      section = getSection(body.profile, body.section_id);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Invalid profile or section";
-      return c.json({ error: message }, 400);
-    }
+  await getOrCreateEnrollment(c.env.DB, learnerId, body.profile);
+  const versioned = await loadCurriculumForEnrollment(c.env.DB, learnerId, body.profile);
+  if (!versioned) {
+    return c.json({ error: `No curriculum version found for profile "${body.profile}". Run the seed script.` }, 500);
+  }
+
+  const meta: CurriculumMeta = extractMeta(versioned.content);
+  const section: SectionMeta | null = findSection(versioned.content, body.section_id);
+  if (!section) {
+    return c.json({ error: `Section "${body.section_id}" not found in profile "${body.profile}"` }, 400);
   }
 
   // Build system prompt and tools

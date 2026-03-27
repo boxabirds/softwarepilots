@@ -3,6 +3,7 @@ import { sign } from "hono/jwt";
 import { Database } from "bun:sqlite";
 import app from "../../index";
 import { _clearNarrativeCache } from "../curriculum";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -140,6 +141,9 @@ beforeEach(() => {
       UNIQUE (learner_id, profile, section_id)
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   sqliteDb
     .prepare(

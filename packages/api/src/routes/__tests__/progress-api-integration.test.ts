@@ -15,6 +15,7 @@ import { sign } from "hono/jwt";
 import { Database } from "bun:sqlite";
 import type { Env } from "../../env";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -271,6 +272,9 @@ function setupDatabase(): InstanceType<typeof Database> {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   // Seed test learner
   sqliteDb

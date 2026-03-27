@@ -13,6 +13,7 @@ import {
   applyClaimUpdates,
 } from "../curriculum-progress";
 import type { SocraticResponse } from "../curriculum-progress";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 import {
   getCurriculumMeta,
   getCurriculumSections,
@@ -147,6 +148,9 @@ beforeEach(() => {
       PRIMARY KEY (learner_id, profile, section_id)
     )
   `);
+
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
 
   sqliteDb
     .prepare(

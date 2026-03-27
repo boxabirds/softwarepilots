@@ -5,10 +5,12 @@
  * errors are logged via console.error rather than silently swallowed.
  */
 
-import { describe, it, expect, afterEach, spyOn } from "bun:test";
+import { describe, it, expect, afterEach, beforeEach, spyOn } from "bun:test";
 import { Hono } from "hono";
+import { Database } from "bun:sqlite";
 import type { Env } from "../../env";
 import type { GeminiFunctionCallResponse } from "../../lib/gemini";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
 
 /* ---- Gemini mock response builders ---- */
 
@@ -62,34 +64,84 @@ function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, FLUSH_DELAY_MS));
 }
 
-function makeFailingDB(errorMessage: string) {
-  const failingStatement = {
-    bind: (..._args: unknown[]) => failingStatement,
-    run: () => Promise.reject(new Error(errorMessage)),
-    first: () => Promise.reject(new Error(errorMessage)),
-    all: () => Promise.reject(new Error(errorMessage)),
-  };
+/* ---- D1 shim ---- */
+
+function createD1Shim(sqliteDb: InstanceType<typeof Database>): D1Database {
   return {
-    prepare: () => failingStatement,
-    exec: () => Promise.reject(new Error(errorMessage)),
-    batch: () => Promise.reject(new Error(errorMessage)),
-    dump: () => Promise.reject(new Error(errorMessage)),
-  };
+    prepare(query: string) {
+      let bindings: unknown[] = [];
+      return {
+        bind(...values: unknown[]) { bindings = values; return this; },
+        async first<T>(columnName?: string): Promise<T | null> {
+          const stmt = sqliteDb.prepare(query);
+          const row = stmt.get(...bindings) as Record<string, unknown> | undefined;
+          if (!row) return null;
+          if (columnName) return (row[columnName] as T) ?? null;
+          return row as T;
+        },
+        async all<T>(): Promise<D1Result<T>> {
+          const stmt = sqliteDb.prepare(query);
+          const rows = stmt.all(...bindings) as T[];
+          return { results: rows, success: true, meta: {} as D1Result<T>["meta"] };
+        },
+        async run(): Promise<D1Response> {
+          const stmt = sqliteDb.prepare(query);
+          const info = stmt.run(...bindings);
+          return { success: true, meta: { duration: 0, changes: info.changes, last_row_id: info.lastInsertRowid as number, changed_db: info.changes > 0, size_after: 0, rows_read: 0, rows_written: info.changes } };
+        },
+      } as unknown as D1PreparedStatement;
+    },
+    async batch<T>(): Promise<D1Result<T>[]> { throw new Error("not implemented"); },
+    async dump(): Promise<ArrayBuffer> { throw new Error("not implemented"); },
+    async exec(): Promise<D1ExecResult> { throw new Error("not implemented"); },
+  } as unknown as D1Database;
 }
 
-function makeMinimalDB() {
-  const noopStatement = {
-    bind: (..._args: unknown[]) => noopStatement,
-    run: () => Promise.resolve({ success: true, meta: {}, results: [] }),
-    first: () => Promise.resolve(null),
-    all: () => Promise.resolve({ success: true, meta: {}, results: [] }),
-  };
-  return {
-    prepare: () => noopStatement,
-    exec: () => Promise.resolve({ count: 0, duration: 0 }),
-    batch: () => Promise.resolve([]),
-    dump: () => Promise.resolve(new ArrayBuffer(0)),
-  };
+let sqliteDb: InstanceType<typeof Database>;
+
+beforeEach(() => {
+  sqliteDb = new Database(":memory:");
+  sqliteDb.exec("PRAGMA foreign_keys = OFF");
+  sqliteDb.exec(`
+    CREATE TABLE learners (id TEXT PRIMARY KEY, display_name TEXT);
+    CREATE TABLE curriculum_progress (
+      learner_id TEXT NOT NULL, profile TEXT NOT NULL, section_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'not_started', understanding_json TEXT,
+      concepts_json TEXT, claims_json TEXT, started_at TEXT, completed_at TEXT,
+      paused_at TEXT, updated_at TEXT,
+      PRIMARY KEY (learner_id, profile, section_id)
+    );
+    CREATE TABLE curriculum_conversations (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      learner_id TEXT NOT NULL, profile TEXT NOT NULL, section_id TEXT NOT NULL,
+      messages_json TEXT NOT NULL, summary TEXT, archived_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (learner_id, profile, section_id)
+    );
+    CREATE TABLE conversation_summaries (
+      learner_id TEXT NOT NULL, profile TEXT NOT NULL, section_id TEXT NOT NULL,
+      summary TEXT NOT NULL, exchange_count INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (learner_id, profile, section_id)
+    );
+  `);
+  sqliteDb.exec(ENROLLMENT_TABLES_SQL);
+  seedCurriculumVersions(sqliteDb);
+  sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner', 'Test')");
+  sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner-123', 'Test 123')");
+  sqliteDb.exec("INSERT INTO learners (id, display_name) VALUES ('test-learner-456', 'Test 456')");
+});
+
+afterEach(() => { sqliteDb?.close(); });
+
+function makeDB() {
+  return createD1Shim(sqliteDb);
+}
+
+function makeFailingProgressDB() {
+  // Drop the progress table so writes fail
+  sqliteDb.exec("DROP TABLE IF EXISTS curriculum_progress");
+  return createD1Shim(sqliteDb);
 }
 
 const TEST_BODY = {
@@ -124,7 +176,7 @@ describe("fire-and-forget error logging", () => {
 
     consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
 
-    const failingDB = makeFailingDB("D1_ERROR: SQLITE_CONSTRAINT");
+    const failingDB = makeFailingProgressDB();
 
     // Import the route and build an app with env bindings injected via middleware
     const { socraticChat } = await import("../socratic-chat");
@@ -201,26 +253,11 @@ describe("fire-and-forget error logging", () => {
 
     consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
 
-    // DB that succeeds for progress updates but fails on conversation lookup
-    // (the .then callback after compress queries for the conversation ID)
-    const progressOkButConvFailsDB = makeMinimalDB();
-    let prepareCallCount = 0;
-    const originalPrepare = progressOkButConvFailsDB.prepare;
-    progressOkButConvFailsDB.prepare = (sql?: string) => {
-      prepareCallCount++;
-      // The conversation SELECT query happens after compress succeeds
-      // It queries curriculum_conversations - make this call throw
-      if (sql && sql.includes("curriculum_conversations")) {
-        const failingStmt = {
-          bind: (..._args: unknown[]) => failingStmt,
-          run: () => Promise.reject(new Error("D1_ERROR: conversation lookup failed")),
-          first: () => Promise.reject(new Error("D1_ERROR: conversation lookup failed")),
-          all: () => Promise.reject(new Error("D1_ERROR: conversation lookup failed")),
-        };
-        return failingStmt as ReturnType<typeof originalPrepare>;
-      }
-      return originalPrepare();
-    };
+    // DB that succeeds for everything except conversation operations
+    // Drop conversation tables so session_complete post-processing fails
+    sqliteDb.exec("DROP TABLE IF EXISTS curriculum_conversations");
+    sqliteDb.exec("DROP TABLE IF EXISTS conversation_summaries");
+    const progressOkButConvFailsDB = makeDB();
 
     const { socraticChat } = await import("../socratic-chat");
     const app = new Hono();
