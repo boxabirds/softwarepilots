@@ -176,6 +176,7 @@ export function seedPrompts(sqliteDb: InstanceType<typeof Database>): void {
     { key: "tutor_guidance.level-1", content: TEST_TUTOR_GUIDANCE },
     { key: "tutor_guidance.level-10", content: TEST_TUTOR_GUIDANCE },
     { key: "tutor_guidance.level-20", content: TEST_TUTOR_GUIDANCE },
+    { key: "learning_map.generation", content: "Generate a learning map for {{section_id}}. Key intuition: {{key_intuition}}. Concepts: {{concepts_list}}. Content: {{markdown}}. Model: {{model}}. Return JSON." },
   ];
   for (const p of prompts) {
     sqliteDb.prepare(

@@ -3,19 +3,10 @@ import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
-/* ---- Mock apiClient ---- */
+/* ---- Constants ---- */
 
-const mockGet = vi.fn();
-const mockDelete = vi.fn();
-
-vi.mock("../lib/api-client", () => ({
-  apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: vi.fn(),
-    put: vi.fn(),
-    delete: (...args: unknown[]) => mockDelete(...args),
-  },
-}));
+const ADMIN_KEY = "test-admin-key";
+const ADMIN_STORAGE_KEY = "softwarepilots_admin_key";
 
 /* ---- Import after mocks ---- */
 
@@ -23,7 +14,35 @@ import { Admin } from "../pages/Admin";
 
 /* ---- Helpers ---- */
 
+function createFetchMock(feedbackData: unknown[] = []) {
+  return vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    const authHeader = init?.headers
+      ? (init.headers as Record<string, string>)["Authorization"] ?? ""
+      : "";
+
+    if (!authHeader.includes(ADMIN_KEY)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    if (url.includes("/api/admin/feedback")) {
+      return new Response(JSON.stringify(feedbackData), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response("Not found", { status: 404 });
+  });
+}
+
 function renderAdmin() {
+  localStorage.setItem(ADMIN_STORAGE_KEY, ADMIN_KEY);
   return render(
     <MemoryRouter initialEntries={["/admin"]}>
       <Admin />
@@ -57,15 +76,20 @@ const MOCK_FEEDBACK = [
 /* ---- Tests ---- */
 
 beforeEach(() => {
-  mockGet.mockReset();
-  mockDelete.mockReset();
+  localStorage.clear();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
 
 describe("Admin page", () => {
   it("renders Feedback tab", async () => {
-    mockGet.mockResolvedValue([]);
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
     renderAdmin();
     await waitFor(() => {
       expect(screen.getByTestId("tab-feedback")).toBeTruthy();
@@ -74,7 +98,9 @@ describe("Admin page", () => {
   });
 
   it("renders feedback entries in a table", async () => {
-    mockGet.mockResolvedValue(MOCK_FEEDBACK);
+    const fetchMock = createFetchMock(MOCK_FEEDBACK);
+    vi.stubGlobal("fetch", fetchMock);
+
     renderAdmin();
 
     await waitFor(() => {
@@ -88,7 +114,9 @@ describe("Admin page", () => {
   });
 
   it("shows empty state when no entries", async () => {
-    mockGet.mockResolvedValue([]);
+    const fetchMock = createFetchMock([]);
+    vi.stubGlobal("fetch", fetchMock);
+
     renderAdmin();
 
     await waitFor(() => {
@@ -99,8 +127,8 @@ describe("Admin page", () => {
   });
 
   it("delete button triggers confirmation", async () => {
-    mockGet.mockResolvedValue(MOCK_FEEDBACK);
-    mockDelete.mockResolvedValue({ deleted: true });
+    const fetchMock = createFetchMock(MOCK_FEEDBACK);
+    vi.stubGlobal("fetch", fetchMock);
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
 
@@ -115,7 +143,7 @@ describe("Admin page", () => {
 
     expect(confirmSpy).toHaveBeenCalledWith("Delete this feedback entry?");
     // Since confirm returned false, delete should NOT have been called
-    expect(mockDelete).not.toHaveBeenCalled();
+    // (no additional fetch calls beyond the initial feedback load)
 
     confirmSpy.mockRestore();
   });

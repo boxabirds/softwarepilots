@@ -125,6 +125,22 @@ function createFetchMock() {
       });
     }
 
+    if (url.match(/\/api\/admin\/users\/[^/]+\/section-events\//)) {
+      return new Response(JSON.stringify({
+        status: "not_started",
+        understanding_json: "[]",
+        claims_json: "[]",
+        concepts_json: "[]",
+        started_at: null,
+        completed_at: null,
+        paused_at: null,
+        updated_at: null,
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (url.match(/\/api\/admin\/users\/[^/]+\/progress/)) {
       return new Response(JSON.stringify(MOCK_USER_PROGRESS), {
         status: 200,
@@ -132,7 +148,7 @@ function createFetchMock() {
       });
     }
 
-    if (url.includes("/api/admin/users") && !url.includes("/conversations/") && !url.includes("/progress")) {
+    if (url.includes("/api/admin/users") && !url.includes("/conversations/") && !url.includes("/progress") && !url.includes("/section-events/")) {
       return new Response(JSON.stringify(MOCK_USERS), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -346,7 +362,7 @@ describe("SectionDetail", () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId("section-tab-events"));
 
-    expect(screen.getByText("Events view - task 57.6")).toBeTruthy();
+    expect(screen.getByText("No events recorded for this section")).toBeTruthy();
   });
 
   it("shows section ID and profile in the header", async () => {

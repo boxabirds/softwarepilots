@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
-import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions } from "./test-schema";
+import { ENROLLMENT_TABLES_SQL, seedCurriculumVersions, seedPrompts } from "./test-schema";
 
 /* ---- D1Database shim using bun:sqlite ---- */
 
@@ -126,6 +126,7 @@ beforeEach(async () => {
 
   sqliteDb.exec(ENROLLMENT_TABLES_SQL);
   seedCurriculumVersions(sqliteDb);
+  seedPrompts(sqliteDb);
 
   sqliteDb
     .prepare(
@@ -140,7 +141,7 @@ beforeEach(async () => {
   app = new Hono();
   // Inject env bindings including ADMIN_API_KEY
   app.use("*", async (c, next) => {
-    c.env = { DB: db, ADMIN_API_KEY: TEST_ADMIN_KEY } as never;
+    c.env = { DB: db, ADMIN_API_KEY: TEST_ADMIN_KEY, GEMINI_API_KEY: "test-gemini-key" } as never;
     await next();
   });
   app.route("/api/admin", admin);
@@ -638,5 +639,182 @@ describe("GET /api/admin/users/:learnerId/section-events/:profile/:sectionId (au
       `/api/admin/users/${TEST_LEARNER_ID}/section-events/level-0/1.1`
     );
     expect(res.status).toBe(401);
+  });
+});
+
+/* ---- POST /api/admin/curriculum/:profile/versions - learning map auto-generation ---- */
+
+import type { SectionLearningMap } from "@softwarepilots/shared";
+
+const VALID_LEARNING_MAP: SectionLearningMap = {
+  section_id: "0.1",
+  generated_at: "2026-03-27T00:00:00Z",
+  model_used: "gemini-2.0-flash",
+  prerequisites: [],
+  core_claims: [
+    { id: "claim-1", statement: "Servers respond to requests", concepts: ["Server"], demonstration_criteria: "Can explain server request handling" },
+    { id: "claim-2", statement: "Databases store data", concepts: ["Database"], demonstration_criteria: "Can identify persistent storage needs" },
+    { id: "claim-3", statement: "Both are infrastructure", concepts: ["Server", "Database"], demonstration_criteria: "Can describe how they work together" },
+  ],
+  key_misconceptions: [
+    { id: "misconception-1", belief: "Servers never fail", correction: "Servers have limited resources", related_claims: ["claim-1"] },
+  ],
+  key_intuition_decomposition: [
+    { id: "insight-1", statement: "Naming enables reasoning", order: 1 },
+    { id: "insight-2", statement: "Reasoning enables accountability", order: 2 },
+  ],
+};
+
+const MINI_CURRICULUM = JSON.stringify({
+  meta: { profile: "level-0", title: "Level 0", starting_position: "Beginner" },
+  modules: [{
+    id: "1",
+    title: "Basics",
+    sections: [{ id: "0.1", title: "Vocab", key_intuition: "Name things", markdown: "## Vocab\n\n**Server**: a computer.\n\n**Database**: stores data." }],
+  }],
+});
+
+describe("POST /api/admin/curriculum/:profile/versions - learning map generation", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function mockGeminiForMap(map: SectionLearningMap) {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: JSON.stringify(map) }] } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )) as unknown as typeof fetch;
+  }
+
+  it("publishes version and triggers background learning map generation", async () => {
+    mockGeminiForMap(VALID_LEARNING_MAP);
+
+    const waitUntilCalls: Promise<unknown>[] = [];
+    const res = await app.fetch(
+      new Request("http://localhost/api/admin/curriculum/level-0/versions", {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content_json: MINI_CURRICULUM,
+          content_hash: "test-hash-auto-gen",
+          created_by: "test",
+          reason: "test auto-gen",
+        }),
+      }),
+      {},
+      {
+        waitUntil(p: Promise<unknown>) { waitUntilCalls.push(p); },
+        passThroughOnException() {},
+      },
+    );
+
+    expect(res.status).toBe(201);
+    expect(waitUntilCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Wait for background generation to complete
+    await Promise.allSettled(waitUntilCalls);
+
+    // Verify learning map was stored in DB
+    const row = sqliteDb.prepare(
+      "SELECT map_json FROM learning_maps WHERE profile = ? AND section_id = ?"
+    ).get("level-0", "0.1") as { map_json: string } | null;
+
+    expect(row).not.toBeNull();
+    const stored = JSON.parse(row!.map_json) as SectionLearningMap;
+    expect(stored.section_id).toBe("0.1");
+    expect(stored.core_claims).toHaveLength(3);
+  });
+
+  it("skips generation when learning map already exists for content hash", async () => {
+    let geminiCallCount = 0;
+    globalThis.fetch = (() => {
+      geminiCallCount++;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: JSON.stringify(VALID_LEARNING_MAP) }] } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }) as unknown as typeof fetch;
+
+    // First publish - generates map
+    const waitUntil1: Promise<unknown>[] = [];
+    await app.fetch(
+      new Request("http://localhost/api/admin/curriculum/level-0/versions", {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content_json: MINI_CURRICULUM,
+          content_hash: "hash-skip-test-1",
+          created_by: "test",
+          reason: "first publish",
+        }),
+      }),
+      {},
+      { waitUntil(p: Promise<unknown>) { waitUntil1.push(p); }, passThroughOnException() {} },
+    );
+    await Promise.allSettled(waitUntil1);
+    expect(geminiCallCount).toBe(1);
+
+    // Second publish with same content - should skip
+    geminiCallCount = 0;
+    const waitUntil2: Promise<unknown>[] = [];
+    await app.fetch(
+      new Request("http://localhost/api/admin/curriculum/level-0/versions", {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content_json: MINI_CURRICULUM,
+          content_hash: "hash-skip-test-2",
+          created_by: "test",
+          reason: "second publish same content",
+        }),
+      }),
+      {},
+      { waitUntil(p: Promise<unknown>) { waitUntil2.push(p); }, passThroughOnException() {} },
+    );
+    await Promise.allSettled(waitUntil2);
+    expect(geminiCallCount).toBe(0);
+  });
+
+  it("publish succeeds even when Gemini fails", async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(new Response("Internal Server Error", { status: 500 }))
+    ) as unknown as typeof fetch;
+
+    const waitUntilCalls: Promise<unknown>[] = [];
+    const res = await app.fetch(
+      new Request("http://localhost/api/admin/curriculum/level-0/versions", {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content_json: MINI_CURRICULUM,
+          content_hash: "hash-gemini-fail",
+          created_by: "test",
+          reason: "test gemini failure",
+        }),
+      }),
+      {},
+      { waitUntil(p: Promise<unknown>) { waitUntilCalls.push(p); }, passThroughOnException() {} },
+    );
+
+    // Publish itself succeeds
+    expect(res.status).toBe(201);
+    await Promise.allSettled(waitUntilCalls);
+
+    // No learning map stored
+    const row = sqliteDb.prepare(
+      "SELECT COUNT(*) as cnt FROM learning_maps WHERE profile = 'level-0'"
+    ).get() as { cnt: number };
+    expect(row.cnt).toBe(0);
   });
 });

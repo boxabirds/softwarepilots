@@ -180,7 +180,9 @@ export function Dashboard() {
 
       // On mobile, scroll the sections area into view
       requestAnimationFrame(() => {
-        sectionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (typeof sectionsRef.current?.scrollIntoView === "function") {
+          sectionsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
     } catch {
       setError(`Failed to load sections`);

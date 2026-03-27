@@ -333,6 +333,42 @@ admin.post("/curriculum/:profile/versions", async (c) => {
       body.created_by,
       body.reason,
     );
+
+    // Background-generate learning maps for all sections in the new version
+    const mapGeneration = (async () => {
+      try {
+        const data = JSON.parse(body.content_json) as import("@softwarepilots/shared").CurriculumData;
+        const sections = extractSections(data);
+        const promptTemplate = await getPrompt(c.env.DB, "learning_map.generation");
+        const model = c.env.GEMINI_MODEL || "gemini-2.0-flash";
+
+        for (const section of sections) {
+          const contentHash = await computeContentHash(section.markdown, section.key_intuition, section.concepts);
+          const existing = await getLearningMapFromDB(c.env.DB, profile, section.id, contentHash);
+          if (existing) continue;
+
+          try {
+            const map = await generateLearningMap(
+              c.env.GEMINI_API_KEY,
+              promptTemplate.content,
+              section.id,
+              section.markdown,
+              section.key_intuition,
+              section.concepts,
+              { model },
+            );
+            await storeLearningMap(c.env.DB, profile, section.id, contentHash, map, model);
+            console.log(`[learning-map] Generated for ${profile}/${section.id}`);
+          } catch (err) {
+            console.error(`[learning-map] Failed for ${profile}/${section.id}:`, err instanceof Error ? err.message : err);
+          }
+        }
+      } catch (err) {
+        console.error(`[learning-map] Background generation failed for ${profile}:`, err instanceof Error ? err.message : err);
+      }
+    })();
+    try { c.executionCtx.waitUntil(mapGeneration); } catch { /* test env: no executionCtx */ }
+
     return c.json(version, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to publish version";
