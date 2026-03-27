@@ -257,6 +257,86 @@ async function isMapInDB(
   }
 }
 
+// -- DB content loading (for --db mode) --
+
+interface DBSectionContent {
+  profile: string;
+  sectionId: string;
+  markdown: string;
+  key_intuition: string;
+  concepts: string[];
+}
+
+/** Cache of section content loaded from curriculum_versions, keyed by "profile:sectionId" */
+const dbSectionCache = new Map<string, DBSectionContent>();
+
+async function loadSectionsFromDB(
+  filterProfile?: string,
+  env?: string,
+): Promise<Array<{ profile: string; sectionId: string }>> {
+  const envFlag = env ? `--env ${env}` : "";
+  const remoteFlag = env ? "--remote" : "--local";
+  const dbName = env ? `softwarepilots-db-${env}` : "softwarepilots-db";
+
+  // Query all active (non-deleted) curriculum versions
+  const profileFilter = filterProfile
+    ? `AND profile = '${escapeSql(filterProfile)}'`
+    : "";
+
+  const sql = `SELECT profile, content_json FROM curriculum_versions WHERE deleted = 0 ${profileFilter} ORDER BY profile;`;
+
+  let output: string;
+  try {
+    output = execSync(
+      `cd "${join(PROJECT_ROOT, "packages/api")}" && npx wrangler d1 execute ${dbName} ${remoteFlag} ${envFlag} --command="${sql}" --json`,
+      { stdio: "pipe" },
+    ).toString();
+  } catch {
+    console.error("Failed to query curriculum_versions from DB. Falling back to TypeScript.");
+    return [];
+  }
+
+  const parsed = JSON.parse(output);
+  const rows = parsed?.[0]?.results as Array<{ profile: string; content_json: string }> | undefined;
+  if (!rows || rows.length === 0) {
+    console.error("No curriculum versions found in DB.");
+    return [];
+  }
+
+  const tasks: Array<{ profile: string; sectionId: string }> = [];
+
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.content_json) as {
+        modules: Array<{
+          id: string;
+          sections: Array<{ id: string; title: string; key_intuition: string; markdown: string }>;
+        }>;
+      };
+
+      for (const mod of data.modules) {
+        for (const sec of mod.sections) {
+          const concepts = extractConcepts(sec.markdown);
+          const key = `${row.profile}:${sec.id}`;
+          dbSectionCache.set(key, {
+            profile: row.profile,
+            sectionId: sec.id,
+            markdown: sec.markdown,
+            key_intuition: sec.key_intuition,
+            concepts,
+          });
+          tasks.push({ profile: row.profile, sectionId: sec.id });
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to parse content_json for profile ${row.profile}:`, err);
+    }
+  }
+
+  console.log(`Loaded ${tasks.length} sections from ${rows.length} curriculum versions in DB`);
+  return tasks;
+}
+
 function regenerateBarrelIndex(): void {
   const imports: string[] = [];
   const registrations: string[] = [];
@@ -349,12 +429,30 @@ async function processSection(
 
   console.log(`Processing section ${index} of ${total} (${profile}/${sectionId})`);
 
-  const section = getSection(profile, sectionId);
-  const concepts = extractConcepts(section.markdown);
+  // Load section content: from DB cache in --db mode, from TypeScript otherwise
+  let markdown: string;
+  let keyIntuition: string;
+  let concepts: string[];
+
+  if (dbMode) {
+    const cached = dbSectionCache.get(`${profile}:${sectionId}`);
+    if (!cached) {
+      console.log(`  [${profile}/${sectionId}] Not found in DB cache, skipping`);
+      return { task, status: "failed" };
+    }
+    markdown = cached.markdown;
+    keyIntuition = cached.key_intuition;
+    concepts = cached.concepts;
+  } else {
+    const section = getSection(profile, sectionId);
+    markdown = section.markdown;
+    keyIntuition = section.key_intuition;
+    concepts = extractConcepts(section.markdown);
+  }
 
   // In DB mode, check content hash first and skip if unchanged
   if (dbMode) {
-    const contentHash = await computeContentHash(section.markdown, section.key_intuition, concepts);
+    const contentHash = await computeContentHash(markdown, keyIntuition, concepts);
     const exists = await isMapInDB(profile, sectionId, contentHash, env);
     if (exists) {
       console.log(`  [${profile}/${sectionId}] Skipped (hash match in DB)`);
@@ -362,7 +460,7 @@ async function processSection(
     }
   }
 
-  const prompt = buildPrompt(sectionId, section.markdown, section.key_intuition, concepts);
+  const prompt = buildPrompt(sectionId, markdown, keyIntuition, concepts);
 
   let map: SectionLearningMap | null = null;
   let lastError: string | null = null;
@@ -392,7 +490,7 @@ async function processSection(
 
   if (map) {
     if (dbMode) {
-      const contentHash = await computeContentHash(section.markdown, section.key_intuition, concepts);
+      const contentHash = await computeContentHash(markdown, keyIntuition, concepts);
       writeMapToD1(profile, sectionId, contentHash, map, env);
       console.log(`  [${profile}/${sectionId}] Written to D1 (hash: ${contentHash.slice(0, 12)}...)`);
     } else {
@@ -424,16 +522,26 @@ async function main(): Promise<void> {
 
   // Collect all section tasks
   const tasks: SectionTask[] = [];
-  const profiles = getCurriculumProfiles();
 
-  for (const profileSummary of profiles) {
-    const profile = profileSummary.profile;
-    if (filterProfile && profile !== filterProfile) continue;
+  if (dbMode) {
+    // DB mode: read from curriculum_versions table
+    const dbSections = await loadSectionsFromDB(filterProfile, targetEnv);
+    for (const { profile, sectionId } of dbSections) {
+      if (filterSection && sectionId !== filterSection) continue;
+      tasks.push({ profile, sectionId });
+    }
+  } else {
+    // File mode: read from compiled TypeScript
+    const profiles = getCurriculumProfiles();
+    for (const profileSummary of profiles) {
+      const profile = profileSummary.profile;
+      if (filterProfile && profile !== filterProfile) continue;
 
-    const sections = getCurriculumSections(profile);
-    for (const sectionSummary of sections) {
-      if (filterSection && sectionSummary.id !== filterSection) continue;
-      tasks.push({ profile, sectionId: sectionSummary.id });
+      const sections = getCurriculumSections(profile);
+      for (const sectionSummary of sections) {
+        if (filterSection && sectionSummary.id !== filterSection) continue;
+        tasks.push({ profile, sectionId: sectionSummary.id });
+      }
     }
   }
 
