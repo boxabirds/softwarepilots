@@ -4,6 +4,9 @@ main = "src/index.ts"
 compatibility_date = "2026-03-09"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = true
+
 [dev]
 port = 8790
 
