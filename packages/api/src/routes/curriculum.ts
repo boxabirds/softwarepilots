@@ -351,6 +351,55 @@ curriculum.get("/:profile/progress/summary", async (c) => {
   });
 });
 
+/* GET /:profile/review-needed - concepts due for review from enrollment */
+curriculum.get("/:profile/review-needed", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+
+  if (!isValidProfile(profile)) {
+    return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  try {
+    const enrollment = await getEnrollment(c.env.DB, learnerId, profile);
+    if (!enrollment) {
+      return c.json({ due_concepts: [], total_due: 0 });
+    }
+
+    const conceptsMap = await getEnrollmentConcepts(c.env.DB, enrollment.id);
+    if (Object.keys(conceptsMap).length === 0) {
+      return c.json({ due_concepts: [], total_due: 0 });
+    }
+
+    // Find overdue concepts from enrollment
+    const now = new Date();
+    const msPerDay = 86_400_000;
+    const dueConcepts: Array<{ concept: string; days_overdue: number; level: string }> = [];
+
+    for (const [concept, assessment] of Object.entries(conceptsMap)) {
+      const nextReview = new Date(assessment.next_review);
+      if (nextReview <= now) {
+        const daysOverdue = Math.floor((now.getTime() - nextReview.getTime()) / msPerDay);
+        dueConcepts.push({ concept, days_overdue: daysOverdue, level: assessment.level });
+      }
+    }
+
+    // Sort by most overdue first
+    dueConcepts.sort((a, b) => b.days_overdue - a.days_overdue);
+
+    return c.json({
+      due_concepts: dueConcepts.map((d) => ({
+        concept: d.concept,
+        days_overdue: d.days_overdue,
+        level: d.level,
+      })),
+      total_due: dueConcepts.length,
+    });
+  } catch {
+    return c.json({ due_concepts: [], total_due: 0 });
+  }
+});
+
 /* GET /:profile/:sectionId - get section with markdown (must be before conversation routes) */
 curriculum.get("/:profile/:sectionId", (c) => {
   const profile = c.req.param("profile");

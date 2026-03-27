@@ -70,6 +70,12 @@ export function SocraticSession() {
   const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<{ content: string; messageIndex: number } | null>(null);
 
+  // Refresher interstitial
+  const [reviewDueCount, setReviewDueCount] = useState(0);
+  const [showRefresher, setShowRefresher] = useState(false);
+  const [refresherDeclined, setRefresherDeclined] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
+
   // Mobile layout
   const isMobile = useIsMobile();
   const [contextOpen, setContextOpen] = useState(false);
@@ -103,6 +109,26 @@ export function SocraticSession() {
       })
       .catch(() => {});
   }, [profile]);
+
+  // Check for concepts due for review (refresher interstitial)
+  useEffect(() => {
+    if (!profile || !sectionId || refresherDeclined || reviewMode) return;
+    // Only show interstitial for sections not yet started
+    const sectionStatus = lessonProgress.get(sectionId);
+    if (sectionStatus && sectionStatus !== "not_started") return;
+
+    apiClient
+      .get<{ due_concepts: Array<{ concept: string; days_overdue: number; level: string }>; total_due: number }>(
+        `/api/curriculum/${profile}/review-needed`,
+      )
+      .then((data) => {
+        if (data.total_due > 0) {
+          setReviewDueCount(data.total_due);
+          setShowRefresher(true);
+        }
+      })
+      .catch(() => {});
+  }, [profile, sectionId, lessonProgress, refresherDeclined, reviewMode]);
 
   /* ---- Fetch section metadata ---- */
 
@@ -670,6 +696,62 @@ export function SocraticSession() {
         onDismissFeedback={() => setFeedbackTarget(null)}
       />
     );
+  }
+
+  /* ---- Refresher interstitial ---- */
+
+  function renderRefresherInterstitial() {
+    if (!showRefresher || refresherDeclined) return null;
+
+    return (
+      <div
+        className="flex h-[calc(100dvh-56px)] items-center justify-center p-6"
+        style={{ background: "var(--bg-base)" }}
+        data-testid="refresher-interstitial"
+      >
+        <div
+          className="w-full max-w-md rounded-xl border p-6"
+          style={{ background: "var(--bg-subtle)", borderColor: "var(--border-light)" }}
+        >
+          <h2 className="mb-3 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            Quick refresher?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            You have {reviewDueCount} concept{reviewDueCount === 1 ? "" : "s"} due for review from earlier sections.
+            Want to do a quick refresher on the areas that need the most work?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowRefresher(false);
+                setReviewMode(true);
+              }}
+              className="cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+              style={{ background: "var(--pilot-blue)" }}
+              data-testid="refresher-accept"
+            >
+              Yes, let's review
+            </button>
+            <button
+              onClick={() => {
+                setShowRefresher(false);
+                setRefresherDeclined(true);
+              }}
+              className="cursor-pointer rounded-md border bg-transparent px-4 py-2 text-sm font-medium transition-colors"
+              style={{ borderColor: "var(--border-light)", color: "var(--text-secondary)" }}
+              data-testid="refresher-decline"
+            >
+              No, continue to section
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show interstitial if active
+  if (showRefresher && !refresherDeclined) {
+    return renderRefresherInterstitial();
   }
 
   /* ---- Layout ---- */

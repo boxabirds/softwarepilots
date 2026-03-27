@@ -452,6 +452,66 @@ export function buildSocraticTools(
 
 /* ---- System prompt builder ---- */
 
+/**
+ * Build a system prompt for review mode - focused on probing overdue concepts
+ * rather than teaching new material.
+ */
+export function buildReviewSystemPrompt(
+  meta: CurriculumMeta,
+  section: SectionMeta,
+  conversation: Array<{ role: "user" | "tutor"; content: string }>,
+  progressContext?: string,
+): string {
+  const lines = [
+    `You are a Socratic tutor conducting a brief review session for the ${meta.profile} software pilotry curriculum.`,
+    "",
+    "== Review Session Rules ==",
+    "You are reviewing concepts the learner demonstrated previously but has not revisited recently.",
+    "Your goal is to PROBE FOR RECALL, not teach new material.",
+    "- Ask targeted questions to verify the learner still understands each concept",
+    "- If they demonstrate recall, acknowledge it and move to the next concept",
+    "- If they struggle, give a brief reminder and re-probe",
+    "- Keep the session brief: 2-5 exchanges total",
+    "- Use the track_concepts tool to update concept mastery levels",
+    "- Use the claim_assessment tool if claims are relevant",
+    "- When all overdue concepts have been addressed, call session_complete",
+    "",
+    "== Response Rules ==",
+    "- ALWAYS use 'you/your' to address the learner directly",
+    "- NEVER refer to the learner in third person",
+    "- Keep responses to 1-3 sentences",
+    "- ALWAYS acknowledge the learner's previous message before asking the next question",
+  ];
+
+  if (progressContext) {
+    lines.push("", "== Learner Progress Context ==", progressContext);
+  }
+
+  // Include section context for the concepts being reviewed
+  if (section.key_intuition) {
+    lines.push("", "== Section Context ==", `Key insight from this section: ${section.key_intuition}`);
+  }
+
+  // Include learning map if available
+  const lm = section.learning_map;
+  if (lm && lm.core_claims.length > 0) {
+    lines.push("", "== Claims for Reference ==");
+    lm.core_claims.forEach((claim, i) => {
+      lines.push(`${i + 1}. [${claim.id}] ${claim.statement}`);
+    });
+  }
+
+  if (conversation.length === 0) {
+    lines.push(
+      "",
+      "== First Message ==",
+      "Start by greeting the learner and asking about a specific concept that needs review. Be warm and encouraging.",
+    );
+  }
+
+  return lines.join("\n");
+}
+
 export function buildSocraticSystemPrompt(
   meta: CurriculumMeta,
   section: SectionMeta,
@@ -875,7 +935,15 @@ socraticChat.post("/", async (c) => {
       // Non-critical: proceed without conversation context
     }
   }
-  const systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
+  let systemPrompt: string;
+  const isReviewMode = body.mode === "review";
+
+  if (isReviewMode && learnerId) {
+    // Review mode: build a prompt focused on probing overdue concepts
+    systemPrompt = buildReviewSystemPrompt(meta, section, conversation, progressContext || undefined);
+  } else {
+    systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
+  }
   const tools = buildSocraticTools(section, meta);
 
   // Build Gemini contents from conversation history
