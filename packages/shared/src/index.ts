@@ -29,6 +29,7 @@ export type {
   LearnerProfile,
   AccountabilityScope,
   CurriculumMeta,
+  CurriculumData,
   SectionMeta,
   CurriculumProfileSummary,
   SectionLearningMap,

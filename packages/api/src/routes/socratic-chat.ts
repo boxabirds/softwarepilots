@@ -15,6 +15,7 @@ import {
   GEMINI_API_URL,
 } from "../lib/gemini";
 import { updateSectionProgress, buildProgressContext } from "./curriculum-progress";
+import { getOrCreateEnrollment } from "../lib/enrollment-store";
 import { buildCurriculumContext, buildConversationContext, compressConversation, persistSummary } from "../lib/context-assembly";
 import type { GeminiFunctionCallResponse } from "../lib/gemini";
 
@@ -834,6 +835,16 @@ socraticChat.post("/", async (c) => {
     return c.json({ error: "message is required" }, 400);
   }
 
+  // Ensure enrollment exists (creates if first section start)
+  const learnerId = c.get("learnerId" as never) as string | undefined;
+  if (learnerId) {
+    try {
+      await getOrCreateEnrollment(c.env.DB, learnerId, body.profile);
+    } catch {
+      // Non-critical: proceed without enrollment
+    }
+  }
+
   // Load curriculum and section
   let meta: CurriculumMeta;
   let section: SectionMeta;
@@ -847,7 +858,6 @@ socraticChat.post("/", async (c) => {
 
   // Build system prompt and tools
   const conversation = body.context?.conversation ?? [];
-  const learnerId = c.get("learnerId" as never) as string | undefined;
   let progressContext = "";
   if (learnerId) {
     try {

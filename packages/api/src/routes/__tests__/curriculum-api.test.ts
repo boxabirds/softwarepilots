@@ -24,7 +24,7 @@ async function authCookie(): Promise<string> {
 /* ---- Tests ---- */
 
 describe("Curriculum API endpoints", () => {
-  it("GET /api/curriculum returns array of 3 profiles", async () => {
+  it("GET /api/curriculum returns array of 4 profiles", async () => {
     const cookie = await authCookie();
     const res = await app.request(
       "/api/curriculum",
@@ -35,11 +35,12 @@ describe("Curriculum API endpoints", () => {
     expect(res.status).toBe(200);
     const body: any = await res.json();
     expect(Array.isArray(body)).toBe(true);
-    expect(body).toHaveLength(3);
+    expect(body).toHaveLength(4);
     expect(body.map((p: { profile: string }) => p.profile).sort()).toEqual([
+      "level-0",
       "level-1",
-      "level-20",
       "level-10",
+      "level-20",
     ]);
   });
 

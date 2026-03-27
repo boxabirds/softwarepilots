@@ -35,9 +35,10 @@ async function json<T>(res: Response): Promise<T> {
 
 describe("isValidProfile", () => {
   it("accepts known profiles", () => {
+    expect(isValidProfile("level-0")).toBe(true);
     expect(isValidProfile("level-1")).toBe(true);
-    expect(isValidProfile("veteran-engineer")).toBe(true);
-    expect(isValidProfile("senior-tech-leader")).toBe(true);
+    expect(isValidProfile("level-10")).toBe(true);
+    expect(isValidProfile("level-20")).toBe(true);
   });
 
   it("rejects unknown profiles", () => {
@@ -341,7 +342,7 @@ describe("DELETE /curriculum/:profile/:sectionId/conversation", () => {
     const messages = [{ role: "user", content: "to be deleted" }];
 
     // PUT a conversation
-    await app.request("/curriculum/veteran-engineer/3.1/conversation", {
+    await app.request("/curriculum/level-10/3.1/conversation", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages }),
@@ -349,7 +350,7 @@ describe("DELETE /curriculum/:profile/:sectionId/conversation", () => {
 
     // DELETE it
     const delRes = await app.request(
-      "/curriculum/veteran-engineer/3.1/conversation",
+      "/curriculum/level-10/3.1/conversation",
       { method: "DELETE" }
     );
     expect(delRes.status).toBe(200);
@@ -358,7 +359,7 @@ describe("DELETE /curriculum/:profile/:sectionId/conversation", () => {
 
     // GET should return empty
     const getRes = await app.request(
-      "/curriculum/veteran-engineer/3.1/conversation"
+      "/curriculum/level-10/3.1/conversation"
     );
     const getBody = await json<ConversationResponse>(getRes);
     expect(getBody.messages).toEqual([]);

@@ -3,6 +3,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import type { Env } from "../env";
 import { getProgressForProfile, computeClaimProgress } from "./curriculum-progress";
 import { getCurriculumSections, getCurriculumProfiles } from "@softwarepilots/shared";
+import { publishVersion, getVersionHistory } from "../lib/curriculum-store";
 
 const admin = new Hono<{ Bindings: Env }>();
 
@@ -297,6 +298,45 @@ admin.get("/users/:learnerId/conversations/:profile/:sectionId", async (c) => {
   });
 
   return c.json({ conversations });
+});
+
+/* ---- Curriculum Versioning ---- */
+
+/* GET /curriculum/:profile/versions - version history */
+admin.get("/curriculum/:profile/versions", async (c) => {
+  const profile = c.req.param("profile");
+  const versions = await getVersionHistory(c.env.DB, profile);
+  return c.json({ versions });
+});
+
+/* POST /curriculum/:profile/versions - publish new version */
+admin.post("/curriculum/:profile/versions", async (c) => {
+  const profile = c.req.param("profile");
+  const body = await c.req.json<{
+    content_json: string;
+    content_hash: string;
+    created_by?: string;
+    reason?: string;
+  }>();
+
+  if (!body.content_json || !body.content_hash) {
+    return c.json({ error: "content_json and content_hash are required" }, 400);
+  }
+
+  try {
+    const version = await publishVersion(
+      c.env.DB,
+      profile,
+      body.content_json,
+      body.content_hash,
+      body.created_by,
+      body.reason,
+    );
+    return c.json(version, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to publish version";
+    return c.json({ error: message }, 500);
+  }
 });
 
 export { admin };

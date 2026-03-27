@@ -16,6 +16,7 @@ import {
   buildNarrativePrompt,
   generateNarrative,
 } from "../lib/narrative";
+import { getOrCreateEnrollment } from "../lib/enrollment-store";
 import type { ProgressStats, SectionProgressData } from "../lib/narrative";
 import {
   compressConversation,
@@ -194,6 +195,13 @@ curriculum.get("/:profile/progress/summary", async (c) => {
 
   if (!isValidProfile(profile)) {
     return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  // Ensure enrollment exists for progress tracking
+  try {
+    await getOrCreateEnrollment(c.env.DB, learnerId, profile);
+  } catch {
+    // Non-critical: proceed without enrollment
   }
 
   // Load all progress rows (with concepts_json and claims_json)
