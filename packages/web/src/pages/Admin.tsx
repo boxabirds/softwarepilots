@@ -60,7 +60,7 @@ interface AdminUser {
   profiles: UserProfileProgress[];
 }
 
-type TabId = "feedback" | "users";
+type TabId = "feedback" | "users" | "prompts";
 type StatusFilter = "all" | "active" | "inactive" | "needs_review";
 type ActivityRange = "all" | "24h" | "7d" | "30d" | "inactive_7d";
 
@@ -1650,6 +1650,237 @@ function FeedbackRow({
   );
 }
 
+/* ---- Prompts Tab ---- */
+
+interface PromptRow {
+  id: number;
+  key: string;
+  content: string;
+  version: number;
+  created_at: string;
+  created_by: string | null;
+  reason: string | null;
+}
+
+function PromptsTab({ onAuthFail }: { onAuthFail: () => void }) {
+  const [prompts, setPrompts] = useState<PromptRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [originalContent, setOriginalContent] = useState("");
+  const [history, setHistory] = useState<PromptRow[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load prompt list
+  const loadPrompts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await adminFetch<PromptRow[]>("/api/admin/prompts");
+      setPrompts(data);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("401")) {
+        onAuthFail();
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Failed to load prompts");
+    } finally {
+      setLoading(false);
+    }
+  }, [onAuthFail]);
+
+  useEffect(() => { loadPrompts(); }, [loadPrompts]);
+
+  // Load selected prompt detail + history
+  const selectPrompt = useCallback(async (key: string) => {
+    setSelectedKey(key);
+    setShowHistory(false);
+    setEditReason("");
+    try {
+      const data = await adminFetch<{ prompt: PromptRow; history?: PromptRow[] }>(
+        `/api/admin/prompts/${encodeURIComponent(key)}?history=true`
+      );
+      setEditContent(data.prompt.content);
+      setOriginalContent(data.prompt.content);
+      setHistory(data.history ?? []);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("401")) {
+        onAuthFail();
+      }
+    }
+  }, [onAuthFail]);
+
+  // Save edited prompt
+  const handleSave = useCallback(async () => {
+    if (!selectedKey || !editReason.trim()) return;
+    setSaving(true);
+    try {
+      await adminFetch<PromptRow>(`/api/admin/prompts/${encodeURIComponent(selectedKey)}`, {
+        method: "PUT",
+        body: JSON.stringify({ content: editContent, reason: editReason }),
+      });
+      setEditReason("");
+      await loadPrompts();
+      await selectPrompt(selectedKey);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("401")) {
+        onAuthFail();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedKey, editContent, editReason, onAuthFail, loadPrompts, selectPrompt]);
+
+  const contentChanged = editContent !== originalContent;
+  const canSave = contentChanged && editReason.trim().length > 0 && !saving;
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading prompts...</p>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-destructive">
+        <p>{error}</p>
+        <button onClick={loadPrompts} className="mt-2 text-primary underline">Retry</button>
+      </div>
+    );
+  }
+
+  if (prompts.length === 0) {
+    return (
+      <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+        No prompts found. Run the seed script to populate prompts.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-6" style={{ minHeight: "500px" }} data-testid="prompts-tab">
+      {/* Prompt list */}
+      <div className="w-64 shrink-0 overflow-y-auto border-r border-border pr-4">
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Prompt Keys</h3>
+        <ul className="flex flex-col gap-1">
+          {prompts.map((p) => (
+            <li key={p.key}>
+              <button
+                onClick={() => selectPrompt(p.key)}
+                data-testid={`prompt-key-${p.key}`}
+                className={cn(
+                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  selectedKey === p.key
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-foreground hover:bg-muted"
+                )}
+              >
+                <div className="truncate font-mono text-xs">{p.key}</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  v{p.version} - {p.content.slice(0, 60)}...
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Editor panel */}
+      <div className="flex-1">
+        {!selectedKey ? (
+          <p className="text-sm text-muted-foreground">Select a prompt to edit</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-mono text-sm font-semibold">{selectedKey}</h3>
+              {contentChanged && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+
+            {/* Content editor */}
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              data-testid="prompt-editor"
+              className="min-h-[300px] w-full rounded-md border border-border bg-background p-3 font-mono text-sm"
+              spellCheck={false}
+            />
+
+            {/* Reason + Save */}
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="Reason for change (required)"
+                data-testid="prompt-reason"
+                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <button
+                onClick={handleSave}
+                disabled={!canSave}
+                data-testid="prompt-save"
+                className={cn(
+                  "rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  canSave
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+
+            {/* Version history */}
+            <div>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="cursor-pointer text-sm text-primary underline"
+                data-testid="prompt-toggle-history"
+              >
+                {showHistory ? "Hide history" : `Show history (${history.length} versions)`}
+              </button>
+              {showHistory && history.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2">
+                  {history.map((h) => (
+                    <div
+                      key={h.version}
+                      className="rounded-md border border-border p-3 text-sm"
+                      data-testid={`prompt-history-v${h.version}`}
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>v{h.version} - {h.created_at}{h.created_by ? ` by ${h.created_by}` : ""}</span>
+                        {h.version !== history[0]?.version && (
+                          <button
+                            onClick={() => setEditContent(h.content)}
+                            className="cursor-pointer text-primary underline"
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                      {h.reason && (
+                        <div className="mt-1 text-xs italic text-muted-foreground">{h.reason}</div>
+                      )}
+                      <pre className="mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs opacity-70">
+                        {h.content.slice(0, 200)}{h.content.length > 200 ? "..." : ""}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---- Main Admin component ---- */
 
 export function Admin() {
@@ -1719,6 +1950,13 @@ export function Admin() {
         >
           Users
         </TabButton>
+        <TabButton
+          active={activeTab === "prompts"}
+          onClick={() => switchTab("prompts")}
+          testId="tab-prompts"
+        >
+          Prompts
+        </TabButton>
       </div>
 
       {/* Tab content */}
@@ -1726,6 +1964,7 @@ export function Admin() {
       {activeTab === "users" && (
         <UsersTab searchParams={searchParams} setSearchParams={setSearchParams} onAuthFail={handleAuthFail} />
       )}
+      {activeTab === "prompts" && <PromptsTab onAuthFail={handleAuthFail} />}
     </div>
   );
 }

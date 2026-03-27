@@ -2,8 +2,11 @@ import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import type { Env } from "../env";
 import { getProgressForProfile, computeClaimProgress } from "./curriculum-progress";
-import { getCurriculumProfiles } from "@softwarepilots/shared";
+import { getCurriculumProfiles, extractConcepts } from "@softwarepilots/shared";
 import { publishVersion, getVersionHistory, loadCurriculumByVersion, getCurrentVersion, extractSections } from "../lib/curriculum-store";
+import { getPrompt, savePrompt, listPrompts, getPromptHistory } from "../lib/prompts";
+import { computeContentHash, getLearningMapFromDB, storeLearningMap } from "../lib/learning-map-store";
+import { generateLearningMap } from "../lib/learning-map-generator";
 
 const admin = new Hono<{ Bindings: Env }>();
 
@@ -335,6 +338,85 @@ admin.post("/curriculum/:profile/versions", async (c) => {
     const message = err instanceof Error ? err.message : "Failed to publish version";
     return c.json({ error: message }, 500);
   }
+});
+
+/* ---- Prompt Management ---- */
+
+/* GET /prompts - list all current prompts */
+admin.get("/prompts", async (c) => {
+  const prompts = await listPrompts(c.env.DB);
+  return c.json(prompts);
+});
+
+/* GET /prompts/:key - get prompt by key, optional history */
+admin.get("/prompts/:key", async (c) => {
+  const key = decodeURIComponent(c.req.param("key"));
+  const includeHistory = c.req.query("history") === "true";
+
+  try {
+    const prompt = await getPrompt(c.env.DB, key);
+    const result: { prompt: typeof prompt; history?: Awaited<ReturnType<typeof getPromptHistory>> } = { prompt };
+
+    if (includeHistory) {
+      result.history = await getPromptHistory(c.env.DB, key);
+    }
+
+    return c.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Prompt not found";
+    return c.json({ error: message }, 404);
+  }
+});
+
+/* POST /prompts - create a new prompt */
+admin.post("/prompts", async (c) => {
+  const body = await c.req.json<{
+    key?: string;
+    content?: string;
+    reason?: string;
+    created_by?: string;
+  }>();
+
+  if (!body.key || typeof body.key !== "string") {
+    return c.json({ error: "key is required" }, 400);
+  }
+  if (body.content === undefined || body.content === null) {
+    return c.json({ error: "content is required" }, 400);
+  }
+  if (!body.reason || typeof body.reason !== "string") {
+    return c.json({ error: "reason is required" }, 400);
+  }
+
+  const prompt = await savePrompt(c.env.DB, body.key, body.content, {
+    createdBy: body.created_by,
+    reason: body.reason,
+  });
+
+  return c.json(prompt, 201);
+});
+
+/* PUT /prompts/:key - update a prompt (creates new version) */
+admin.put("/prompts/:key", async (c) => {
+  const key = decodeURIComponent(c.req.param("key"));
+  const body = await c.req.json<{
+    content?: string;
+    reason?: string;
+    created_by?: string;
+  }>();
+
+  if (body.content === undefined || body.content === null) {
+    return c.json({ error: "content is required" }, 400);
+  }
+  if (!body.reason || typeof body.reason !== "string") {
+    return c.json({ error: "reason is required" }, 400);
+  }
+
+  const prompt = await savePrompt(c.env.DB, key, body.content, {
+    createdBy: body.created_by,
+    reason: body.reason,
+  });
+
+  return c.json(prompt);
 });
 
 export { admin };
