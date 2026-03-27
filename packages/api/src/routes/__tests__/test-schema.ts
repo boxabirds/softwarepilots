@@ -88,7 +88,6 @@ export function seedCurriculumVersions(sqliteDb: InstanceType<typeof Database>):
         profile: p.profile as "level-0" | "level-1" | "level-10" | "level-20",
         title: p.title,
         starting_position: p.starting_position,
-        tutor_guidance: "",
       },
       modules: Array.from(sectionsByModule.values()),
     };
@@ -104,6 +103,8 @@ export function seedCurriculumVersions(sqliteDb: InstanceType<typeof Database>):
 }
 
 /* ---- Prompt test constants and seeding ---- */
+
+export const TEST_TUTOR_GUIDANCE = `The learner is a complete beginner. Use simple, concrete language. Avoid jargon. Build understanding through real-world analogies.`;
 
 export const TEST_SOCRATIC_PERSONA = `You are a Socratic tutor for "{{section_title}}" in the {{profile}} software pilotry curriculum.`;
 
@@ -152,7 +153,7 @@ function escapeSql(str: string): string {
 }
 
 /**
- * Seed the prompts table with the 3 Socratic prompt keys.
+ * Seed the prompts table with prompt keys needed by route handler tests.
  * Call after creating tables for tests that hit the socratic route.
  */
 const TEST_SUMMARIZATION_INSTRUCTIONS = `You are summarizing a tutoring conversation for future context.
@@ -171,6 +172,10 @@ export function seedPrompts(sqliteDb: InstanceType<typeof Database>): void {
     { key: "socratic.rules", content: TEST_SOCRATIC_RULES },
     { key: "review.persona", content: TEST_REVIEW_PERSONA },
     { key: "summarization.instructions", content: TEST_SUMMARIZATION_INSTRUCTIONS },
+    { key: "tutor_guidance.level-0", content: TEST_TUTOR_GUIDANCE },
+    { key: "tutor_guidance.level-1", content: TEST_TUTOR_GUIDANCE },
+    { key: "tutor_guidance.level-10", content: TEST_TUTOR_GUIDANCE },
+    { key: "tutor_guidance.level-20", content: TEST_TUTOR_GUIDANCE },
   ];
   for (const p of prompts) {
     sqliteDb.prepare(

@@ -87,7 +87,6 @@ const META_NO_ENRICHMENT: CurriculumMeta = {
   profile: "level-0",
   title: "Plain Curriculum",
   starting_position: "None",
-  tutor_guidance: "Be helpful",
 };
 
 /* ---- Tool presence with enriched curriculum ---- */

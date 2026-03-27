@@ -21,70 +21,23 @@ const GENERATION_TEMPERATURE = 0.3;
 
 /**
  * Build the prompt that instructs Gemini to produce a SectionLearningMap.
+ * Resolves {{variables}} in the template from the prompt store.
  * Exported for testing.
  */
 export function buildLearningMapPrompt(
+  template: string,
   sectionId: string,
   markdown: string,
   keyIntuition: string,
   concepts: string[],
   model: string = DEFAULT_GEMINI_MODEL,
 ): string {
-  return `You are an expert curriculum designer for a software engineering education platform called "Software Pilots". Your task is to generate a structured learning map for a curriculum section.
-
-## Section ID: ${sectionId}
-
-## Key Intuition
-${keyIntuition}
-
-## Concepts extracted from this section
-${concepts.map((c) => `- ${c}`).join("\n")}
-
-## Section Content
-${markdown}
-
-## Instructions
-
-Generate a SectionLearningMap JSON object with the following structure. Be precise and specific - avoid vague language.
-
-Rules:
-- core_claims: exactly 3 to 7 claims. Each claim must have a unique id (format: "claim-N"), a clear statement, at least one concept from the section concepts list, and specific demonstration_criteria.
-- CRITICAL: demonstration_criteria must be specific and actionable. NEVER use phrases like "understands", "knows", "is aware of", "familiar with", or "has knowledge of". Instead use phrases like "Can explain...", "Can identify...", "Can build...", "Can compare...", "Can diagnose...", etc.
-- CRITICAL: Every concept from the section concepts list must appear in at least one claim's concepts array.
-- key_misconceptions: 1 to 3 common misconceptions. Each must reference valid claim IDs in related_claims.
-- key_intuition_decomposition: exactly 2 to 4 sub-insights that break down the key intuition. Each has a unique id (format: "insight-N"), a statement, and an order number starting from 1.
-- prerequisites: list any prerequisite section IDs or concepts (can be empty array).
-
-Return ONLY valid JSON matching this exact schema:
-{
-  "section_id": "${sectionId}",
-  "generated_at": "<ISO timestamp>",
-  "model_used": "${model}",
-  "prerequisites": ["string"],
-  "core_claims": [
-    {
-      "id": "claim-1",
-      "statement": "string",
-      "concepts": ["string"],
-      "demonstration_criteria": "string"
-    }
-  ],
-  "key_misconceptions": [
-    {
-      "id": "misconception-1",
-      "belief": "string",
-      "correction": "string",
-      "related_claims": ["claim-1"]
-    }
-  ],
-  "key_intuition_decomposition": [
-    {
-      "id": "insight-1",
-      "statement": "string",
-      "order": 1
-    }
-  ]
-}`;
+  return template
+    .replace(/\{\{section_id\}\}/g, sectionId)
+    .replace(/\{\{key_intuition\}\}/g, keyIntuition)
+    .replace(/\{\{concepts_list\}\}/g, concepts.map((c) => `- ${c}`).join("\n"))
+    .replace(/\{\{markdown\}\}/g, markdown)
+    .replace(/\{\{model\}\}/g, model);
 }
 
 /* ---- Gemini API call ---- */
@@ -154,6 +107,7 @@ export interface GenerateOptions {
  */
 export async function generateLearningMap(
   apiKey: string,
+  promptTemplate: string,
   sectionId: string,
   markdown: string,
   keyIntuition: string,
@@ -164,7 +118,7 @@ export async function generateLearningMap(
   const maxRetries = options.maxRetries ?? MAX_RETRIES;
   const retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
 
-  const prompt = buildLearningMapPrompt(sectionId, markdown, keyIntuition, concepts, model);
+  const prompt = buildLearningMapPrompt(promptTemplate, sectionId, markdown, keyIntuition, concepts, model);
   let lastErrors: string[] = [];
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {

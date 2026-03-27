@@ -6,8 +6,6 @@ export const veteranCurriculum: CurriculumData = {
     title: "Level 10",
     starting_position:
       "Deep production experience. Has built, broken, and fixed real systems. Strong mental models for how software fails. Risk: resists the paradigm shift - either dismisses agents as toys or over-indexes on doing everything themselves. The hardest lesson is letting go of the craft identity tied to writing code manually.",
-    tutor_guidance:
-      'The critical intuition to encode is *trust calibration under expertise*. Veterans have strong priors and the agent-tutor must challenge both over-skepticism ("I could write this better myself") and over-trust ("the agent handles the implementation details, I\'ll focus on architecture"). The right calibration is task-dependent and the tutor should force the learner to articulate *why* they trust or distrust specific outputs. When the veteran says "I\'d rather do this myself," the tutor should ask: "Is that because the task requires your judgment, or because delegation feels like giving up control?" When the veteran says "the agent can handle this," the tutor should ask: "What\'s the failure cost if it doesn\'t, and how will you verify?"',
     accountability_scope: "system-of-services",
   },
   modules: [

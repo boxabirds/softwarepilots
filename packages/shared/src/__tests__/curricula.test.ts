@@ -40,13 +40,6 @@ describe("getCurriculumMeta", () => {
     expect(meta.starting_position).toBeTruthy();
   });
 
-  it("tutor_guidance is non-empty for all profiles", () => {
-    for (const profile of ALL_PROFILES) {
-      const meta = getCurriculumMeta(profile);
-      expect(meta.tutor_guidance.length).toBeGreaterThan(0);
-    }
-  });
-
   it("throws for unknown profile", () => {
     expect(() => getCurriculumMeta("time-traveler")).toThrow(
       /Unknown learner profile/,

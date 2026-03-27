@@ -84,7 +84,7 @@ const TEST_LEARNER_2 = "test-learner-002";
 const TEST_PROFILE = "level-0";
 
 const SAMPLE_CURRICULUM = JSON.stringify({
-  meta: { profile: "level-0", title: "Level 0", starting_position: "Beginner", tutor_guidance: "Simple language" },
+  meta: { profile: "level-0", title: "Level 0", starting_position: "Beginner" },
   modules: [{
     id: "1",
     title: "Basics",
@@ -94,7 +94,7 @@ const SAMPLE_CURRICULUM = JSON.stringify({
 const SAMPLE_HASH = "abc123hash";
 
 const UPDATED_CURRICULUM = JSON.stringify({
-  meta: { profile: "level-0", title: "Level 0 v2", starting_position: "Beginner", tutor_guidance: "Updated guidance" },
+  meta: { profile: "level-0", title: "Level 0 v2", starting_position: "Beginner" },
   modules: [{
     id: "1",
     title: "Basics v2",
@@ -411,7 +411,6 @@ describe("Content serving from versioned data", () => {
     const meta = extractMeta(versioned!.content);
     expect(meta.profile).toBe("level-0");
     expect(meta.title).toBe("Level 0");
-    expect(meta.tutor_guidance).toBe("Simple language");
   });
 
   it("extractSections returns SectionMeta[] with module info and concepts", async () => {

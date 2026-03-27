@@ -12,7 +12,6 @@ export interface CurriculumMeta {
   profile: LearnerProfile;
   title: string;
   starting_position: string;
-  tutor_guidance: string;
   accountability_scope?: AccountabilityScope;
 }
 

@@ -91,7 +91,6 @@ const TEST_META: CurriculumMeta = {
   profile: "level-0" as const,
   title: "Level 0",
   starting_position: "Beginner",
-  tutor_guidance: "Use simple language.",
 };
 
 const TEST_SECTION: SectionMeta = {

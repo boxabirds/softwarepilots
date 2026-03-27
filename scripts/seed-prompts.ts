@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Seeds all 13 prompt keys into the prompts table as version 1.
+ * Seeds all 17 prompt keys into the prompts table as version 1.
  *
  * Usage:
  *   bun run scripts/seed-prompts.ts              # outputs SQL to stdout
@@ -296,6 +296,26 @@ You have knowledge gaps in: {{knowledge_gaps}}. When asked about these topics, r
 Current simulation phase: {{current_phase}}
 Scenario: {{scenario_title}}
 Keep responses concise and in-character.`,
+  },
+  {
+    key: "tutor_guidance.level-0",
+    variables: [],
+    content: `The learner is a complete beginner. Use simple, concrete language. Avoid jargon. Build understanding through real-world analogies. The goal is to establish foundational mental models before any technical depth. When the learner seems confused, simplify rather than elaborate.`,
+  },
+  {
+    key: "tutor_guidance.level-1",
+    variables: [],
+    content: `The critical intuition to encode is *calibration* - new grads don't know what they don't know, so the agent-tutor must actively probe for overconfidence and surface the learner's blind spots rather than just answering questions. When the learner says "this looks right," the tutor should ask them to prove it by tracing execution, identifying assumptions, or predicting behavior under adversarial conditions. The goal is to build the habit of justified trust, not naive acceptance.`,
+  },
+  {
+    key: "tutor_guidance.level-10",
+    variables: [],
+    content: `The critical intuition to encode is *trust calibration under expertise*. Veterans have strong priors and the agent-tutor must challenge both over-skepticism ("I could write this better myself") and over-trust ("the agent handles the implementation details, I'll focus on architecture"). The right calibration is task-dependent and the tutor should force the learner to articulate *why* they trust or distrust specific outputs. When the veteran says "I'd rather do this myself," the tutor should ask: "Is that because the task requires your judgment, or because delegation feels like giving up control?" When the veteran says "the agent can handle this," the tutor should ask: "What's the failure cost if it doesn't, and how will you verify?"`,
+  },
+  {
+    key: "tutor_guidance.level-20",
+    variables: [],
+    content: `The critical intuition to encode is *organizational patience*. Senior leaders face enormous pressure to capture agent productivity gains immediately. The tutor must repeatedly surface the second-order consequences of moving fast without verification infrastructure - using real incident case studies, not abstract warnings. When the learner pushes for faster adoption, the tutor should ask: "What's the cost of a production incident caused by unverified agent output, and how does that compare to the cost of building the verification pipeline first?" When the learner wants to delay adoption, the tutor should ask: "What's the competitive cost of not capturing the productivity gains your competitors are capturing - and can you build verification infrastructure in parallel with adoption rather than sequentially?" The right answer is almost always "adopt with guardrails in parallel," and the tutor should help the learner design the guardrails.`,
   },
   {
     key: "learning_map.generation",

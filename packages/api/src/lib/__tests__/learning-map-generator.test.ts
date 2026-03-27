@@ -9,6 +9,62 @@ import { describe, it, expect, afterEach } from "bun:test";
 import { buildLearningMapPrompt, generateLearningMap } from "../learning-map-generator";
 import type { SectionLearningMap } from "@softwarepilots/shared";
 
+const PROMPT_TEMPLATE = `You are an expert curriculum designer for a software engineering education platform called "Software Pilots". Your task is to generate a structured learning map for a curriculum section.
+
+## Section ID: {{section_id}}
+
+## Key Intuition
+{{key_intuition}}
+
+## Concepts extracted from this section
+{{concepts_list}}
+
+## Section Content
+{{markdown}}
+
+## Instructions
+
+Generate a SectionLearningMap JSON object with the following structure. Be precise and specific - avoid vague language.
+
+Rules:
+- core_claims: exactly 3 to 7 claims. Each claim must have a unique id (format: "claim-N"), a clear statement, at least one concept from the section concepts list, and specific demonstration_criteria.
+- CRITICAL: demonstration_criteria must be specific and actionable. NEVER use phrases like "understands", "knows", "is aware of", "familiar with", or "has knowledge of". Instead use phrases like "Can explain...", "Can identify...", "Can build...", "Can compare...", "Can diagnose...", etc.
+- CRITICAL: Every concept from the section concepts list must appear in at least one claim's concepts array.
+- key_misconceptions: 1 to 3 common misconceptions. Each must reference valid claim IDs in related_claims.
+- key_intuition_decomposition: exactly 2 to 4 sub-insights that break down the key intuition. Each has a unique id (format: "insight-N"), a statement, and an order number starting from 1.
+- prerequisites: list any prerequisite section IDs or concepts (can be empty array).
+
+Return ONLY valid JSON matching this exact schema:
+{
+  "section_id": "{{section_id}}",
+  "generated_at": "<ISO timestamp>",
+  "model_used": "{{model}}",
+  "prerequisites": ["string"],
+  "core_claims": [
+    {
+      "id": "claim-1",
+      "statement": "string",
+      "concepts": ["string"],
+      "demonstration_criteria": "string"
+    }
+  ],
+  "key_misconceptions": [
+    {
+      "id": "misconception-1",
+      "belief": "string",
+      "correction": "string",
+      "related_claims": ["claim-1"]
+    }
+  ],
+  "key_intuition_decomposition": [
+    {
+      "id": "insight-1",
+      "statement": "string",
+      "order": 1
+    }
+  ]
+}`;
+
 /* ---- Fixtures ---- */
 
 const SECTION_ID = "0.1";
@@ -93,40 +149,40 @@ function mockGeminiError(status: number, message: string) {
 
 describe("buildLearningMapPrompt", () => {
   it("includes section ID", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
     expect(prompt).toContain("## Section ID: 0.1");
   });
 
   it("includes key intuition", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
     expect(prompt).toContain(KEY_INTUITION);
   });
 
   it("includes all concepts as bullet list", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
     expect(prompt).toContain("- Server");
     expect(prompt).toContain("- Database");
   });
 
   it("includes full markdown content", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
     expect(prompt).toContain(MARKDOWN);
   });
 
   it("includes validation rules", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS);
     expect(prompt).toContain("exactly 3 to 7 claims");
     expect(prompt).toContain("NEVER use phrases like");
     expect(prompt).toContain("demonstration_criteria");
   });
 
   it("includes model name in JSON schema", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS, "gemini-2.0-flash");
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS, "gemini-2.0-flash");
     expect(prompt).toContain('"model_used": "gemini-2.0-flash"');
   });
 
   it("handles empty concepts array", () => {
-    const prompt = buildLearningMapPrompt(SECTION_ID, MARKDOWN, KEY_INTUITION, []);
+    const prompt = buildLearningMapPrompt(PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, []);
     expect(prompt).toContain("## Concepts extracted from this section");
   });
 });
@@ -138,7 +194,7 @@ describe("generateLearningMap", () => {
     mockGeminiResponse(VALID_MAP);
 
     const result = await generateLearningMap(
-      "fake-key", SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
+      "fake-key", PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
       { retryDelayMs: 0 },
     );
 
@@ -150,7 +206,7 @@ describe("generateLearningMap", () => {
     mockGeminiSequence([INVALID_MAP_VAGUE, VALID_MAP]);
 
     const result = await generateLearningMap(
-      "fake-key", SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
+      "fake-key", PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
       { maxRetries: 1, retryDelayMs: 0 },
     );
 
@@ -163,7 +219,7 @@ describe("generateLearningMap", () => {
 
     await expect(
       generateLearningMap(
-        "fake-key", SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
+        "fake-key", PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
         { maxRetries: 1, retryDelayMs: 0 },
       ),
     ).rejects.toThrow("Failed to generate valid learning map");
@@ -173,7 +229,7 @@ describe("generateLearningMap", () => {
     mockGeminiSequence([new Error("API timeout"), VALID_MAP]);
 
     const result = await generateLearningMap(
-      "fake-key", SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
+      "fake-key", PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
       { maxRetries: 1, retryDelayMs: 0 },
     );
 
@@ -185,7 +241,7 @@ describe("generateLearningMap", () => {
 
     await expect(
       generateLearningMap(
-        "fake-key", SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
+        "fake-key", PROMPT_TEMPLATE, SECTION_ID, MARKDOWN, KEY_INTUITION, CONCEPTS,
         { maxRetries: 2, retryDelayMs: 0 },
       ),
     ).rejects.toThrow("Failed to generate valid learning map");

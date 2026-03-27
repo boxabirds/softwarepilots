@@ -500,6 +500,7 @@ export function buildSocraticSystemPrompt(
   conversation: Array<{ role: "user" | "tutor"; content: string }>,
   persona: string,
   rules: string,
+  tutorGuidance: string,
   progressContext?: string,
   curriculumContext?: string,
   conversationContext?: string
@@ -508,7 +509,7 @@ export function buildSocraticSystemPrompt(
     persona,
     "",
     "== Pedagogical Approach ==",
-    meta.tutor_guidance,
+    tutorGuidance,
     "",
     "== Target Insight ==",
     `The key intuition for this section: ${section.key_intuition}`,
@@ -906,9 +907,10 @@ socraticChat.post("/", async (c) => {
     const resolvedReview = resolveTemplate(reviewPrompt.content, { profile: meta.profile });
     systemPrompt = buildReviewSystemPrompt(meta, section, conversation, resolvedReview, progressContext || undefined);
   } else {
-    const [personaPrompt, rulesPrompt] = await Promise.all([
+    const [personaPrompt, rulesPrompt, tutorGuidancePrompt] = await Promise.all([
       getPrompt(c.env.DB, "socratic.persona"),
       getPrompt(c.env.DB, "socratic.rules"),
+      getPrompt(c.env.DB, `tutor_guidance.${meta.profile}`),
     ]);
     const resolvedPersona = resolveTemplate(personaPrompt.content, {
       section_title: section.title,
@@ -917,7 +919,7 @@ socraticChat.post("/", async (c) => {
     const resolvedRules = resolveTemplate(rulesPrompt.content, {
       max_response_sentences: String(MAX_RESPONSE_SENTENCES),
     });
-    systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, resolvedPersona, resolvedRules, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
+    systemPrompt = buildSocraticSystemPrompt(meta, section, conversation, resolvedPersona, resolvedRules, tutorGuidancePrompt.content, progressContext || undefined, curriculumContext || undefined, conversationContext || undefined);
   }
   const tools = buildSocraticTools(section, meta);
 

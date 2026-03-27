@@ -6,8 +6,6 @@ export const newGradCurriculum: CurriculumData = {
     title: "Level 1",
     starting_position:
       "Has theoretical foundations but limited production experience. Can write code but hasn't yet built the judgment that comes from watching systems fail at scale. Risk: over-trusts agent output because they lack the reference frame to spot confident nonsense.",
-    tutor_guidance:
-      "The critical intuition to encode is *calibration* - new grads don't know what they don't know, so the agent-tutor must actively probe for overconfidence and surface the learner's blind spots rather than just answering questions. When the learner says \"this looks right,\" the tutor should ask them to prove it by tracing execution, identifying assumptions, or predicting behavior under adversarial conditions. The goal is to build the habit of justified trust, not naive acceptance.",
     accountability_scope: "single-app",
   },
   modules: [

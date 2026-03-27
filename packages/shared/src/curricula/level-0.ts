@@ -6,8 +6,6 @@ export const level0Curriculum: CurriculumData = {
     title: "Level 0",
     starting_position:
       "Complete beginner to software pilotry. No prior programming experience required. This track introduces the fundamental concepts of what software is, how AI agents generate it, and why human oversight matters.",
-    tutor_guidance:
-      "The learner is a complete beginner. Use simple, concrete language. Avoid jargon. Build understanding through real-world analogies. The goal is to establish foundational mental models before any technical depth. When the learner seems confused, simplify rather than elaborate.",
     accountability_scope: "learning",
   },
   modules: [

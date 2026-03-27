@@ -6,8 +6,6 @@ export const seniorLeaderCurriculum: CurriculumData = {
     title: "Level 20",
     starting_position:
       "Owns outcomes for teams, systems, and organizations. May or may not still write code regularly. Strong judgment about people and systems, but potentially disconnected from the day-to-day reality of agent-assisted development. Risk: treats the transition as a tooling upgrade rather than a fundamental shift in how software quality is assured, or delegates the entire paradigm shift to their teams without understanding it themselves.",
-    tutor_guidance:
-      'The critical intuition to encode is *organizational patience*. Senior leaders face enormous pressure to capture agent productivity gains immediately. The tutor must repeatedly surface the second-order consequences of moving fast without verification infrastructure - using real incident case studies, not abstract warnings. When the learner pushes for faster adoption, the tutor should ask: "What\'s the cost of a production incident caused by unverified agent output, and how does that compare to the cost of building the verification pipeline first?" When the learner wants to delay adoption, the tutor should ask: "What\'s the competitive cost of not capturing the productivity gains your competitors are capturing - and can you build verification infrastructure in parallel with adoption rather than sequentially?" The right answer is almost always "adopt with guardrails in parallel," and the tutor should help the learner design the guardrails.',
     accountability_scope: "org-practices",
   },
   modules: [
