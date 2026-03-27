@@ -150,15 +150,18 @@ export function ChatInput({
           onClick={onSubmit}
           disabled={!canSubmit}
           className="flex shrink-0 items-center justify-center rounded-full border-none text-sm transition-colors"
-          style={{ width: LINE_HEIGHT + "px", height: LINE_HEIGHT + "px" }}
-          style={canSubmit ? {
-            background: "var(--pilot-blue)",
-            color: "var(--text-on-brand)",
-            cursor: "pointer",
-          } : {
-            background: "var(--bg-muted)",
-            color: "var(--text-muted)",
-            cursor: "default",
+          style={{
+            width: LINE_HEIGHT + "px",
+            height: LINE_HEIGHT + "px",
+            ...(canSubmit ? {
+              background: "var(--pilot-blue)",
+              color: "var(--text-on-brand)",
+              cursor: "pointer",
+            } : {
+              background: "var(--bg-muted)",
+              color: "var(--text-muted)",
+              cursor: "default",
+            }),
           }}
           aria-label="Submit"
         >
