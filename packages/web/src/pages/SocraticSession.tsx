@@ -685,6 +685,7 @@ export function SocraticSession() {
   function renderInputBar() {
     return (
       <ChatInput
+        ref={inputRef}
         value={inputText}
         onChange={setInputText}
         onSubmit={handleSubmit}

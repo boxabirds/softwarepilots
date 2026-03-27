@@ -64,6 +64,8 @@ export interface SocraticChatResponse {
   claim_levels?: string[];
   misconceptions_surfaced?: string[];
   misconceptions_resolved?: string[];
+  claim_progress?: { demonstrated: number; total: number; percentage: number } | null;
+  section_completed?: boolean;
 }
 
 /* ---- Tool builder ---- */
@@ -962,16 +964,15 @@ socraticChat.post("/", async (c) => {
 
     const result = parseSocraticResponse(data!);
 
-    // Update progress - use waitUntil to keep the worker alive after responding.
-    // Without waitUntil, Cloudflare Workers can terminate before the DB write completes,
-    // causing progress to silently never be recorded.
-    // NOTE: executionCtx.waitUntil is only available in Cloudflare Workers runtime.
-    // The getter throws in test environments, so we use a try-catch wrapper.
+    // Update progress synchronously so we can include claim_progress in the response.
     if (learnerId) {
-      const progressPromise = updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result).catch((err) => {
+      try {
+        const progressUpdate = await updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result);
+        result.claim_progress = progressUpdate.claim_progress;
+        result.section_completed = progressUpdate.section_completed;
+      } catch (err) {
         console.error(`[progress] Update failed learner=${learnerId} section=${body.section_id} profile=${body.profile}:`, err instanceof Error ? err.message : err);
-      });
-      try { c.executionCtx.waitUntil(progressPromise); } catch { /* test env: no executionCtx */ }
+      }
     }
 
     // Compress conversation on session_complete - also needs waitUntil

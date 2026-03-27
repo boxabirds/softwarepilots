@@ -452,11 +452,8 @@ describe("Progress API integration tests", () => {
       expect(finalEntry.final_understanding).toBe("solid");
     });
 
-    it("4. Progress survives response (waitUntil registration)", async () => {
+    it("4. Progress is written synchronously before response", async () => {
       mockGeminiFetch(SOCRATIC_PROBE_RESPONSE);
-
-      // Use app.fetch with a mock executionCtx to verify waitUntil is called
-      const waitUntilCalls: Promise<unknown>[] = [];
 
       const req = new Request("http://localhost/api/socratic", {
         method: "POST",
@@ -473,21 +470,13 @@ describe("Progress API integration tests", () => {
       });
 
       const res = await app.fetch(req, {}, {
-        waitUntil(p: Promise<unknown>) {
-          waitUntilCalls.push(p);
-        },
+        waitUntil() {},
         passThroughOnException() {},
       });
 
       expect(res.status).toBe(200);
 
-      // waitUntil must have been called at least once (for the progress write)
-      expect(waitUntilCalls.length).toBeGreaterThanOrEqual(1);
-
-      // Wait for all registered promises to complete
-      await Promise.allSettled(waitUntilCalls);
-
-      // Verify the progress was written even though the response already returned
+      // Progress is written synchronously - no waitUntil needed
       const row = getProgressRow();
       expect(row).not.toBeNull();
       expect(row!.status).toBe("in_progress");

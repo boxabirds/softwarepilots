@@ -410,13 +410,20 @@ export function applyClaimUpdates(
 
 /* ---- Core function ---- */
 
+export interface ProgressUpdate {
+  claim_progress: { demonstrated: number; total: number; percentage: number } | null;
+  section_completed: boolean;
+}
+
+const EMPTY_PROGRESS_UPDATE: ProgressUpdate = { claim_progress: null, section_completed: false };
+
 export async function updateSectionProgress(
   db: D1Database,
   learnerId: string,
   profile: string,
   sectionId: string,
   response: SocraticResponse
-): Promise<void> {
+): Promise<ProgressUpdate> {
   // Guard: verify learner exists before attempting writes that would violate FK constraint
   const learnerExists = await db
     .prepare("SELECT id FROM learners WHERE id = ?")
@@ -427,7 +434,7 @@ export async function updateSectionProgress(
     console.warn(
       `[progress] Skipping write - learner not found: learner=${learnerId} section=${sectionId} profile=${profile}`
     );
-    return;
+    return EMPTY_PROGRESS_UPDATE;
   }
 
   // Load current progress
@@ -458,10 +465,11 @@ export async function updateSectionProgress(
 
     const claimsMap = applyClaimUpdates(null, response);
     const claimsJsonForCheck = claimsMap ? JSON.stringify(claimsMap) : null;
+    const claimProgress = computeClaimProgress(claimsJsonForCheck, sectionLearningMap);
     const shouldComplete = isCompletionTrigger(response, {
       claimsJson: claimsJsonForCheck,
       learningMap: sectionLearningMap,
-    });
+    }) || (claimProgress.total > 0 && claimProgress.meets_threshold);
 
     if (shouldComplete && response.tool_type === SESSION_COMPLETE_TOOL_TYPE) {
       understandingEntries.push({
@@ -490,7 +498,10 @@ export async function updateSectionProgress(
         shouldComplete ? new Date().toISOString() : null
       )
       .run();
-    return;
+    return {
+      claim_progress: claimProgress.total > 0 ? { demonstrated: claimProgress.demonstrated, total: claimProgress.total, percentage: claimProgress.percentage } : null,
+      section_completed: shouldComplete,
+    };
   }
 
   // Status never regresses from completed (pause also blocked from completed)
@@ -532,7 +543,12 @@ export async function updateSectionProgress(
         )
         .run();
     }
-    return;
+    const mergedClaimsJson = claimsMap ? JSON.stringify(claimsMap) : existing.claims_json ?? "{}";
+    const completedProgress = computeClaimProgress(mergedClaimsJson, sectionLearningMap);
+    return {
+      claim_progress: completedProgress.total > 0 ? { demonstrated: completedProgress.demonstrated, total: completedProgress.total, percentage: completedProgress.percentage } : null,
+      section_completed: false, // already completed, not a new completion
+    };
   }
 
   // Resume from paused: any non-pause interaction transitions back to in_progress
@@ -573,7 +589,12 @@ export async function updateSectionProgress(
         sectionId
       )
       .run();
-    return;
+    const resumedClaimsJson = claimsMap ? JSON.stringify(claimsMap) : existing.claims_json ?? "{}";
+    const resumedProgress = computeClaimProgress(resumedClaimsJson, sectionLearningMap);
+    return {
+      claim_progress: resumedProgress.total > 0 ? { demonstrated: resumedProgress.demonstrated, total: resumedProgress.total, percentage: resumedProgress.percentage } : null,
+      section_completed: false,
+    };
   }
 
   // Update existing in-progress (or paused) row
@@ -596,10 +617,11 @@ export async function updateSectionProgress(
   const mergedClaimsJson = claimsMap
     ? JSON.stringify(claimsMap)
     : existing.claims_json ?? "{}";
+  const claimProgress = computeClaimProgress(mergedClaimsJson, sectionLearningMap);
   const shouldComplete = isCompletionTrigger(response, {
     claimsJson: mergedClaimsJson,
     learningMap: sectionLearningMap,
-  });
+  }) || (claimProgress.total > 0 && claimProgress.meets_threshold);
   const shouldPause = isPauseTrigger(response);
 
   if (shouldComplete && response.tool_type?.includes(SESSION_COMPLETE_TOOL_TYPE)) {
@@ -658,6 +680,11 @@ export async function updateSectionProgress(
 
   // Sync concepts to enrollment (cross-module spaced repetition)
   await syncConceptsToEnrollment(db, learnerId, profile, response);
+
+  return {
+    claim_progress: claimProgress.total > 0 ? { demonstrated: claimProgress.demonstrated, total: claimProgress.total, percentage: claimProgress.percentage } : null,
+    section_completed: shouldComplete,
+  };
 }
 
 /**

@@ -301,7 +301,7 @@ describe("progress tracking e2e repro", () => {
     expect(section!.status).toBe("in_progress");
   });
 
-  it("calls executionCtx.waitUntil for progress update when available", async () => {
+  it("progress is written synchronously before response returns", async () => {
     originalFetch = globalThis.fetch;
 
     globalThis.fetch = (() =>
@@ -312,12 +312,8 @@ describe("progress tracking e2e repro", () => {
         })
       )) as unknown as typeof fetch;
 
-    // Track waitUntil calls
-    const waitUntilCalls: Promise<unknown>[] = [];
-
     const { socraticChat } = await import("../socratic-chat");
 
-    // Build a custom Hono app that provides executionCtx
     const app = new Hono();
     app.all("*", async (c, next) => {
       (c.env as Env) = {
@@ -330,7 +326,6 @@ describe("progress tracking e2e repro", () => {
     });
     app.route("/", socraticChat);
 
-    // Use the lower-level fetch approach to inject executionCtx
     const req = new Request("http://localhost/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -343,21 +338,13 @@ describe("progress tracking e2e repro", () => {
     });
 
     const res = await app.fetch(req, {}, {
-      waitUntil(p: Promise<unknown>) {
-        waitUntilCalls.push(p);
-      },
+      waitUntil() {},
       passThroughOnException() {},
     });
 
     expect(res.status).toBe(200);
 
-    // ASSERT: waitUntil should have been called at least once (for progress update)
-    expect(waitUntilCalls.length).toBeGreaterThanOrEqual(1);
-
-    // Wait for the registered promises to settle
-    await Promise.allSettled(waitUntilCalls);
-
-    // Verify the progress was actually written
+    // Progress is written synchronously - available immediately after response
     const row = sqliteDb
       .prepare(
         "SELECT * FROM curriculum_progress WHERE learner_id = ? AND profile = ? AND section_id = ?"

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect } from "react";
+import { useRef, useEffect, useLayoutEffect, useImperativeHandle, forwardRef } from "react";
 
 const MAX_LINES = 7;
 const LINE_HEIGHT = 24;
@@ -18,7 +18,7 @@ interface ChatInputProps {
   onDismissFeedback?: () => void;
 }
 
-export function ChatInput({
+export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(function ChatInput({
   value,
   onChange,
   onSubmit,
@@ -29,8 +29,10 @@ export function ChatInput({
   feedbackMode = false,
   feedbackMessage,
   onDismissFeedback,
-}: ChatInputProps) {
+}, ref) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(ref, () => textareaRef.current!);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -170,4 +172,4 @@ export function ChatInput({
       </div>
     </div>
   );
-}
+});
