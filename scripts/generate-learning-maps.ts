@@ -3,12 +3,19 @@
  * Generates SectionLearningMap data for all curriculum sections using Gemini API.
  *
  * Usage:
- *   bun run scripts/generate-learning-maps.ts
- *   bun run scripts/generate-learning-maps.ts --profile level-0
+ *   bun run scripts/generate-learning-maps.ts                          # write to TypeScript files
+ *   bun run scripts/generate-learning-maps.ts --profile level-0        # single profile
  *   bun run scripts/generate-learning-maps.ts --profile level-1 --section 1.1
+ *   bun run scripts/generate-learning-maps.ts --db                     # write to D1 instead of files
+ *   bun run scripts/generate-learning-maps.ts --db --env staging       # write to staging D1
+ *
+ * The --db flag writes to the learning_maps table in D1 keyed by content hash.
+ * Sections with matching content hash in the DB are skipped.
+ * The generation logic is shared with packages/api/src/lib/learning-map-generator.ts.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
+import { execSync } from "child_process";
 import { join, resolve } from "path";
 import {
   getCurriculumProfiles,
@@ -18,6 +25,7 @@ import {
 } from "../packages/shared/src/curricula";
 import { validateLearningMap } from "../packages/shared/src/curricula/learning-map-validator";
 import type { SectionLearningMap } from "../packages/shared/src/curricula";
+import { computeContentHash } from "../packages/api/src/lib/learning-map-store";
 
 const PROJECT_ROOT = resolve(import.meta.dir, "..");
 const LEARNING_MAPS_DIR = join(PROJECT_ROOT, "packages/shared/src/curricula/learning-maps");
@@ -31,14 +39,18 @@ const FETCH_TIMEOUT_MS = 30_000;
 const BATCH_SIZE = 5;
 
 // -- CLI args --
-function parseArgs(): { profile?: string; section?: string } {
+function parseArgs(): { profile?: string; section?: string; db: boolean; env?: string } {
   const args = process.argv.slice(2);
-  const result: { profile?: string; section?: string } = {};
+  const result: { profile?: string; section?: string; db: boolean; env?: string } = { db: false };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--profile" && args[i + 1]) {
       result.profile = args[++i];
     } else if (args[i] === "--section" && args[i + 1]) {
       result.section = args[++i];
+    } else if (args[i] === "--db") {
+      result.db = true;
+    } else if (args[i] === "--env" && args[i + 1]) {
+      result.env = args[++i];
     }
   }
   return result;
@@ -190,6 +202,61 @@ export const map: SectionLearningMap = ${JSON.stringify(map, null, 2)};
   return filePath;
 }
 
+// -- DB write (for --db mode) --
+function escapeSql(str: string): string {
+  return str.replace(/'/g, "''");
+}
+
+function writeMapToD1(
+  profile: string,
+  sectionId: string,
+  contentHash: string,
+  map: SectionLearningMap,
+  env?: string,
+): void {
+  const mapJson = JSON.stringify(map);
+  const sql = `INSERT OR REPLACE INTO learning_maps (profile, section_id, content_hash, map_json, model_used) VALUES ('${escapeSql(profile)}', '${escapeSql(sectionId)}', '${escapeSql(contentHash)}', '${escapeSql(mapJson)}', '${escapeSql(map.model_used ?? GEMINI_MODEL)}');`;
+
+  const tmpFile = join(PROJECT_ROOT, ".learning-map-tmp.sql");
+  writeFileSync(tmpFile, sql, "utf-8");
+
+  const envFlag = env ? `--env ${env}` : "";
+  const remoteFlag = env ? "--remote" : "--local";
+
+  try {
+    execSync(
+      `cd "${join(PROJECT_ROOT, "packages/api")}" && npx wrangler d1 execute softwarepilots-db ${remoteFlag} ${envFlag} --file="${tmpFile}"`,
+      { stdio: "pipe" },
+    );
+  } finally {
+    try { require("fs").unlinkSync(tmpFile); } catch { /* ignore */ }
+  }
+}
+
+async function isMapInDB(
+  profile: string,
+  sectionId: string,
+  contentHash: string,
+  env?: string,
+): Promise<boolean> {
+  const sql = `SELECT count(*) as cnt FROM learning_maps WHERE profile = '${escapeSql(profile)}' AND section_id = '${escapeSql(sectionId)}' AND content_hash = '${escapeSql(contentHash)}';`;
+
+  const envFlag = env ? `--env ${env}` : "";
+  const remoteFlag = env ? "--remote" : "--local";
+
+  try {
+    const output = execSync(
+      `cd "${join(PROJECT_ROOT, "packages/api")}" && npx wrangler d1 execute softwarepilots-db ${remoteFlag} ${envFlag} --command="${sql}" --json`,
+      { stdio: "pipe" },
+    ).toString();
+    const parsed = JSON.parse(output);
+    const cnt = parsed?.[0]?.results?.[0]?.cnt;
+    return cnt > 0;
+  } catch {
+    return false;
+  }
+}
+
 function regenerateBarrelIndex(): void {
   const imports: string[] = [];
   const registrations: string[] = [];
@@ -274,6 +341,8 @@ async function processSection(
   task: SectionTask,
   index: number,
   total: number,
+  dbMode: boolean = false,
+  env?: string,
 ): Promise<SectionResult> {
   const { profile, sectionId } = task;
   const existingFile = join(LEARNING_MAPS_DIR, profile, `${sectionId}.ts`);
@@ -282,6 +351,17 @@ async function processSection(
 
   const section = getSection(profile, sectionId);
   const concepts = extractConcepts(section.markdown);
+
+  // In DB mode, check content hash first and skip if unchanged
+  if (dbMode) {
+    const contentHash = await computeContentHash(section.markdown, section.key_intuition, concepts);
+    const exists = await isMapInDB(profile, sectionId, contentHash, env);
+    if (exists) {
+      console.log(`  [${profile}/${sectionId}] Skipped (hash match in DB)`);
+      return { task, status: "skipped" };
+    }
+  }
+
   const prompt = buildPrompt(sectionId, section.markdown, section.key_intuition, concepts);
 
   let map: SectionLearningMap | null = null;
@@ -311,8 +391,14 @@ async function processSection(
   }
 
   if (map) {
-    const filePath = writeMapFile(profile, sectionId, map);
-    console.log(`  [${profile}/${sectionId}] Written to ${filePath}`);
+    if (dbMode) {
+      const contentHash = await computeContentHash(section.markdown, section.key_intuition, concepts);
+      writeMapToD1(profile, sectionId, contentHash, map, env);
+      console.log(`  [${profile}/${sectionId}] Written to D1 (hash: ${contentHash.slice(0, 12)}...)`);
+    } else {
+      const filePath = writeMapFile(profile, sectionId, map);
+      console.log(`  [${profile}/${sectionId}] Written to ${filePath}`);
+    }
     return { task, status: "generated" };
   } else {
     console.log(`  [${profile}/${sectionId}] FAILED after ${MAX_RETRIES + 1} attempts: ${lastError}`);
@@ -327,12 +413,14 @@ async function processSection(
 // -- Main --
 async function main(): Promise<void> {
   const startTime = Date.now();
-  const { profile: filterProfile, section: filterSection } = parseArgs();
+  const { profile: filterProfile, section: filterSection, db: dbMode, env: targetEnv } = parseArgs();
   const apiKey = getApiKey();
 
   console.log("Starting learning map generation...");
+  console.log(`  Mode: ${dbMode ? "D1 database" : "TypeScript files"}`);
   if (filterProfile) console.log(`  Filtering to profile: ${filterProfile}`);
   if (filterSection) console.log(`  Filtering to section: ${filterSection}`);
+  if (targetEnv) console.log(`  Target environment: ${targetEnv}`);
 
   // Collect all section tasks
   const tasks: SectionTask[] = [];
@@ -360,7 +448,7 @@ async function main(): Promise<void> {
     const batch = tasks.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.allSettled(
       batch.map((task, batchIdx) =>
-        processSection(apiKey, task, i + batchIdx + 1, tasks.length)
+        processSection(apiKey, task, i + batchIdx + 1, tasks.length, dbMode, targetEnv)
       )
     );
 
@@ -379,8 +467,10 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("\nRegenerating barrel index...");
-  regenerateBarrelIndex();
+  if (!dbMode) {
+    console.log("\nRegenerating barrel index...");
+    regenerateBarrelIndex();
+  }
 
   const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\nDone in ${elapsedSeconds}s!`);

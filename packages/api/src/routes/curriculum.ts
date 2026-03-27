@@ -5,12 +5,11 @@ import {
   getCurriculumSections,
   getSection,
 } from "@softwarepilots/shared";
-import { getProgressForProfile, computeClaimProgress } from "./curriculum-progress";
+import { getProgressForProfile, computeClaimProgress, resolveLearningMap } from "./curriculum-progress";
 import {
   parseConceptsJson,
   getConceptsDueForReview,
 } from "../lib/spaced-repetition";
-import { getLearningMapForProfile } from "@softwarepilots/shared";
 import type { ConceptsMap } from "../lib/spaced-repetition";
 import {
   buildNarrativePrompt,
@@ -257,8 +256,8 @@ curriculum.get("/:profile/progress/summary", async (c) => {
     const entries = row ? JSON.parse(row.understanding_json || "[]") : [];
     const latest = entries.length > 0 ? entries[entries.length - 1] : null;
 
-    // Compute claim progress for this section
-    const learningMap = getLearningMapForProfile(profile, sectionId) ?? null;
+    // Compute claim progress: try DB first, then static registry
+    const learningMap = await resolveLearningMap(c.env.DB, profile, sectionId, learnerId);
     const claimProgress = row
       ? computeClaimProgress(row.claims_json, learningMap)
       : null;

@@ -338,7 +338,7 @@ export function buildSocraticTools(
     });
   }
 
-  if (section.learning_map.core_claims.length > 0) {
+  if (section.learning_map && section.learning_map.core_claims.length > 0) {
     const claimList = section.learning_map.core_claims
       .map((c) => `${c.id}: ${c.statement}`)
       .join("; ");
@@ -496,9 +496,9 @@ export function buildSocraticSystemPrompt(
     "  Answer using the concept list, the learner's demonstrated coverage, and the spaced repetition schedule. Be honest and specific.",
   ];
 
-  // Inject learning map (always available on SectionMeta)
+  // Inject learning map (optional - may not exist for dynamically generated content)
   const lm = section.learning_map;
-  if (lm.core_claims.length > 0) {
+  if (lm && lm.core_claims.length > 0) {
     lines.push(
       "",
       "== Section Learning Map ==",
@@ -508,7 +508,7 @@ export function buildSocraticSystemPrompt(
       lines.push(`${i + 1}. [${claim.id}] ${claim.statement} - Demonstrated when: ${claim.demonstration_criteria}`);
     });
   }
-  if (lm.key_misconceptions.length > 0) {
+  if (lm && lm.key_misconceptions.length > 0) {
     lines.push(
       "",
       "Common misconceptions to watch for:"
@@ -517,7 +517,7 @@ export function buildSocraticSystemPrompt(
       lines.push(`- [${m.id}] Belief: ${m.belief} -> Correct: ${m.correction}`);
     }
   }
-  if (lm.key_intuition_decomposition.length > 0) {
+  if (lm && lm.key_intuition_decomposition.length > 0) {
     lines.push(
       "",
       "Key intuition builds through these steps:"

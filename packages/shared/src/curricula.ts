@@ -54,7 +54,7 @@ export interface SectionMeta {
   markdown: string;
   key_intuition: string;
   concepts: string[];
-  learning_map: SectionLearningMap;
+  learning_map?: SectionLearningMap;
   simulation_scenarios?: string[];
 }
 

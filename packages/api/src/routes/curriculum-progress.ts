@@ -11,6 +11,43 @@ import {
 import type { ConceptsMap, ConceptUpdateOptions } from "../lib/spaced-repetition";
 import { getCurriculumSections, getLearningMapForProfile, getLearningMap } from "@softwarepilots/shared";
 import type { SectionLearningMap } from "@softwarepilots/shared";
+import { getLearningMapFromDB } from "../lib/learning-map-store";
+import { getVersionContentHash } from "../lib/curriculum-store";
+import { getEnrollment } from "../lib/enrollment-store";
+
+/**
+ * Resolve a learning map: try DB first (keyed by enrollment's content hash),
+ * fall back to static registry, then to null.
+ *
+ * DB lookup failures (e.g. tables not yet migrated) are silently caught
+ * and fall through to the static registry.
+ */
+export async function resolveLearningMap(
+  db: D1Database | null | undefined,
+  profile: string,
+  sectionId: string,
+  learnerId?: string,
+): Promise<SectionLearningMap | null> {
+  // Try DB lookup via enrollment's content hash
+  if (db && learnerId) {
+    try {
+      const enrollment = await getEnrollment(db, learnerId, profile);
+      if (enrollment) {
+        const contentHash = await getVersionContentHash(db, profile, enrollment.curriculum_version);
+        if (contentHash) {
+          const dbMap = await getLearningMapFromDB(db, profile, sectionId, contentHash);
+          if (dbMap) return dbMap;
+        }
+      }
+    } catch {
+      // Fall through to static registry (e.g. tables not yet migrated)
+    }
+  }
+
+  // Fall back to static registry (profile-specific only - cross-profile
+  // fallback would apply wrong claims to wrong curriculum track)
+  return getLearningMapForProfile(profile, sectionId) ?? null;
+}
 
 /* ---- Constants ---- */
 
@@ -401,10 +438,8 @@ export async function updateSectionProgress(
     .bind(learnerId, profile, sectionId)
     .first<ProgressRow>();
 
-  // Look up learning map once for claim-based completion checks.
-  // Only use the profile-specific map - cross-profile fallback would apply
-  // the wrong claims to the wrong curriculum track.
-  const sectionLearningMap = getLearningMapForProfile(profile, sectionId) ?? null;
+  // Look up learning map: try DB (content-hash keyed) first, then static registry.
+  const sectionLearningMap = await resolveLearningMap(db, profile, sectionId, learnerId);
 
   if (!existing) {
     // First interaction - create row
@@ -636,15 +671,15 @@ export async function getProgressForProfile(
     .bind(learnerId, profile)
     .all<Pick<ProgressRow, "section_id" | "status" | "understanding_json" | "concepts_json" | "claims_json" | "updated_at">>();
 
-  return (results || []).map((row) => {
+  return Promise.all((results || []).map(async (row) => {
     const entries = JSON.parse(row.understanding_json || "[]") as Array<
       Record<string, string>
     >;
     const latest = entries.length > 0 ? entries[entries.length - 1] : null;
     const understandingLevel = latest?.understanding_level;
 
-    // Compute claim progress using the profile-specific learning map
-    const learningMap = getLearningMapForProfile(profile, row.section_id) ?? null;
+    // Compute claim progress: try DB first, then static registry
+    const learningMap = await resolveLearningMap(db, profile, row.section_id, learnerId);
 
     // For completed sections, evaluate claim decay based on overdue concepts
     let effectiveClaimsJson = row.claims_json;
@@ -680,7 +715,7 @@ export async function getProgressForProfile(
       };
     }
     return summary;
-  });
+  }));
 }
 
 /* ---- Cross-session progress context for tutor prompt ---- */
@@ -753,8 +788,7 @@ export async function buildProgressContext(
     if (claimsRaw && claimsRaw !== "{}") {
       try {
         const claimsMap = JSON.parse(claimsRaw) as Record<string, { level: string }>;
-        const learningMap = getLearningMapForProfile(profile, row.section_id)
-          ?? getLearningMap(row.section_id);
+        const learningMap = await resolveLearningMap(db, profile, row.section_id, learnerId);
         if (learningMap && learningMap.core_claims.length > 0) {
           const demonstrated: string[] = [];
           const notYetDemonstrated: string[] = [];
