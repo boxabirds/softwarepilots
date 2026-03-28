@@ -828,7 +828,7 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div ref={mobileContainerRef} className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
+      <div ref={mobileContainerRef} className="relative flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
         {/* Header with lesson list toggle */}
         <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
           <button
@@ -846,7 +846,7 @@ export function SocraticSession() {
         {/* Slide-out drawer */}
         {contextOpen && (
           <div
-            className="absolute inset-0 top-[44px] z-20 flex"
+            className="absolute inset-0 top-[48px] z-20 flex"
             onClick={() => setContextOpen(false)}
           >
             <div

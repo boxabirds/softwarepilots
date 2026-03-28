@@ -58,7 +58,7 @@ function PercentageRing({
   const color = status === "needs_review"
     ? ringColorNeedsReview()
     : ringColor(percentage);
-  const isComplete = percentage === 100 && status === "completed";
+  const isComplete = percentage >= 100;
 
   return (
     <span
