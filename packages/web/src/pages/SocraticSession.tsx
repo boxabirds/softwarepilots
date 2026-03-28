@@ -8,6 +8,7 @@ import { ChatInput } from "../components/ChatInput";
 import { getCurriculumSections } from "@softwarepilots/shared";
 import { ProgressBadge } from "../components/ProgressBadge";
 import { useTopicCoverage } from "../hooks/useTopicCoverage";
+import { CelebrationCard } from "../components/CelebrationCard";
 
 /* ---- Types ---- */
 
@@ -33,6 +34,8 @@ interface SocraticResponse {
   pause_reason?: string;
   concepts_covered_so_far?: string;
   resume_suggestion?: string;
+  claim_progress?: { demonstrated: number; total: number; percentage: number } | null;
+  section_completed?: boolean;
 }
 
 interface SectionMetadata {
@@ -70,6 +73,10 @@ export function SocraticSession() {
   const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<{ content: string; messageIndex: number } | null>(null);
 
+  // Celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const wasCompletedOnMount = useRef(false);
+
   // Refresher interstitial
   const [reviewDueCount, setReviewDueCount] = useState(0);
   const [showRefresher, setShowRefresher] = useState(false);
@@ -83,6 +90,8 @@ export function SocraticSession() {
 
   // Topic coverage for N/M badges
   const topicCoverage = useTopicCoverage(profile);
+  // Local override for current section's claim progress (updated from API response)
+  const [localClaimProgress, setLocalClaimProgress] = useState<{ demonstrated: number; total: number } | null>(null);
 
   // Module sections for the lesson list sidebar
   interface LessonItem { id: string; title: string; module_id: string; }
@@ -106,6 +115,9 @@ export function SocraticSession() {
         const map = new Map<string, string>();
         for (const p of data) map.set(p.section_id, p.status);
         setLessonProgress(map);
+        if (sectionId && map.get(sectionId) === "completed") {
+          wasCompletedOnMount.current = true;
+        }
       })
       .catch(() => {});
   }, [profile]);
@@ -156,6 +168,24 @@ export function SocraticSession() {
 
     return () => { cancelled = true; };
   }, [profile, sectionId]);
+
+  /** Update sidebar progress and trigger celebration from API response. */
+  const syncProgressFromResponse = useCallback((response: SocraticResponse) => {
+    if (response.claim_progress && sectionId) {
+      setLocalClaimProgress({
+        demonstrated: response.claim_progress.demonstrated,
+        total: response.claim_progress.total,
+      });
+    }
+    if (response.section_completed && sectionId && !wasCompletedOnMount.current) {
+      setLessonProgress((prev) => {
+        const next = new Map(prev);
+        next.set(sectionId, "completed");
+        return next;
+      });
+      setShowCelebration(true);
+    }
+  }, [sectionId]);
 
   /* ---- Persistence helpers ---- */
 
@@ -323,6 +353,7 @@ export function SocraticSession() {
       if (response.tool_type?.includes("session_pause")) {
         setSessionPaused(response);
       }
+      syncProgressFromResponse(response);
     } catch {
       setConversation((prev) => [
         ...prev,
@@ -422,6 +453,7 @@ export function SocraticSession() {
       const withReply = [...updatedConversation, { role: "tutor" as const, content: response.reply }];
       setConversation(withReply);
       saveConversation(withReply);
+      syncProgressFromResponse(response);
     } catch {
       setConversation((prev) => [
         ...prev,
@@ -431,7 +463,7 @@ export function SocraticSession() {
       setSending(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [profile, sectionId, conversation, saveConversation]);
+  }, [profile, sectionId, conversation, saveConversation, syncProgressFromResponse]);
 
   const handleReply = useCallback((content: string) => {
     setQuotedMessage(content);
@@ -455,7 +487,10 @@ export function SocraticSession() {
             {moduleSections.map((lesson) => {
               const isCurrent = lesson.id === sectionId;
               const status = lessonProgress.get(lesson.id);
-              const sectionCov = topicCoverage?.sections.get(lesson.id);
+              const baseCov = topicCoverage?.sections.get(lesson.id);
+              const sectionCov = isCurrent && localClaimProgress
+                ? { covered: localClaimProgress.demonstrated, total: localClaimProgress.total, dueForReview: false }
+                : baseCov;
               return (
                 <li key={lesson.id}>
                   <button
@@ -797,6 +832,13 @@ export function SocraticSession() {
             {renderConversation()}
             {renderCompletionCard()}
             {renderPauseCard()}
+            {showCelebration && profile && sectionId && (
+              <CelebrationCard
+                profile={profile}
+                sectionId={sectionId}
+                onNext={(nextId) => navigate(`/curriculum/${profile}/${nextId}`)}
+              />
+            )}
           </div>
 
           {/* Scroll-to-bottom */}
