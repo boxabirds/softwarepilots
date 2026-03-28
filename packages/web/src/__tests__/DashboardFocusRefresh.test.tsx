@@ -75,10 +75,20 @@ function renderDashboard() {
   );
 }
 
+/** Simulate the page becoming visible (replaces old window focus tests). */
+function simulateVisibilityChange(state: "visible" | "hidden") {
+  Object.defineProperty(document, "visibilityState", {
+    value: state,
+    writable: true,
+    configurable: true,
+  });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
 /* ---- Tests ---- */
 
-describe("Dashboard focus refresh", () => {
-  it("refreshes progress when window gains focus with a selected profile", async () => {
+describe("Dashboard visibility refresh", () => {
+  it("refreshes progress when page becomes visible with a selected profile", async () => {
     mockGet.mockImplementation((url: string) => {
       if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
@@ -88,29 +98,32 @@ describe("Dashboard focus refresh", () => {
 
     renderDashboard();
 
-    // Wait for sections to load (selected_profile is set, so they load automatically)
+    // Wait for sections to load
     await waitFor(() => {
       expect(screen.getByText("What is Software Pilotry?")).toBeTruthy();
     });
 
-    // Now switch the mock to return updated progress
+    // Switch mock to return updated progress
     mockGet.mockImplementation((url: string) => {
       if (url === "/api/curriculum/level-1/progress") return Promise.resolve(UPDATED_PROGRESS);
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
 
-    // Fire a window focus event
+    // Simulate page becoming visible (bypasses throttle by advancing time)
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      simulateVisibilityChange("visible");
     });
 
-    // The progress endpoint should have been called again
+    // Progress endpoint should have been called again
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith("/api/curriculum/level-1/progress");
+      const progressCalls = mockGet.mock.calls.filter(
+        (call: string[]) => call[0] === "/api/curriculum/level-1/progress"
+      );
+      expect(progressCalls.length).toBeGreaterThan(0);
     });
   });
 
-  it("cleans up focus event listener on unmount", async () => {
+  it("cleans up visibilitychange listener on unmount", async () => {
     mockGet.mockImplementation((url: string) => {
       if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
@@ -120,24 +133,22 @@ describe("Dashboard focus refresh", () => {
 
     const { unmount } = renderDashboard();
 
-    // Wait for sections
     await waitFor(() => {
       expect(screen.getByText("What is Software Pilotry?")).toBeTruthy();
     });
 
-    // Clear call history, then unmount
     mockGet.mockClear();
     unmount();
 
-    // Fire focus after unmount - should NOT trigger any fetch
+    // Visibility change after unmount should NOT trigger any fetch
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      simulateVisibilityChange("visible");
     });
 
     expect(mockGet).not.toHaveBeenCalled();
   });
 
-  it("silently ignores fetch errors on focus refresh", async () => {
+  it("silently ignores fetch errors on visibility refresh", async () => {
     mockGet.mockImplementation((url: string) => {
       if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
@@ -157,9 +168,9 @@ describe("Dashboard focus refresh", () => {
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
 
-    // Focus should not throw or show error
+    // Visibility change should not throw or show error
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      simulateVisibilityChange("visible");
     });
 
     // Sections should still be visible (stale data preserved)

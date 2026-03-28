@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../lib/api-client";
 import { ProgressBadge } from "../components/ProgressBadge";
@@ -30,6 +30,8 @@ interface SectionProgress {
   updated_at: string;
 }
 
+const REFRESH_THROTTLE_MS = 30_000;
+
 export function LessonDetail() {
   const { profile, sectionId } = useParams<{ profile: string; sectionId: string }>();
   const navigate = useNavigate();
@@ -39,7 +41,9 @@ export function LessonDetail() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const lastRefresh = useRef(0);
 
+  // Initial load - fetches everything, shows loading spinner
   const fetchData = useCallback(async () => {
     if (!profile || !sectionId) return;
     setLoading(true);
@@ -58,6 +62,7 @@ export function LessonDetail() {
       setProgress(progressData);
       setSessions(sessionsData);
       setError(null);
+      lastRefresh.current = Date.now();
     } catch {
       setError("Failed to load lesson details");
     } finally {
@@ -65,15 +70,40 @@ export function LessonDetail() {
     }
   }, [profile, sectionId]);
 
+  // Initial load on mount
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Refresh on window focus
+  // Silent background refresh - updates progress and sessions without loading spinner
   useEffect(() => {
-    window.addEventListener("focus", fetchData);
-    return () => window.removeEventListener("focus", fetchData);
-  }, [fetchData]);
+    if (!profile || !sectionId) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastRefresh.current < REFRESH_THROTTLE_MS) return;
+
+      // Silent refresh - no setLoading(true)
+      Promise.all([
+        apiClient
+          .get<SectionProgress[]>(`/api/curriculum/${profile}/progress`)
+          .then((all) => all.find((p) => p.section_id === sectionId) ?? null)
+          .catch(() => null),
+        apiClient
+          .get<SessionSummary[]>(`/api/curriculum/${profile}/${sectionId}/sessions`)
+          .catch(() => [] as SessionSummary[]),
+      ]).then(([progressData, sessionsData]) => {
+        if (progressData !== null) setProgress(progressData);
+        setSessions(sessionsData);
+        lastRefresh.current = Date.now();
+      }).catch(() => {
+        // Silent failure - keep existing data
+      });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [profile, sectionId]);
 
   const sessionPath = `/curriculum/${profile}/${sectionId}`;
   const status = progress?.status ?? "not_started";
@@ -90,7 +120,7 @@ export function LessonDetail() {
     navigate(sessionPath);
   }
 
-  if (loading) {
+  if (loading && !section) {
     return (
       <div className="mx-auto max-w-4xl p-6">
         <p className="text-center" style={{ color: "var(--text-muted)" }}>

@@ -58,20 +58,20 @@ describe("ProgressBadge with claim progress", () => {
     expect(arc.getAttribute("stroke")).toBe("#3b82f6");
   });
 
-  it("renders full ring with checkmark for 100% completed", () => {
+  it("renders green dot for 100% completed (no ring or percentage text)", () => {
     render(
       <ProgressBadge
         status="completed"
         claimProgress={{ demonstrated: 7, total: 7, percentage: 100 }}
       />
     );
-    const ring = screen.getByTestId("progress-ring");
-    expect(ring).toBeTruthy();
+    // At 100%, renders a simple green dot instead of a ring
+    const circle = screen.getByTestId("progress-circle");
+    expect(circle).toBeTruthy();
+    expect(circle.getAttribute("aria-label")).toBe("Completed");
 
-    const checkmark = screen.getByTestId("checkmark");
-    expect(checkmark).toBeTruthy();
-
-    // No percentage text when 100% complete
+    // No ring, no percentage text
+    expect(screen.queryByTestId("progress-ring")).toBeNull();
     expect(screen.queryByTestId("percentage-text")).toBeNull();
   });
 

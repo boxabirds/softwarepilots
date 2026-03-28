@@ -123,17 +123,23 @@ function groupByModule(sections: SectionSummary[]): ModuleGroup[] {
 
 /* ---- Dashboard ---- */
 
+const REFRESH_THROTTLE_MS = 30_000;
+
 export function Dashboard() {
   const { learner } = useAuth();
-  const selectedProfile = learner?.selected_profile ?? null;
+  const authProfile = learner?.selected_profile ?? null;
   const navigate = useNavigate();
+
+  // Local profile override allows in-place track switching without page reload
+  const [profileOverride, setProfileOverride] = useState<string | null>(null);
+  const selectedProfile = profileOverride ?? authProfile;
 
   const [modules, setModules] = useState<ModuleGroup[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, SectionProgress>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showTrackPicker, setShowTrackPicker] = useState(false);
-  const sectionsRef = useRef<HTMLDivElement>(null);
+  const lastRefresh = useRef(0);
 
   const loadSections = useCallback(async (profile: string) => {
     setLoading(true);
@@ -149,6 +155,7 @@ export function Dashboard() {
       }
       setProgressMap(map);
       setError(null);
+      lastRefresh.current = Date.now();
     } catch {
       setError("Failed to load sections");
       setModules([]);
@@ -163,32 +170,37 @@ export function Dashboard() {
     }
   }, [selectedProfile, loadSections]);
 
-  // Auto-refresh progress on window focus
-  const refreshProgress = useCallback(() => {
-    if (!selectedProfile) return;
-    apiClient
-      .get<SectionProgress[]>(`/api/curriculum/${selectedProfile}/progress`)
-      .then((progress) => {
-        const map = new Map<string, SectionProgress>();
-        for (const p of progress) {
-          map.set(p.section_id, p);
-        }
-        setProgressMap(map);
-      })
-      .catch(() => {
-        // Silently ignore - stale data is better than an error
-      });
-  }, [selectedProfile]);
-
+  // Silent background progress refresh on visibility change
   useEffect(() => {
-    window.addEventListener("focus", refreshProgress);
-    return () => window.removeEventListener("focus", refreshProgress);
-  }, [refreshProgress]);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!selectedProfile) return;
+      if (Date.now() - lastRefresh.current < REFRESH_THROTTLE_MS) return;
+
+      apiClient
+        .get<SectionProgress[]>(`/api/curriculum/${selectedProfile}/progress`)
+        .then((progress) => {
+          const map = new Map<string, SectionProgress>();
+          for (const p of progress) {
+            map.set(p.section_id, p);
+          }
+          setProgressMap(map);
+          lastRefresh.current = Date.now();
+        })
+        .catch(() => {
+          // Silently ignore - stale data is better than an error
+        });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [selectedProfile]);
 
   async function handleTrackSelect(profile: string) {
     try {
       await apiClient.put("/api/auth/preferences", { selected_profile: profile });
-      window.location.reload();
+      setProfileOverride(profile);
+      setShowTrackPicker(false);
     } catch {
       setError("Failed to save track preference");
     }
@@ -284,7 +296,7 @@ export function Dashboard() {
           Loading sections...
         </p>
       ) : (
-        <div className="flex flex-col gap-6" ref={sectionsRef}>
+        <div className="flex flex-col gap-6">
           {/* Level 0 notice */}
           {selectedProfile === "level-0" && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
