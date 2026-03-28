@@ -925,6 +925,13 @@ export function SocraticSession() {
           {renderConversation()}
           {renderCompletionCard()}
           {renderPauseCard()}
+          {showCelebration && profile && sectionId && (
+            <CelebrationCard
+              profile={profile}
+              sectionId={sectionId}
+              onNext={(nextId) => navigate(`/curriculum/${profile}/${nextId}`)}
+            />
+          )}
         </div>
 
         {/* Scroll-to-bottom */}
