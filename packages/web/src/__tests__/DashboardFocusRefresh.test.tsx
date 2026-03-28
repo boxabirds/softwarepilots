@@ -1,20 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { Dashboard } from "../pages/Dashboard";
 
 /* ---- Mock data ---- */
-
-const MOCK_PROFILES = [
-  {
-    profile: "level-1",
-    title: "New Graduate",
-    starting_position: "Fresh from bootcamp or CS degree",
-    module_count: 1,
-    section_count: 2,
-  },
-];
 
 const MOCK_SECTIONS = [
   {
@@ -44,6 +33,22 @@ const UPDATED_PROGRESS = [
   },
 ];
 
+/* ---- Mock useAuth ---- */
+
+vi.mock("../lib/auth", () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    isLoading: false,
+    learner: {
+      id: "test-id",
+      email: "test@example.com",
+      display_name: "Test User",
+      enrolled_at: "2026-01-01T00:00:00Z",
+      selected_profile: "level-1",
+    },
+  }),
+}));
+
 /* ---- Mock api-client ---- */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +57,7 @@ let mockGet: any;
 vi.mock("../lib/api-client", () => ({
   apiClient: {
     get: (...args: unknown[]) => mockGet(...args),
+    put: vi.fn().mockResolvedValue({}),
   },
 }));
 
@@ -63,7 +69,7 @@ afterEach(cleanup);
 
 function renderDashboard() {
   return render(
-    <MemoryRouter initialEntries={["/curriculum"]}>
+    <MemoryRouter initialEntries={["/dashboard"]}>
       <Dashboard />
     </MemoryRouter>
   );
@@ -72,27 +78,17 @@ function renderDashboard() {
 /* ---- Tests ---- */
 
 describe("Dashboard focus refresh", () => {
-  it("refreshes progress when window gains focus with an expanded profile", async () => {
-    // Initial load: profiles
+  it("refreshes progress when window gains focus with a selected profile", async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
+      if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
       if (url === "/api/curriculum/level-1/progress") return Promise.resolve(INITIAL_PROGRESS);
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
 
-    const user = userEvent.setup();
     renderDashboard();
 
-    // Wait for profiles to load
-    await waitFor(() => {
-      expect(screen.getByText("New Graduate")).toBeTruthy();
-    });
-
-    // Click to expand
-    await user.click(screen.getByText("New Graduate"));
-
-    // Wait for sections to appear
+    // Wait for sections to load (selected_profile is set, so they load automatically)
     await waitFor(() => {
       expect(screen.getByText("What is Software Pilotry?")).toBeTruthy();
     });
@@ -114,46 +110,17 @@ describe("Dashboard focus refresh", () => {
     });
   });
 
-  it("does NOT fetch progress on focus when no profile is expanded", async () => {
-    mockGet.mockImplementation((url: string) => {
-      if (url === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
-      return Promise.reject(new Error(`Unexpected URL: ${url}`));
-    });
-
-    renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByText("New Graduate")).toBeTruthy();
-    });
-
-    // Clear mock call history
-    mockGet.mockClear();
-
-    // Fire focus with no profile expanded
-    await act(async () => {
-      window.dispatchEvent(new Event("focus"));
-    });
-
-    // Should not have fetched anything
-    expect(mockGet).not.toHaveBeenCalled();
-  });
-
   it("cleans up focus event listener on unmount", async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
+      if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
       if (url === "/api/curriculum/level-1/progress") return Promise.resolve(INITIAL_PROGRESS);
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
 
-    const user = userEvent.setup();
     const { unmount } = renderDashboard();
 
-    // Wait for profiles and expand
-    await waitFor(() => {
-      expect(screen.getByText("New Graduate")).toBeTruthy();
-    });
-    await user.click(screen.getByText("New Graduate"));
+    // Wait for sections
     await waitFor(() => {
       expect(screen.getByText("What is Software Pilotry?")).toBeTruthy();
     });
@@ -172,20 +139,13 @@ describe("Dashboard focus refresh", () => {
 
   it("silently ignores fetch errors on focus refresh", async () => {
     mockGet.mockImplementation((url: string) => {
-      if (url === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
+      if (url === "/api/curriculum") return Promise.resolve([]);
       if (url === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
       if (url === "/api/curriculum/level-1/progress") return Promise.resolve(INITIAL_PROGRESS);
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
 
-    const user = userEvent.setup();
     renderDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByText("New Graduate")).toBeTruthy();
-    });
-
-    await user.click(screen.getByText("New Graduate"));
 
     await waitFor(() => {
       expect(screen.getByText("What is Software Pilotry?")).toBeTruthy();

@@ -53,6 +53,22 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
       ];
     }
 
+    // /curriculum/:profile/:sectionId/detail
+    if (sectionId && pathname.endsWith("/detail")) {
+      let sectionTitle = sectionId;
+      try {
+        const section = getSection(profile, sectionId);
+        sectionTitle = section.title;
+      } catch {
+        // Fall back to sectionId if getSection fails
+      }
+
+      return [
+        { label: trackLabel, href: "/dashboard" },
+        { label: sectionTitle },
+      ];
+    }
+
     // /curriculum/:profile/:sectionId
     if (sectionId) {
       let moduleTitle = "";

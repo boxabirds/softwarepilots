@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useBreadcrumbs } from "../hooks/useBreadcrumbs";
+import { TrackSelector } from "./TrackSelector";
+import { apiClient } from "../lib/api-client";
 
 const NAV_HEIGHT_REM = "3.5rem"; // 56px at default 16px root
 
@@ -38,12 +40,12 @@ export function TopNav() {
       </div>
 
       {/* Right: Profile menu */}
-      <ProfileMenu initial={firstInitial} displayName={learner?.display_name} />
+      <ProfileMenu initial={firstInitial} displayName={learner?.display_name} selectedProfile={learner?.selected_profile} />
     </nav>
   );
 }
 
-function ProfileMenu({ initial, displayName }: { initial: string; displayName?: string }) {
+function ProfileMenu({ initial, displayName, selectedProfile }: { initial: string; displayName?: string; selectedProfile?: string | null }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -80,10 +82,29 @@ function ProfileMenu({ initial, displayName }: { initial: string; displayName?: 
         {initial}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-md py-1 shadow-lg" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}>
+        <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md py-1 shadow-lg" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-light)" }}>
           {displayName && (
             <div className="px-3 py-2 text-xs" style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
               {displayName}
+            </div>
+          )}
+          {selectedProfile !== undefined && (
+            <div
+              className="px-3 py-2"
+              style={{ borderBottom: "1px solid var(--border-light)" }}
+              data-testid="track-selector-menu"
+            >
+              <p className="mb-1.5 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                Track
+              </p>
+              <TrackSelector
+                selectedProfile={selectedProfile ?? null}
+                onSelect={async (profile) => {
+                  await apiClient.put("/api/auth/preferences", { selected_profile: profile });
+                  window.location.reload();
+                }}
+                compact
+              />
             </div>
           )}
           <Link

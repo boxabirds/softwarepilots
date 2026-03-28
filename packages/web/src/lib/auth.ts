@@ -6,6 +6,7 @@ interface Learner {
   email: string;
   display_name: string;
   enrolled_at: string;
+  selected_profile: string | null;
 }
 
 interface AuthState {

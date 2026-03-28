@@ -1,5 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/auth";
+import { apiClient } from "../lib/api-client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ProgressBadge } from "@/components/ProgressBadge";
+import { TrackSelector } from "@/components/TrackSelector";
+import { EducationalGuidance } from "@/components/EducationalGuidance";
+import { AIDisclaimer } from "@/components/AIDisclaimer";
+import type {
+  CurriculumProfileSummary,
+  LearnerProfile,
+} from "@softwarepilots/shared";
 
 /* ---- Level 0 interactive exercises (original POC) ---- */
 
@@ -52,21 +71,8 @@ const LEVEL_0_EXERCISES: ExerciseModule[] = [
     status: "locked",
   },
 ];
-import { apiClient } from "../lib/api-client";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ProgressBadge } from "@/components/ProgressBadge";
-import type {
-  CurriculumProfileSummary,
-  LearnerProfile,
-} from "@softwarepilots/shared";
+
+/* ---- Shared types ---- */
 
 interface SectionSummary {
   id: string;
@@ -89,6 +95,7 @@ interface SectionProgress {
   understanding_level?: string;
   claim_progress?: ClaimProgressData;
   updated_at: string;
+  session_count?: number;
 }
 
 interface ModuleGroup {
@@ -114,27 +121,53 @@ function groupByModule(sections: SectionSummary[]): ModuleGroup[] {
   return Array.from(map.values());
 }
 
+/* ---- Dashboard ---- */
+
 export function Dashboard() {
-  const [profiles, setProfiles] = useState<CurriculumProfileSummary[]>([]);
-  const [expanded, setExpanded] = useState<LearnerProfile | null>(null);
+  const { learner } = useAuth();
+  const selectedProfile = learner?.selected_profile ?? null;
+  const navigate = useNavigate();
+
   const [modules, setModules] = useState<ModuleGroup[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, SectionProgress>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [loadingSections, setLoadingSections] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showTrackPicker, setShowTrackPicker] = useState(false);
   const sectionsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    apiClient
-      .get<CurriculumProfileSummary[]>("/api/curriculum")
-      .then(setProfiles)
-      .catch(() => setError("Failed to load tracks"));
+  const loadSections = useCallback(async (profile: string) => {
+    setLoading(true);
+    try {
+      const [sections, progress] = await Promise.all([
+        apiClient.get<SectionSummary[]>(`/api/curriculum/${profile}`),
+        apiClient.get<SectionProgress[]>(`/api/curriculum/${profile}/progress`).catch(() => [] as SectionProgress[]),
+      ]);
+      setModules(groupByModule(sections));
+      const map = new Map<string, SectionProgress>();
+      for (const p of progress) {
+        map.set(p.section_id, p);
+      }
+      setProgressMap(map);
+      setError(null);
+    } catch {
+      setError("Failed to load sections");
+      setModules([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Auto-refresh progress when the window regains focus (e.g. returning from a Socratic session)
+  useEffect(() => {
+    if (selectedProfile) {
+      loadSections(selectedProfile);
+    }
+  }, [selectedProfile, loadSections]);
+
+  // Auto-refresh progress on window focus
   const refreshProgress = useCallback(() => {
-    if (!expanded) return;
+    if (!selectedProfile) return;
     apiClient
-      .get<SectionProgress[]>(`/api/curriculum/${expanded}/progress`)
+      .get<SectionProgress[]>(`/api/curriculum/${selectedProfile}/progress`)
       .then((progress) => {
         const map = new Map<string, SectionProgress>();
         for (const p of progress) {
@@ -145,62 +178,50 @@ export function Dashboard() {
       .catch(() => {
         // Silently ignore - stale data is better than an error
       });
-  }, [expanded]);
+  }, [selectedProfile]);
 
   useEffect(() => {
     window.addEventListener("focus", refreshProgress);
     return () => window.removeEventListener("focus", refreshProgress);
   }, [refreshProgress]);
 
-  async function handleToggle(profile: LearnerProfile) {
-    if (expanded === profile) {
-      setExpanded(null);
-      setModules([]);
-      setProgressMap(new Map());
-      return;
-    }
-
-    setExpanded(profile);
-    setLoadingSections(true);
-    setProgressMap(new Map());
+  async function handleTrackSelect(profile: string) {
     try {
-      const [sections, progress] = await Promise.all([
-        apiClient.get<SectionSummary[]>(`/api/curriculum/${profile}`),
-        apiClient.get<SectionProgress[]>(`/api/curriculum/${profile}/progress`).catch(() => [] as SectionProgress[]),
-      ]);
-
-      setModules(groupByModule(sections));
-      setError(null);
-
-      const map = new Map<string, SectionProgress>();
-      for (const p of progress) {
-        map.set(p.section_id, p);
-      }
-      setProgressMap(map);
-
-      // On mobile, scroll the sections area into view
-      requestAnimationFrame(() => {
-        if (typeof sectionsRef.current?.scrollIntoView === "function") {
-          sectionsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
+      await apiClient.put("/api/auth/preferences", { selected_profile: profile });
+      window.location.reload();
     } catch {
-      setError(`Failed to load sections`);
-      setModules([]);
-    } finally {
-      setLoadingSections(false);
+      setError("Failed to save track preference");
     }
   }
 
-  function handleRetry() {
-    setError(null);
-    apiClient
-      .get<CurriculumProfileSummary[]>("/api/curriculum")
-      .then(setProfiles)
-      .catch(() => setError("Failed to load tracks"));
+  // Onboarding interstitial - no profile selected
+  if (!selectedProfile) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <div className="mb-8 text-center">
+          <h1
+            className="text-3xl font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Choose your track
+          </h1>
+          <p
+            className="mt-2 text-base"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Select the track that best matches your experience level.
+          </p>
+        </div>
+        <TrackSelector
+          selectedProfile={null}
+          onSelect={handleTrackSelect}
+        />
+      </div>
+    );
   }
 
-  if (error && profiles.length === 0) {
+  // Error state
+  if (error && modules.length === 0) {
     return (
       <div className="mx-auto max-w-4xl p-6">
         <div
@@ -208,7 +229,7 @@ export function Dashboard() {
           className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center"
         >
           <p className="mb-4 text-destructive">{error}</p>
-          <Button variant="outline" onClick={handleRetry}>
+          <Button variant="outline" onClick={() => loadSections(selectedProfile)}>
             Retry
           </Button>
         </div>
@@ -218,60 +239,78 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      {/* Track cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {profiles.map((profile) => (
-          <TrackCard
-            key={profile.profile}
-            profile={profile}
-            isExpanded={expanded === profile.profile}
-            onToggle={() => handleToggle(profile.profile)}
-          />
-        ))}
+      {/* Track header */}
+      <div className="mb-6 flex items-center gap-3">
+        <h1
+          className="text-xl font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {selectedProfile.replace("level-", "Level ")}
+        </h1>
+        <button
+          type="button"
+          onClick={() => setShowTrackPicker(!showTrackPicker)}
+          className="cursor-pointer text-sm underline"
+          style={{ color: "var(--pilot-blue)" }}
+          data-testid="change-track"
+        >
+          Change
+        </button>
       </div>
 
-      {/* Expanded section area */}
-      {expanded && (
-        <div className="mt-6" ref={sectionsRef}>
-          {loadingSections ? (
-            <p className="text-center text-[var(--text-muted)]">Loading sections...</p>
-          ) : error ? (
-            <div
-              role="alert"
-              className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center"
-            >
-              <p className="text-destructive">{error}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {/* Level 0 notice */}
-              {expanded === "level-0" && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  UNDER CONSTRUCTION
-                </div>
-              )}
+      {/* Inline track picker */}
+      {showTrackPicker && (
+        <div className="mb-6">
+          <TrackSelector
+            selectedProfile={selectedProfile}
+            onSelect={handleTrackSelect}
+          />
+        </div>
+      )}
 
-              {modules.map((mod) => (
-                <ModuleTree
-                  key={mod.module_id}
-                  module={mod}
-                  profile={expanded}
-                  progressMap={progressMap}
-                />
-              ))}
+      {/* Educational guidance */}
+      <div className="mb-6">
+        <EducationalGuidance />
+      </div>
 
-              {/* Level 0 interactive exercises */}
-              {expanded === "level-0" && (
-                <>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Interactive Exercises</h3>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {LEVEL_0_EXERCISES.map((ex) => (
-                      <ExerciseCard key={ex.number} {...ex} />
-                    ))}
-                  </div>
-                </>
-              )}
+      {/* AI disclaimer */}
+      <div className="mb-6">
+        <AIDisclaimer />
+      </div>
+
+      {/* Module browser */}
+      {loading ? (
+        <p className="text-center" style={{ color: "var(--text-muted)" }}>
+          Loading sections...
+        </p>
+      ) : (
+        <div className="flex flex-col gap-6" ref={sectionsRef}>
+          {/* Level 0 notice */}
+          {selectedProfile === "level-0" && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+              UNDER CONSTRUCTION
             </div>
+          )}
+
+          {modules.map((mod) => (
+            <ModuleTree
+              key={mod.module_id}
+              module={mod}
+              profile={selectedProfile as LearnerProfile}
+              progressMap={progressMap}
+            />
+          ))}
+
+          {/* Level 0 interactive exercises */}
+          {selectedProfile === "level-0" && (
+            <>
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Interactive Exercises</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {LEVEL_0_EXERCISES.map((ex) => (
+                  <ExerciseCard key={ex.number} {...ex} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -279,65 +318,7 @@ export function Dashboard() {
   );
 }
 
-function TrackCard({
-  profile,
-  isExpanded,
-  onToggle,
-}: {
-  profile: CurriculumProfileSummary;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div
-      className="cursor-pointer rounded-xl p-5 transition-all"
-      style={isExpanded ? {
-        background: "var(--card-bg-selected)",
-        color: "white",
-        boxShadow: "var(--shadow-lg)",
-      } : {
-        background: "var(--card-bg)",
-        border: "1px solid var(--card-border)",
-      }}
-      onClick={onToggle}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
-    >
-      <h2
-        className="text-xl font-bold"
-        style={{ color: isExpanded ? "var(--text-on-brand)" : "var(--text-primary)" }}
-      >
-        {profile.title}
-      </h2>
-      <p
-        className="mt-2 line-clamp-2 text-sm"
-        style={{ color: isExpanded ? "rgba(255,255,255,0.75)" : "var(--text-tertiary)" }}
-      >
-        {profile.starting_position}
-      </p>
-      <div className="mt-4">
-        <span
-          className="rounded-full px-3 py-1 text-xs font-semibold"
-          style={isExpanded ? {
-            background: "rgba(255,255,255,0.15)",
-            color: "var(--text-on-brand)",
-          } : {
-            background: "var(--bg-muted)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {profile.section_count} sections
-        </span>
-      </div>
-    </div>
-  );
-}
+/* ---- Module tree ---- */
 
 function ModuleTree({
   module: mod,
@@ -410,29 +391,24 @@ export function SectionRow({
 }) {
   const navigate = useNavigate();
   const status = progress?.status ?? "not_started";
-  const sectionPath = `/curriculum/${profile}/${sec.id}`;
+  const detailPath = `/curriculum/${profile}/${sec.id}/detail`;
 
-  const hasProgress = status !== "not_started";
-
-  async function handleReset() {
-    const confirmed = window.confirm(
-      "Reset progress to beginning of this lesson?"
-    );
-    if (!confirmed) return;
-
-    try {
-      await apiClient.post(`/api/curriculum/${profile}/${sec.id}/archive`, {});
-    } catch {
-      // Archive failed - continue anyway
-    }
-    navigate(sectionPath);
-  }
+  const sessionCount = progress?.session_count;
 
   return (
     <div
-      className="flex items-center gap-3 border-b px-1 py-2.5 text-sm last:border-b-0"
+      className="flex cursor-pointer items-center gap-3 rounded-md border-b px-2 py-2.5 text-sm last:border-b-0 transition-colors hover:bg-[var(--bg-subtle)]"
       style={{ borderColor: "var(--border-light)" }}
       data-testid={`section-row-${sec.id}`}
+      onClick={() => navigate(detailPath)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(detailPath);
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       {/* Title */}
       <span
@@ -465,42 +441,24 @@ export function SectionRow({
         )}
       </span>
 
-      {/* Icons - right aligned */}
-      <span className="flex shrink-0 items-center gap-1">
-        {/* Reset icon - only when progress exists */}
-        {hasProgress && (
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-muted"
-            style={{ color: "var(--text-muted)" }}
-            title="Reset progress"
-            data-testid="start-over"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 8a6 6 0 0 1 10.47-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <path d="M14 8a6 6 0 0 1-10.47 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <path d="M12 1.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M4 14.5v-3h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        )}
+      {/* Session count */}
+      {sessionCount != null && sessionCount > 0 && (
+        <span className="shrink-0 text-xs" style={{ color: "var(--text-muted)" }} data-testid="session-count">
+          {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
+        </span>
+      )}
 
-        {/* Play button - always present */}
-        <Link
-          to={sectionPath}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
-          title={status === "not_started" ? "Start" : status === "completed" ? "Review" : "Continue"}
-          data-testid="play-button"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.5 2.5L11.5 7L3.5 11.5V2.5Z" fill="currentColor"/>
-          </svg>
-        </Link>
+      {/* Right chevron */}
+      <span className="shrink-0" style={{ color: "var(--text-muted)" }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </span>
     </div>
   );
 }
+
+/* ---- Exercise card (Level 0) ---- */
 
 function ExerciseCard({ number, title, description, status, exerciseLink, exerciseLabel }: ExerciseModule) {
   const isLocked = status === "locked";

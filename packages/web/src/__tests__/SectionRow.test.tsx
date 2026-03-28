@@ -6,17 +6,27 @@ import { SectionRow } from "../pages/Dashboard";
 
 /* ---- Mock api-client ---- */
 
-let mockPost: ReturnType<typeof vi.fn>;
-
 vi.mock("../lib/api-client", () => ({
   apiClient: {
     get: vi.fn().mockResolvedValue([]),
-    post: (...args: unknown[]) => mockPost(...args),
+    post: vi.fn().mockResolvedValue({ archived: true }),
   },
 }));
 
+/* ---- Mock useNavigate ---- */
+
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
 beforeEach(() => {
-  mockPost = vi.fn().mockResolvedValue({ archived: true });
+  mockNavigate.mockClear();
 });
 
 afterEach(cleanup);
@@ -59,35 +69,16 @@ function renderRow(
 /* ---- Tests ---- */
 
 describe("SectionRow", () => {
-  it("renders play button for all statuses", () => {
+  it("renders section title", () => {
     renderRow("not_started");
-    expect(screen.getByTestId("play-button")).toBeTruthy();
+    expect(screen.getByText("Introduction to Software")).toBeTruthy();
   });
 
-  it("play button links to section path", () => {
+  it("navigates to detail page on click", async () => {
+    const user = userEvent.setup();
     renderRow("not_started");
-    const link = screen.getByTestId("play-button");
-    expect(link.getAttribute("href")).toBe("/curriculum/level-1/1.1");
-  });
-
-  it("does not show reset icon for not_started", () => {
-    renderRow("not_started");
-    expect(screen.queryByTestId("start-over")).toBeNull();
-  });
-
-  it("shows reset icon for in_progress", () => {
-    renderRow("in_progress");
-    expect(screen.getByTestId("start-over")).toBeTruthy();
-  });
-
-  it("shows reset icon for completed", () => {
-    renderRow("completed");
-    expect(screen.getByTestId("start-over")).toBeTruthy();
-  });
-
-  it("shows reset icon for needs_review", () => {
-    renderRow("needs_review");
-    expect(screen.getByTestId("start-over")).toBeTruthy();
+    await user.click(screen.getByTestId("section-row-1.1"));
+    expect(mockNavigate).toHaveBeenCalledWith("/curriculum/level-1/1.1/detail");
   });
 
   it("shows claim progress when claim_progress exists", () => {
@@ -112,52 +103,17 @@ describe("SectionRow", () => {
     expect(screen.getByText("Review")).toBeTruthy();
   });
 
-  it("reset shows confirmation and calls archive endpoint", async () => {
-    const user = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    renderRow("in_progress");
-    await user.click(screen.getByTestId("start-over"));
-
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "Reset progress to beginning of this lesson?",
-    );
-    expect(mockPost).toHaveBeenCalledWith(
-      "/api/curriculum/level-1/1.1/archive",
-      {},
-    );
-
-    confirmSpy.mockRestore();
-  });
-
-  it("reset does nothing when confirmation is cancelled", async () => {
-    const user = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-
-    renderRow("in_progress");
-    await user.click(screen.getByTestId("start-over"));
-
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(mockPost).not.toHaveBeenCalled();
-
-    confirmSpy.mockRestore();
-  });
-
-  it("renders section title", () => {
+  it("renders a right chevron", () => {
     renderRow("not_started");
-    expect(screen.getByText("Introduction to Software")).toBeTruthy();
+    const row = screen.getByTestId("section-row-1.1");
+    const svg = row.querySelector("svg");
+    expect(svg).toBeTruthy();
   });
 
-  it("play button has correct title per status", () => {
+  it("has role=button and is keyboard accessible", () => {
     renderRow("not_started");
-    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Start");
-    cleanup();
-
-    renderRow("in_progress");
-    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Continue");
-    cleanup();
-
-    renderRow("completed");
-    expect(screen.getByTestId("play-button").getAttribute("title")).toBe("Review");
+    const row = screen.getByTestId("section-row-1.1");
+    expect(row.getAttribute("role")).toBe("button");
+    expect(row.getAttribute("tabindex")).toBe("0");
   });
 });

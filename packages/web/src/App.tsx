@@ -21,6 +21,9 @@ const ProgressDashboard = lazy(() =>
 const Admin = lazy(() =>
   import("./pages/Admin").then((m) => ({ default: m.Admin }))
 );
+const LessonDetail = lazy(() =>
+  import("./pages/LessonDetail").then((m) => ({ default: m.LessonDetail }))
+);
 const Simulation = lazy(() =>
   import("./pages/Simulation").then((m) => ({ default: m.Simulation }))
 );
@@ -86,6 +89,18 @@ export function App() {
               <AuthenticatedLayout>
                 <RouteLoader>
                   <ProgressDashboard />
+                </RouteLoader>
+              </AuthenticatedLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/curriculum/:profile/:sectionId/detail"
+          element={
+            <AuthGuard>
+              <AuthenticatedLayout>
+                <RouteLoader>
+                  <LessonDetail />
                 </RouteLoader>
               </AuthenticatedLayout>
             </AuthGuard>
