@@ -8,6 +8,7 @@ import { ChatInput } from "../components/ChatInput";
 import { getCurriculumSections } from "@softwarepilots/shared";
 import { ProgressBadge } from "../components/ProgressBadge";
 import { useTopicCoverage } from "../hooks/useTopicCoverage";
+import { useChatScroll } from "../hooks/useChatScroll";
 import { CelebrationCard } from "../components/CelebrationCard";
 
 /* ---- Types ---- */
@@ -47,7 +48,6 @@ interface SectionMetadata {
   key_intuition: string;
 }
 
-const SCROLL_BOTTOM_THRESHOLD = 50;
 const OPENING_MESSAGE = "I'm ready to begin.";
 const RESUME_MESSAGE = "I'd like to continue where we left off.";
 const QUOTE_TRUNCATE_LENGTH = 100;
@@ -57,7 +57,6 @@ const QUOTE_TRUNCATE_LENGTH = 100;
 export function SocraticSession() {
   const { profile, sectionId } = useParams<{ profile: string; sectionId: string }>();
 
-  const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [section, setSection] = useState<SectionMetadata | null>(null);
@@ -79,7 +78,6 @@ export function SocraticSession() {
   }, [draftKey]);
 
   const [sending, setSending] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
   const [sessionPaused, setSessionPaused] = useState<SocraticResponse | null>(null);
   const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
@@ -277,28 +275,9 @@ export function SocraticSession() {
 
   /* ---- Scrolling ---- */
 
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
-    });
-  }, []);
-
-  const handleChatScroll = useCallback(() => {
-    const el = chatRef.current;
-    if (!el) return;
-    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_BOTTOM_THRESHOLD);
-  }, []);
-
-  useEffect(() => {
-    const el = chatRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", handleChatScroll);
-    return () => el.removeEventListener("scroll", handleChatScroll);
-  }, [handleChatScroll]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [conversation.length, sending, scrollToBottom]);
+  const { chatRef, showScrollButton, scrollToBottom } = useChatScroll({
+    deps: [conversation.length, sending],
+  });
 
   /* ---- Submit message ---- */
 
@@ -855,7 +834,7 @@ export function SocraticSession() {
           </div>
 
           {/* Scroll-to-bottom */}
-          {!isAtBottom && (
+          {showScrollButton && (
             <button
               onClick={scrollToBottom}
               className="absolute bottom-24 left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"
@@ -948,7 +927,7 @@ export function SocraticSession() {
         </div>
 
         {/* Scroll-to-bottom */}
-        {!isAtBottom && (
+        {showScrollButton && (
           <button
             onClick={scrollToBottom}
             className="absolute bottom-24 left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"

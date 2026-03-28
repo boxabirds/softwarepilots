@@ -973,3 +973,104 @@ describe("ChatInput feedback mode", () => {
     expect(screen.queryByTestId("quote-preview")).toBeNull();
   });
 });
+
+/* ---- Scroll behaviour (Story 71) ---- */
+
+describe("scroll.no_bounce - auto-scroll guard", () => {
+  const scrollToSpy = vi.mocked(Element.prototype.scrollTo);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("calls scrollTo with instant behaviour when new message arrives", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: [], updated_at: null });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+
+    mockPost.mockResolvedValue({ ...MOCK_TUTOR_RESPONSE });
+    mockPut.mockResolvedValue({ saved: true });
+
+    renderSession();
+
+    // Wait for opening probe
+    await waitFor(() => {
+      expect(screen.getByText(MOCK_TUTOR_RESPONSE.reply)).toBeTruthy();
+    });
+
+    // scrollTo should have been called with instant behaviour (not smooth)
+    const instantCalls = scrollToSpy.mock.calls.filter(
+      (call) => call[0] && typeof call[0] === "object" && (call[0] as ScrollToOptions).behavior === "instant"
+    );
+    expect(instantCalls.length).toBeGreaterThan(0);
+  });
+
+  it("does not use smooth behaviour for auto-scroll", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({ messages: [], updated_at: null });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+
+    mockPost.mockResolvedValue({ ...MOCK_TUTOR_RESPONSE });
+    mockPut.mockResolvedValue({ saved: true });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText(MOCK_TUTOR_RESPONSE.reply)).toBeTruthy();
+    });
+
+    // No auto-scroll calls should use smooth behaviour
+    const smoothCalls = scrollToSpy.mock.calls.filter(
+      (call) => call[0] && typeof call[0] === "object" && (call[0] as ScrollToOptions).behavior === "smooth"
+    );
+    expect(smoothCalls.length).toBe(0);
+  });
+});
+
+describe("scroll.scroll_button - FAB visibility", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("scroll-to-bottom button is not visible when user is at bottom (default)", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({
+          messages: [{ role: "tutor", content: "Hello learner!" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+    mockPut.mockResolvedValue({ saved: true });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Hello learner!")).toBeTruthy();
+    });
+
+    // FAB should not be visible when at bottom (default state)
+    expect(screen.queryByLabelText("Scroll to bottom")).toBeNull();
+  });
+});
