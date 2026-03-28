@@ -18,6 +18,7 @@ export function useChatScroll({ deps }: UseChatScrollOptions): UseChatScrollRetu
   const chatRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const lastScrollUpdate = useRef(0);
+  const programmaticScroll = useRef(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const [conversationLength, sending] = deps;
@@ -25,12 +26,17 @@ export function useChatScroll({ deps }: UseChatScrollOptions): UseChatScrollRetu
   const scrollToBottom = useCallback(() => {
     const el = chatRef.current;
     if (!el) return;
+    programmaticScroll.current = true;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     isAtBottomRef.current = true;
     setShowScrollButton(false);
+    // Reset flag after scroll settles
+    requestAnimationFrame(() => { programmaticScroll.current = false; });
   }, []);
 
   const handleChatScroll = useCallback(() => {
+    // Ignore scroll events triggered by programmatic scrollTo
+    if (programmaticScroll.current) return;
     const el = chatRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_BOTTOM_THRESHOLD;
@@ -53,7 +59,9 @@ export function useChatScroll({ deps }: UseChatScrollOptions): UseChatScrollRetu
     if (!isAtBottomRef.current) return;
     const el = chatRef.current;
     if (!el) return;
+    programmaticScroll.current = true;
     el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+    requestAnimationFrame(() => { programmaticScroll.current = false; });
   }, [conversationLength, sending]);
 
   return { chatRef, showScrollButton, scrollToBottom };

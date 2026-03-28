@@ -788,24 +788,26 @@ export function SocraticSession() {
   if (isMobile) {
     return (
       <div className="relative flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
-        {/* Header with lesson list toggle */}
-        <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
-          <button
-            onClick={() => setContextOpen(!contextOpen)}
-            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground"
-            aria-label="Toggle lesson list"
-          >
-            {contextOpen ? "\u2715" : "\u2630"}
-          </button>
+        {/* Header with lesson list toggle (hidden when module has only 1 lesson) */}
+        <div className="sticky top-0 z-10 flex shrink-0 items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
+          {moduleSections.length > 1 && (
+            <button
+              onClick={() => setContextOpen(!contextOpen)}
+              className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground"
+              aria-label="Toggle lesson list"
+            >
+              {contextOpen ? "\u2715" : "\u2630"}
+            </button>
+          )}
           <span className="truncate text-sm font-medium text-foreground">
             {section?.title ?? "Loading..."}
           </span>
         </div>
 
         {/* Slide-out drawer */}
-        {contextOpen && (
+        {contextOpen && moduleSections.length > 1 && (
           <div
-            className="absolute inset-0 top-[48px] z-20 flex"
+            className="absolute inset-0 top-[48px] z-40 flex"
             onClick={() => setContextOpen(false)}
           >
             <div

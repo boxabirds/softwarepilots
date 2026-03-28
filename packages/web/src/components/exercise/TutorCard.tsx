@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import Markdown from "react-markdown";
 
 interface TutorCardProps {
   content: string;
@@ -43,11 +44,11 @@ export function TutorCard({ content, loading, variant = "default", onReply, onFe
         </div>
       ) : (
         <div
-          className="whitespace-pre-wrap text-[0.75rem] leading-relaxed"
+          className="prose prose-sm max-w-none text-[0.75rem] leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0"
           style={{ color: "var(--text-secondary)" }}
         >
           {variant === "instruction" && <span className="mr-1.5" aria-hidden="true">&#128161;</span>}
-          {content}
+          <Markdown>{content}</Markdown>
         </div>
       )}
 
