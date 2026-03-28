@@ -560,11 +560,11 @@ export function SocraticSession() {
       if (msg.role === "tutor") {
         const isError = msg.content.startsWith("Failed to reach the tutor");
         const isInstruction = msg.tool_type?.includes("provide_instruction");
-        const displayContent = isInstruction ? `\u{1F393} ${msg.content}` : msg.content;
         elements.push(
           <div key={i}>
             <TutorCard
-              content={displayContent}
+              content={msg.content}
+              variant={isInstruction ? "instruction" : "default"}
               onReply={isError || i === conversation.length - 1 ? undefined : () => handleReply(msg.content)}
               onFeedback={isError ? undefined : () => handleFeedback(msg.content, i)}
             />

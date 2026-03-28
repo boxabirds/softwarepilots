@@ -192,13 +192,12 @@ describe("SocraticSession", () => {
 
     renderSession();
 
-    // Instruction renders as TutorCard with emoji prepended
+    // Instruction renders as instruction-card with lightbulb
     await waitFor(() => {
-      expect(screen.getByText(/\u{1F393}.*Recursion is when a function calls itself\./u)).toBeTruthy();
+      expect(screen.getByText("Recursion is when a function calls itself.")).toBeTruthy();
     });
 
-    // No instruction-card div or Direct Instruction label
-    expect(screen.queryByTestId("instruction-card")).toBeNull();
+    expect(screen.getByTestId("instruction-card")).toBeTruthy();
     expect(screen.queryByText("Direct Instruction")).toBeNull();
   });
 

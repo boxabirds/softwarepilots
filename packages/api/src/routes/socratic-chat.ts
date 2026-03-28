@@ -181,7 +181,7 @@ export function buildSocraticTools(
     {
       name: "provide_instruction",
       description:
-        `Provide a direct explanation when Socratic questioning has demonstrably failed. ${sectionContext}`,
+        `Provide a direct explanation when the learner asks a factual question or when Socratic questioning has demonstrably failed. ${sectionContext}`,
       parameters: {
         type: "OBJECT",
         properties: {

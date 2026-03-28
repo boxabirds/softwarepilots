@@ -3,11 +3,12 @@ import { useState, useRef, useEffect } from "react";
 interface TutorCardProps {
   content: string;
   loading?: boolean;
+  variant?: "default" | "instruction";
   onReply?: () => void;
   onFeedback?: () => void;
 }
 
-export function TutorCard({ content, loading, onReply, onFeedback }: TutorCardProps) {
+export function TutorCard({ content, loading, variant = "default", onReply, onFeedback }: TutorCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -27,10 +28,10 @@ export function TutorCard({ content, loading, onReply, onFeedback }: TutorCardPr
     <div
       className="group relative mr-10 mt-3 rounded-xl p-4"
       style={{
-        background: "var(--tutor-card-bg)",
-        borderLeft: "3px solid var(--pilot-blue)",
+        background: variant === "instruction" ? "var(--status-warning-bg)" : "var(--tutor-card-bg)",
+        borderLeft: `3px solid ${variant === "instruction" ? "var(--status-warning)" : "var(--pilot-blue)"}`,
       }}
-      data-testid="tutor-card"
+      data-testid={variant === "instruction" ? "instruction-card" : "tutor-card"}
     >
       {loading ? (
         <div className="flex items-center gap-2 py-0.5">
@@ -45,6 +46,7 @@ export function TutorCard({ content, loading, onReply, onFeedback }: TutorCardPr
           className="whitespace-pre-wrap text-[0.75rem] leading-relaxed"
           style={{ color: "var(--text-secondary)" }}
         >
+          {variant === "instruction" && <span className="mr-1.5" aria-hidden="true">&#128161;</span>}
           {content}
         </div>
       )}

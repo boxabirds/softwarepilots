@@ -59,7 +59,7 @@ describe("provide_instruction rendering (58.2)", () => {
     cleanup();
   });
 
-  it("renders provide_instruction message as TutorCard with teacher cap emoji, no instruction-card div", async () => {
+  it("renders provide_instruction message as instruction-card with lightbulb", async () => {
     const INSTRUCTION_TEXT = "Here is a thorough explanation of the concept.";
 
     mockGet.mockImplementation((path: string) => {
@@ -87,16 +87,14 @@ describe("provide_instruction rendering (58.2)", () => {
 
     renderSession();
 
-    // Wait for the instruction content to appear with emoji prepended
+    // Wait for the instruction content to appear
     await waitFor(() => {
-      expect(screen.getByText(new RegExp(`\u{1F393}.*${INSTRUCTION_TEXT}`))).toBeTruthy();
+      expect(screen.getByText(INSTRUCTION_TEXT)).toBeTruthy();
     });
 
-    // No instruction-card div should exist
-    expect(screen.queryByTestId("instruction-card")).toBeNull();
-    // No instruction-concept badge
-    expect(screen.queryByTestId("instruction-concept")).toBeNull();
-    // No "Direct Instruction" text
+    // Should render as instruction-card (amber variant)
+    expect(screen.getByTestId("instruction-card")).toBeTruthy();
+    // No "Direct Instruction" header text
     expect(screen.queryByText("Direct Instruction")).toBeNull();
   });
 
@@ -131,8 +129,8 @@ describe("provide_instruction rendering (58.2)", () => {
       expect(screen.getByText(PROBE_TEXT)).toBeTruthy();
     });
 
-    // Should NOT have the emoji prepended
-    expect(screen.queryByText(new RegExp(`\u{1F393}.*${PROBE_TEXT}`))).toBeNull();
+    // Should NOT have instruction-card styling
+    expect(screen.queryByTestId("instruction-card")).toBeNull();
   });
 });
 

@@ -130,22 +130,22 @@ test.describe("provide_instruction rendering and metadata", () => {
     await input.fill("I have no idea what closures are, can you explain?");
     await input.press("Shift+Enter");
 
-    // Wait for instruction reply - should have teacher cap emoji
+    // Wait for instruction reply - should be in an instruction-card
     await expect(
-      page.getByText(/\u{1F393}.*Closures are functions/u),
+      page.getByText(/Closures are functions/u),
     ).toBeVisible();
 
-    // No instruction-card div should exist
-    await expect(page.locator('[data-testid="instruction-card"]')).toHaveCount(0);
+    // Should render as instruction-card (amber variant with lightbulb)
+    await expect(page.locator('[data-testid="instruction-card"]')).toHaveCount(1);
 
     // No "Direct Instruction" text
     await expect(page.getByText("Direct Instruction")).toHaveCount(0);
 
-    // The instruction should be inside a tutor-card
+    // Other tutor messages should be regular tutor-cards
     const tutorCards = page.locator('[data-testid="tutor-card"]');
     const cardCount = await tutorCards.count();
-    // At least 3: intro welcome card, opening probe, instruction reply
-    expect(cardCount).toBeGreaterThanOrEqual(3);
+    // At least 2: intro welcome card, opening probe (instruction is now instruction-card)
+    expect(cardCount).toBeGreaterThanOrEqual(2);
 
     // Verify metadata was saved
     expect(savedPayloads.length).toBeGreaterThan(0);
