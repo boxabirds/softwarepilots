@@ -7,7 +7,7 @@ import { ChatCard } from "../components/exercise/ChatCard";
 import { ChatInput } from "../components/ChatInput";
 import { getCurriculumSections } from "@softwarepilots/shared";
 import { ProgressBadge } from "../components/ProgressBadge";
-import { useTopicCoverage } from "../hooks/useTopicCoverage";
+import { useTopicCoverage, invalidateTopicCoverageCache } from "../hooks/useTopicCoverage";
 import { useChatScroll } from "../hooks/useChatScroll";
 import { CelebrationCard } from "../components/CelebrationCard";
 
@@ -186,6 +186,8 @@ export function SocraticSession() {
         demonstrated: response.claim_progress.demonstrated,
         total: response.claim_progress.total,
       });
+      // Invalidate cached topic coverage so other pages see fresh data
+      if (profile) invalidateTopicCoverageCache(profile);
     }
     if (response.section_completed && sectionId && !wasCompletedOnMount.current) {
       setLessonProgress((prev) => {
@@ -195,7 +197,7 @@ export function SocraticSession() {
       });
       setShowCelebration(true);
     }
-  }, [sectionId]);
+  }, [sectionId, profile]);
 
   /* ---- Persistence helpers ---- */
 

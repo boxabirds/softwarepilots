@@ -965,7 +965,9 @@ socraticChat.post("/", async (c) => {
     const result = parseSocraticResponse(data!);
 
     // Update progress synchronously so we can include claim_progress in the response.
-    if (learnerId) {
+    // Skip progress update for the opening probe (empty conversation = no learner input yet).
+    const hasLearnerInput = conversation.length > 0;
+    if (learnerId && hasLearnerInput) {
       try {
         const progressUpdate = await updateSectionProgress(c.env.DB, learnerId, body.profile, body.section_id, result);
         result.claim_progress = progressUpdate.claim_progress;

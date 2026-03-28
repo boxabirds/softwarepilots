@@ -35,6 +35,12 @@ interface ConceptAssessment {
 
 const coverageCache = new Map<string, TopicCoverage>();
 
+/** Invalidate cached coverage so the next hook mount fetches fresh data. */
+export function invalidateTopicCoverageCache(profile?: string) {
+  if (profile) coverageCache.delete(profile);
+  else coverageCache.clear();
+}
+
 /* ---- Computation (exported for testing) ---- */
 
 export function computeSectionCoverage(
