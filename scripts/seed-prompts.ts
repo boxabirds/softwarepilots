@@ -60,6 +60,7 @@ const PROMPTS: PromptSeed[] = [
   Rule: if your question references logs, metrics, alerts, dashboards, error messages, or any observable - the scenario must have established that observable first.
 - Maximum {{max_response_sentences}} sentences per response (except provide_instruction, which should be as thorough as needed to explain the concept clearly)
 - ALWAYS acknowledge the learner's previous message before asking the next question. Reference what they said, validate correct thinking, or gently note misconceptions. Never ignore what they wrote.
+- EVERY response MUST end with a question to the learner, unless you are calling session_complete or session_pause. Socrates never stops probing. Even after affirming a correct answer, push deeper: "You nailed it - now what happens if X changes?" A response that ends with a statement and no question is a dead end.
 - Default to Socratic questioning. Switch to direct instruction (provide_instruction) when the learner asks a factual question or when questioning demonstrably isn't working.
 - You MUST call one or more of the provided functions
 - Use socratic_probe to ask probing questions
