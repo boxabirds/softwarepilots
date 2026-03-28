@@ -225,7 +225,7 @@ auth.get("/me", async (c) => {
   try {
     const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as unknown as SessionPayload;
     const learner = await c.env.DB.prepare(
-      "SELECT id, email, display_name, enrolled_at FROM learners WHERE id = ?"
+      "SELECT id, email, display_name, enrolled_at, selected_profile FROM learners WHERE id = ?"
     )
       .bind(payload.sub)
       .first();
@@ -234,6 +234,38 @@ auth.get("/me", async (c) => {
   } catch {
     return c.json(null);
   }
+});
+
+const VALID_PROFILES = new Set(["level-0", "level-1", "level-10", "level-20"]);
+
+auth.put("/preferences", async (c) => {
+  // Auth routes are mounted before session middleware, so parse cookie directly
+  const header = c.req.raw.headers.get("Cookie");
+  if (!header) return c.json({ error: "Authentication required" }, 401);
+  const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]*)`));
+  const cookie = match ? decodeURIComponent(match[1]) : undefined;
+  if (!cookie) return c.json({ error: "Authentication required" }, 401);
+
+  let learnerId: string;
+  try {
+    const payload = (await verify(cookie, c.env.JWT_SECRET, "HS256")) as unknown as SessionPayload;
+    learnerId = payload.sub;
+  } catch {
+    return c.json({ error: "Invalid or expired session" }, 401);
+  }
+
+  const body = await c.req.json<{ selected_profile?: string }>();
+  if (!body.selected_profile || !VALID_PROFILES.has(body.selected_profile)) {
+    return c.json({ error: "Invalid profile. Must be one of: level-0, level-1, level-10, level-20" }, 400);
+  }
+
+  await c.env.DB.prepare(
+    "UPDATE learners SET selected_profile = ? WHERE id = ?"
+  )
+    .bind(body.selected_profile, learnerId)
+    .run();
+
+  return c.json({ ok: true });
 });
 
 export { auth };

@@ -617,6 +617,45 @@ curriculum.post("/:profile/:sectionId/archive", async (c) => {
   return new Response(null, { status: 204 });
 });
 
+/* GET /:profile/:sectionId/sessions - list all sessions (active + archived) */
+curriculum.get("/:profile/:sectionId/sessions", async (c) => {
+  const learnerId = c.get("learnerId" as never) as string;
+  const profile = c.req.param("profile");
+  const sectionId = c.req.param("sectionId");
+
+  if (!isValidProfile(profile)) {
+    return c.json({ error: `Invalid profile: ${profile}` }, 400);
+  }
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, messages_json, summary, created_at, archived_at
+     FROM curriculum_conversations
+     WHERE learner_id = ? AND profile = ? AND section_id = ?
+     ORDER BY created_at DESC`
+  )
+    .bind(learnerId, profile, sectionId)
+    .all<{ id: string; messages_json: string; summary: string | null; created_at: string; archived_at: string | null }>();
+
+  const sessions = (results || []).map((row) => {
+    let messageCount = 0;
+    try {
+      const messages = JSON.parse(row.messages_json);
+      messageCount = Array.isArray(messages) ? messages.length : 0;
+    } catch { /* corrupt data */ }
+
+    return {
+      id: row.id,
+      created_at: row.created_at,
+      archived_at: row.archived_at,
+      summary: row.summary,
+      message_count: messageCount,
+      status: row.archived_at ? "archived" as const : "active" as const,
+    };
+  });
+
+  return c.json(sessions);
+});
+
 /* POST /:profile/:sectionId/feedback - submit learner feedback on a tutor message */
 curriculum.post("/:profile/:sectionId/feedback", async (c) => {
   const learnerId = c.get("learnerId" as never) as string;
