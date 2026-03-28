@@ -145,8 +145,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(functio
           placeholder={effectivePlaceholder}
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans text-base outline-none"
-          style={{ lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)", padding: 0 }}
+          className="min-w-0 flex-1 resize-none border-none bg-transparent font-sans outline-none"
+          style={{ fontSize: "16px", lineHeight: LINE_HEIGHT + "px", color: "var(--text-primary)", padding: 0 }}
         />
         <button
           onClick={onSubmit}

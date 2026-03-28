@@ -300,26 +300,6 @@ export function SocraticSession() {
     scrollToBottom();
   }, [conversation.length, sending, scrollToBottom]);
 
-  /* ---- Mobile keyboard viewport adjustment ---- */
-
-  const mobileContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const container = mobileContainerRef.current;
-      if (!container) return;
-      // visualViewport.height shrinks when the keyboard opens
-      const headerHeight = 56;
-      container.style.height = `${vv.height - headerHeight}px`;
-      scrollToBottom();
-    };
-    vv.addEventListener("resize", onResize);
-    return () => vv.removeEventListener("resize", onResize);
-  }, [isMobile, scrollToBottom]);
-
   /* ---- Submit message ---- */
 
   const handleSubmit = async () => {
@@ -828,7 +808,7 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div ref={mobileContainerRef} className="relative flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
+      <div className="relative flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
         {/* Header with lesson list toggle */}
         <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
           <button
