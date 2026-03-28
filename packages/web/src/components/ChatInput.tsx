@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useImperativeHandle, forwardRef } from "react";
 
 const MAX_LINES = 7;
-const LINE_HEIGHT = 24;
+const LINE_HEIGHT = 20;
 const MAX_HEIGHT = MAX_LINES * LINE_HEIGHT;
 const QUOTE_PREVIEW_LENGTH = 100;
 

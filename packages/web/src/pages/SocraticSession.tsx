@@ -64,8 +64,20 @@ export function SocraticSession() {
   const [sectionLoading, setSectionLoading] = useState(true);
   const [sectionError, setSectionError] = useState<string | null>(null);
 
+  const draftKey = sectionId ? `sp-draft-${profile}-${sectionId}` : null;
+
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState(() => {
+    if (!draftKey) return "";
+    try { return localStorage.getItem(draftKey) ?? ""; } catch { return ""; }
+  });
+  const updateInputText = useCallback((text: string) => {
+    setInputText(text);
+    if (draftKey) {
+      try { if (text) localStorage.setItem(draftKey, text); else localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    }
+  }, [draftKey]);
+
   const [sending, setSending] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [sessionComplete, setSessionComplete] = useState<SocraticResponse | null>(null);
@@ -288,6 +300,26 @@ export function SocraticSession() {
     scrollToBottom();
   }, [conversation.length, sending, scrollToBottom]);
 
+  /* ---- Mobile keyboard viewport adjustment ---- */
+
+  const mobileContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const container = mobileContainerRef.current;
+      if (!container) return;
+      // visualViewport.height shrinks when the keyboard opens
+      const headerHeight = 56;
+      container.style.height = `${vv.height - headerHeight}px`;
+      scrollToBottom();
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [isMobile, scrollToBottom]);
+
   /* ---- Submit message ---- */
 
   const handleSubmit = async () => {
@@ -296,7 +328,7 @@ export function SocraticSession() {
 
     // Handle feedback submission separately
     if (feedbackTarget) {
-      setInputText("");
+      updateInputText("");
       const target = feedbackTarget;
       setFeedbackTarget(null);
 
@@ -326,7 +358,7 @@ export function SocraticSession() {
     const userMsg: ConversationMessage = { role: "user", content: messageContent };
     const updatedConversation = [...conversation, userMsg];
     setConversation(updatedConversation);
-    setInputText("");
+    updateInputText("");
     setQuotedMessage(null);
     setSending(true);
 
@@ -498,7 +530,7 @@ export function SocraticSession() {
                       if (!isCurrent) navigate(`/curriculum/${profile}/${lesson.id}`);
                       setContextOpen(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-base transition-colors"
                     style={isCurrent ? {
                       background: "var(--pilot-blue)",
                       color: "var(--text-on-brand)",
@@ -510,6 +542,7 @@ export function SocraticSession() {
                     {status && (
                       <ProgressBadge
                         status={status as "not_started" | "in_progress" | "completed"}
+                        claimProgress={sectionCov && sectionCov.total > 0 ? { demonstrated: sectionCov.covered, total: sectionCov.total, percentage: Math.round((sectionCov.covered / sectionCov.total) * 100) } : undefined}
                       />
                     )}
                     <span className="line-clamp-3">{lesson.title}</span>
@@ -722,7 +755,7 @@ export function SocraticSession() {
       <ChatInput
         ref={inputRef}
         value={inputText}
-        onChange={setInputText}
+        onChange={updateInputText}
         onSubmit={handleSubmit}
         disabled={sending}
         quotedMessage={quotedMessage}
@@ -795,7 +828,7 @@ export function SocraticSession() {
   // Mobile: slide-out drawer for context
   if (isMobile) {
     return (
-      <div className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
+      <div ref={mobileContainerRef} className="flex h-[calc(100dvh-56px)] flex-col" style={{ background: "var(--bg-base)" }}>
         {/* Header with lesson list toggle */}
         <div className="flex items-center gap-3 px-4 py-2" style={{ background: "var(--sidebar-bg)", borderBottom: "1px solid var(--border-light)" }}>
           <button

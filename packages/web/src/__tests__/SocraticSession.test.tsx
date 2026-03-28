@@ -706,13 +706,11 @@ describe("SocraticSession sidebar progress sync", () => {
     });
 
     // After section_completed=true response, the progress badge transitions to completed.
-    // The sidebar progress circle updates via setLessonProgress.
+    // With claim progress data, it renders as a progress-ring with checkmark.
     await waitFor(() => {
-      const progressCircles = screen.getAllByTestId("progress-circle");
-      const completedCircle = progressCircles.find(
-        (el) => el.getAttribute("aria-label") === "Completed"
-      );
-      expect(completedCircle).toBeTruthy();
+      const ring = screen.getByTestId("progress-ring");
+      expect(ring.getAttribute("aria-label")).toContain("Completed");
+      expect(screen.getByTestId("checkmark")).toBeTruthy();
     });
   });
 });
