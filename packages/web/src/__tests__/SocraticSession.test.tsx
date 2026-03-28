@@ -705,12 +705,14 @@ describe("SocraticSession sidebar progress sync", () => {
       expect(screen.getByText("Excellent mastery!")).toBeTruthy();
     });
 
-    // After section_completed=true response, the progress badge transitions to completed.
-    // With claim progress data, it renders as a progress-ring with checkmark.
+    // After section_completed=true response, the progress badge transitions to a green dot.
+    // At 100% claim progress, it renders as a simple completed circle, not a ring.
     await waitFor(() => {
-      const ring = screen.getByTestId("progress-ring");
-      expect(ring.getAttribute("aria-label")).toContain("Completed");
-      expect(screen.getByTestId("checkmark")).toBeTruthy();
+      const circles = screen.getAllByTestId("progress-circle");
+      const completedCircle = circles.find(
+        (el) => el.getAttribute("aria-label") === "Completed"
+      );
+      expect(completedCircle).toBeTruthy();
     });
   });
 });

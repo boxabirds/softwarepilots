@@ -23,10 +23,17 @@ const COLOR_BAND_HIGH = 99;
 
 export function ProgressBadge({ status, understandingLevel, claimProgress }: ProgressBadgeProps) {
   const hasRing = claimProgress && claimProgress.total > 0;
+  const isComplete = hasRing && claimProgress.percentage >= 100;
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      {hasRing ? (
+      {isComplete ? (
+        <span
+          data-testid="progress-circle"
+          className="inline-block h-4 w-4 rounded-full border-2 border-green-600 bg-green-600"
+          aria-label="Completed"
+        />
+      ) : hasRing ? (
         <PercentageRing
           percentage={claimProgress.percentage}
           status={status}
