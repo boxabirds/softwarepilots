@@ -1162,3 +1162,74 @@ describe("scroll button hidden on mobile", () => {
     expect(screen.queryByLabelText("Scroll to bottom")).toBeNull();
   });
 });
+
+/* ---- Viewport resize: mobile <-> desktop (hooks order) ---- */
+
+describe("viewport resize does not crash", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false); // start desktop
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("survives switching from desktop to mobile and back without crashing", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({
+          messages: [{ role: "tutor", content: "Hello!" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+    mockPut.mockResolvedValue({ saved: true });
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/curriculum/level-1/1.1"]}>
+        <Routes>
+          <Route path="/curriculum/:profile/:sectionId" element={<SocraticSession />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Desktop renders without crash
+    await waitFor(() => {
+      expect(screen.getByText("Hello!")).toBeTruthy();
+    });
+
+    // Switch to mobile
+    mockUseIsMobile.mockReturnValue(true);
+    rerender(
+      <MemoryRouter initialEntries={["/curriculum/level-1/1.1"]}>
+        <Routes>
+          <Route path="/curriculum/:profile/:sectionId" element={<SocraticSession />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Should still render without crashing (React error #310)
+    await waitFor(() => {
+      expect(screen.getByText("Hello!")).toBeTruthy();
+    });
+
+    // Switch back to desktop
+    mockUseIsMobile.mockReturnValue(false);
+    rerender(
+      <MemoryRouter initialEntries={["/curriculum/level-1/1.1"]}>
+        <Routes>
+          <Route path="/curriculum/:profile/:sectionId" element={<SocraticSession />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Should still render without crashing
+    await waitFor(() => {
+      expect(screen.getByText("Hello!")).toBeTruthy();
+    });
+  });
+});
