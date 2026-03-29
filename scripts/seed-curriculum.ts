@@ -105,7 +105,7 @@ async function main() {
     console.error("\nApplying to D1...");
     const envFlag = env ? `--env ${env}` : "";
     const remoteFlag = env ? "--remote" : "--local";
-    const dbName = env ? `softwarepilots-db-${env}` : "softwarepilots-db";
+    const dbName = env === "production" ? "softwarepilots-db" : env ? `softwarepilots-db-${env}` : "softwarepilots-db";
 
     // Write SQL to temp file (avoids shell escaping issues with large JSON)
     const tmpFile = resolve(PROJECT_ROOT, ".seed-curriculum-tmp.sql");
