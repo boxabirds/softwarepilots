@@ -91,7 +91,8 @@ import { getLearningMap, getLearningMapForProfile, learningMapRegistry } from ".
 
 export { learningMapRegistry, getLearningMap, getLearningMapForProfile };
 
-const ALL_PROFILES: LearnerProfile[] = ["level-0", "level-1", "level-10", "level-20"];
+/** Profiles visible to learners. level-0 excluded (not ready for release). */
+const ALL_PROFILES: LearnerProfile[] = ["level-1", "level-10", "level-20"];
 
 const curricula: Record<LearnerProfile, CurriculumData> = {
   "level-0": level0Curriculum,

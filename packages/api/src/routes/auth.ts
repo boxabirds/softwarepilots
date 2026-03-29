@@ -236,7 +236,7 @@ auth.get("/me", async (c) => {
   }
 });
 
-const VALID_PROFILES = new Set(["level-0", "level-1", "level-10", "level-20"]);
+const VALID_PROFILES = new Set(["level-1", "level-10", "level-20"]);
 
 auth.put("/preferences", async (c) => {
   // Auth routes are mounted before session middleware, so parse cookie directly
@@ -256,7 +256,7 @@ auth.put("/preferences", async (c) => {
 
   const body = await c.req.json<{ selected_profile?: string }>();
   if (!body.selected_profile || !VALID_PROFILES.has(body.selected_profile)) {
-    return c.json({ error: "Invalid profile. Must be one of: level-0, level-1, level-10, level-20" }, 400);
+    return c.json({ error: "Invalid profile. Must be one of: level-1, level-10, level-20" }, 400);
   }
 
   await c.env.DB.prepare(
