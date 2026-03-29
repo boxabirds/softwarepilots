@@ -129,7 +129,7 @@ function groupByModule(sections: SectionSummary[]): ModuleGroup[] {
 const REFRESH_THROTTLE_MS = 30_000;
 
 export function Dashboard() {
-  const { learner } = useAuth();
+  const { learner, isLoading: authLoading } = useAuth();
   const authProfile = learner?.selected_profile ?? null;
   const navigate = useNavigate();
 
@@ -207,6 +207,11 @@ export function Dashboard() {
     } catch {
       setError("Failed to save track preference");
     }
+  }
+
+  // Wait for auth before deciding what to show
+  if (authLoading) {
+    return null;
   }
 
   // Onboarding interstitial - no profile selected
