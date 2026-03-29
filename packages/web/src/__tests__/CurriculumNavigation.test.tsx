@@ -137,11 +137,12 @@ describe("Curriculum Navigation Flow", () => {
     });
   });
 
-  it("selecting a track navigates to the dashboard (no page reload)", async () => {
+  it("selecting a track updates modules in-place (no page reload)", async () => {
     mockLearner.mockReturnValue({ id: "test-learner", selected_profile: null });
     mockGet.mockImplementation((path: string) => {
       if (path === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
-      if (path.startsWith("/api/curriculum/level-1")) return Promise.resolve(MOCK_SECTIONS);
+      if (path === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
+      if (path === "/api/curriculum/level-1/progress") return Promise.resolve([]);
       return Promise.resolve([]);
     });
     mockPut.mockResolvedValue({ ok: true });
@@ -150,7 +151,6 @@ describe("Curriculum Navigation Flow", () => {
       <MemoryRouter initialEntries={["/dashboard"]}>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/curriculum/:profile" element={<div data-testid="curriculum-page">Curriculum</div>} />
         </Routes>
         <LocationSpy />
       </MemoryRouter>,
@@ -163,9 +163,10 @@ describe("Curriculum Navigation Flow", () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId("track-option-level-1"));
 
-    // Should navigate to curriculum page, not reload
+    // Should stay on dashboard and load modules in-place
     await waitFor(() => {
-      expect(currentLocation).toBe("/curriculum/level-1");
+      expect(currentLocation).toBe("/dashboard");
+      expect(screen.getByText("Understanding Software Pilots")).toBeTruthy();
     });
   });
 

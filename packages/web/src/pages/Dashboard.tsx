@@ -202,7 +202,8 @@ export function Dashboard() {
   async function handleTrackSelect(profile: string) {
     try {
       await apiClient.put("/api/auth/preferences", { selected_profile: profile });
-      navigate(`/curriculum/${profile}`);
+      setProfileOverride(profile);
+      setShowTrackPicker(false);
     } catch {
       setError("Failed to save track preference");
     }
