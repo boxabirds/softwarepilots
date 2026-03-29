@@ -103,6 +103,44 @@ export function SocraticSession() {
   // Local override for current section's claim progress (updated from API response)
   const [localClaimProgress, setLocalClaimProgress] = useState<{ demonstrated: number; total: number } | null>(null);
 
+  // Desktop sidebar resize (hooks must be before any early returns)
+  const SIDEBAR_MIN = 200;
+  const SIDEBAR_MAX = 500;
+  const SIDEBAR_KEY = "sp-sidebar-width";
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      if (saved) return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, parseInt(saved, 10)));
+    } catch {}
+    return 280;
+  });
+  const resizing = useRef(false);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizing.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizing.current) return;
+      const newWidth = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+    const onUp = () => {
+      resizing.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      try { localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth)); } catch {}
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    try { localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth)); } catch {}
+  }, [sidebarWidth]);
+
   // Module sections for the lesson list sidebar
   interface LessonItem { id: string; title: string; module_id: string; }
   const moduleSections = useMemo<LessonItem[]>(() => {
@@ -853,44 +891,6 @@ export function SocraticSession() {
   }
 
   // Desktop: two-column layout with resizable sidebar
-  const SIDEBAR_MIN = 200;
-  const SIDEBAR_MAX = 500;
-  const SIDEBAR_KEY = "sp-sidebar-width";
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem(SIDEBAR_KEY);
-      if (saved) return Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, parseInt(saved, 10)));
-    } catch {}
-    return 280;
-  });
-  const resizing = useRef(false);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizing.current = true;
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-
-    const onMove = (ev: MouseEvent) => {
-      if (!resizing.current) return;
-      const newWidth = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startWidth + ev.clientX - startX));
-      setSidebarWidth(newWidth);
-    };
-    const onUp = () => {
-      resizing.current = false;
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      try { localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth)); } catch {}
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [sidebarWidth]);
-
-  // Persist on change
-  useEffect(() => {
-    try { localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth)); } catch {}
-  }, [sidebarWidth]);
-
   return (
     <div className="flex h-[calc(100dvh-56px)]" style={{ background: "var(--bg-base)" }}>
       {/* Left column: lesson list (resizable) */}
