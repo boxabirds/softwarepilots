@@ -15,13 +15,18 @@ echo "--- Deploying evaluator worker ---"
 cd "$EVALUATOR_DIR"
 bunx wrangler deploy --env staging
 
-# 2. Deploy API worker
+# 2. Apply DB migrations
+echo ""
+echo "--- Applying D1 migrations (staging) ---"
+cd "$API_DIR"
+bunx wrangler d1 migrations apply softwarepilots-db-staging --env staging --remote
+
+# 3. Deploy API worker
 echo ""
 echo "--- Deploying API worker ---"
-cd "$API_DIR"
 bunx wrangler deploy --env staging
 
-# 3. Build and deploy web app
+# 4. Build and deploy web app
 echo ""
 echo "--- Building web app ---"
 cd "$WEB_DIR"

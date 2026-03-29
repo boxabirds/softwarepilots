@@ -31,13 +31,18 @@ echo "--- Deploying evaluator worker ---"
 cd "$EVALUATOR_DIR"
 bunx wrangler deploy --env production
 
-# 2. Deploy API worker
+# 2. Apply DB migrations
+echo ""
+echo "--- Applying D1 migrations (production) ---"
+cd "$API_DIR"
+bunx wrangler d1 migrations apply softwarepilots-db --env production --remote
+
+# 3. Deploy API worker
 echo ""
 echo "--- Deploying API worker ---"
-cd "$API_DIR"
 bunx wrangler deploy --env production
 
-# 3. Build and deploy web app
+# 4. Build and deploy web app
 echo ""
 echo "--- Building web app ---"
 cd "$WEB_DIR"
