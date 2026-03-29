@@ -39,13 +39,28 @@ export function TopNav() {
         )}
       </div>
 
+      {/* Manifesto link (desktop only - mobile is in profile menu) */}
+      {!isMobile && (
+        <a
+          href="https://softwarepilotry.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mr-3 flex shrink-0 items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
+          style={{ color: "var(--pilot-blue)" }}
+          data-testid="manifesto-link"
+        >
+          <img src="/logo-blue-circle.png" alt="" className="h-4 w-auto" />
+          Read the Manifesto
+        </a>
+      )}
+
       {/* Right: Profile menu */}
-      <ProfileMenu initial={firstInitial} displayName={learner?.display_name} selectedProfile={learner?.selected_profile} />
+      <ProfileMenu initial={firstInitial} displayName={learner?.display_name} selectedProfile={learner?.selected_profile} isMobile={isMobile} />
     </nav>
   );
 }
 
-function ProfileMenu({ initial, displayName, selectedProfile }: { initial: string; displayName?: string; selectedProfile?: string | null }) {
+function ProfileMenu({ initial, displayName, selectedProfile, isMobile }: { initial: string; displayName?: string; selectedProfile?: string | null; isMobile?: boolean }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +139,19 @@ function ProfileMenu({ initial, displayName, selectedProfile }: { initial: strin
           >
             Sign out
           </button>
+          {isMobile && (
+            <a
+              href="https://softwarepilotry.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center gap-1.5 px-3 py-2 text-sm font-medium"
+              style={{ borderTop: "1px solid var(--border-light)", color: "var(--pilot-blue)" }}
+              data-testid="manifesto-link"
+            >
+              <img src="/logo-blue-circle.png" alt="" className="h-4 w-auto" />
+              Read the Manifesto
+            </a>
+          )}
         </div>
       )}
     </div>
