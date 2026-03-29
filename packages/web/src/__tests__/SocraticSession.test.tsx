@@ -1074,3 +1074,91 @@ describe("scroll.scroll_button - FAB visibility", () => {
     expect(screen.queryByLabelText("Scroll to bottom")).toBeNull();
   });
 });
+
+/* ---- Auto-focus input after tutor response ---- */
+
+describe("auto-focus input after response", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("focuses textarea after tutor responds to user message", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({
+          messages: [{ role: "tutor", content: "Welcome!" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+
+    mockPost.mockResolvedValue({ reply: "Good thinking!", tool_type: "socratic_probe" });
+    mockPut.mockResolvedValue({ saved: true });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Welcome!")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+    const textarea = screen.getByPlaceholderText("Type your response...");
+    await user.type(textarea, "My answer");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+
+    // Wait for tutor reply
+    await waitFor(() => {
+      expect(screen.getByText("Good thinking!")).toBeTruthy();
+    });
+
+    // Textarea should be focused after response
+    await waitFor(() => {
+      expect(document.activeElement?.tagName).toBe("TEXTAREA");
+    });
+  });
+});
+
+/* ---- Scroll button hidden on mobile (Story 72) ---- */
+
+describe("scroll button hidden on mobile", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("mobile layout does not render scroll-to-bottom button", async () => {
+    mockUseIsMobile.mockReturnValue(true);
+
+    mockGet.mockImplementation((path: string) => {
+      if (path.endsWith("/conversation")) {
+        return Promise.resolve({
+          messages: [{ role: "tutor", content: "Hello mobile learner!" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        });
+      }
+      if (path.endsWith("/progress")) return Promise.resolve([]);
+      if (path.endsWith("/review-needed")) return Promise.resolve({ due_concepts: [], total_due: 0 });
+      return Promise.resolve({ ...MOCK_SECTION });
+    });
+    mockPut.mockResolvedValue({ saved: true });
+
+    renderSession();
+
+    await waitFor(() => {
+      expect(screen.getByText("Hello mobile learner!")).toBeTruthy();
+    });
+
+    // On mobile, scroll button should NEVER render
+    expect(screen.queryByLabelText("Scroll to bottom")).toBeNull();
+  });
+});

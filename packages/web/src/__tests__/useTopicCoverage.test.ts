@@ -138,3 +138,25 @@ describe("computeTopicCoverage", () => {
     expect(result.modules.size).toBe(0);
   });
 });
+
+/* ---- Guard: demonstrated cannot exceed total ---- */
+
+describe("computeSectionCoverage guards", () => {
+  it("caps covered at total when concepts_json has more keys than totalConcepts", () => {
+    const json = JSON.stringify({
+      a: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      b: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      c: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      d: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      e: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      f: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+      g: { level: "solid", next_review: "2099-01-01T00:00:00Z" },
+    });
+    const TOTAL = 3;
+    const result = computeSectionCoverage(json, TOTAL);
+    // covered must never exceed total
+    expect(result.covered).toBeLessThanOrEqual(result.total);
+    expect(result.covered).toBe(TOTAL);
+    expect(result.total).toBe(TOTAL);
+  });
+});

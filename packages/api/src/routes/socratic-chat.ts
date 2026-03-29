@@ -203,8 +203,12 @@ export function buildSocraticTools(
             ],
             description: "Why the learner is struggling",
           },
+          follow_up: {
+            type: "STRING",
+            description: "A follow-up question to check the learner understood the instruction. Socrates never stops probing.",
+          },
         },
-        required: ["instruction", "concept", "struggle_reason"],
+        required: ["instruction", "concept", "struggle_reason", "follow_up"],
       },
     },
     {
@@ -671,8 +675,12 @@ function extractReplyText(fc: { name: string; args: Record<string, string> }): s
         "That's interesting, but let's focus on the section. What part are you curious about?"
       );
 
-    case "provide_instruction":
-      return fc.args.response || fc.args.instruction || null;
+    case "provide_instruction": {
+      const instr = fc.args.response || fc.args.instruction || null;
+      return instr && fc.args.follow_up
+        ? `${instr}\n\n${fc.args.follow_up}`
+        : instr;
+    }
 
     case "session_complete":
       return fc.args.summary || fc.args.response || null;

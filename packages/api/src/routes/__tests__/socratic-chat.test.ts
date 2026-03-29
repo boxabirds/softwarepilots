@@ -693,6 +693,34 @@ describe("provide_instruction tool", () => {
     expect(result.struggle_reason).toBe("repeated_wrong_answer");
   });
 
+  it("has follow_up as a required parameter", () => {
+    const tools = buildSocraticTools(TEST_SECTION, TEST_META);
+    const instructionTool = tools[0].functionDeclarations.find(
+      (d) => d.name === "provide_instruction"
+    );
+    const params = instructionTool!.parameters as Record<string, unknown>;
+    const properties = params.properties as Record<string, Record<string, unknown>>;
+    const required = params.required as string[];
+
+    expect(properties.follow_up).toBeDefined();
+    expect(properties.follow_up.type).toBe("STRING");
+    expect(required).toContain("follow_up");
+  });
+
+  it("parser appends follow_up to instruction text", () => {
+    const result = parseSocraticResponse(
+      geminiResponse("provide_instruction", {
+        instruction: "A variable is a named container for data.",
+        follow_up: "Can you give me an example of a variable you might use?",
+        concept: "variables",
+        struggle_reason: "learner_asked",
+      })
+    );
+
+    expect(result.reply).toContain("A variable is a named container for data.");
+    expect(result.reply).toContain("Can you give me an example of a variable you might use?");
+  });
+
   it("multi-tool: provide_instruction + socratic_probe concatenated", () => {
     const result = parseSocraticResponse(
       geminiMultiResponse([

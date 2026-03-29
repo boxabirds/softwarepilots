@@ -137,6 +137,38 @@ describe("Curriculum Navigation Flow", () => {
     });
   });
 
+  it("selecting a track navigates to the dashboard (no page reload)", async () => {
+    mockLearner.mockReturnValue({ id: "test-learner", selected_profile: null });
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/api/curriculum") return Promise.resolve(MOCK_PROFILES);
+      if (path.startsWith("/api/curriculum/level-1")) return Promise.resolve(MOCK_SECTIONS);
+      return Promise.resolve([]);
+    });
+    mockPut.mockResolvedValue({ ok: true });
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/curriculum/:profile" element={<div data-testid="curriculum-page">Curriculum</div>} />
+        </Routes>
+        <LocationSpy />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("track-option-level-1")).toBeTruthy();
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("track-option-level-1"));
+
+    // Should navigate to curriculum page, not reload
+    await waitFor(() => {
+      expect(currentLocation).toBe("/curriculum/level-1");
+    });
+  });
+
   it("with selected track, module browser loads and clicking lesson navigates to detail", async () => {
     mockLearner.mockReturnValue({ id: "test-learner", selected_profile: "level-1" });
 
@@ -182,5 +214,32 @@ describe("Curriculum Navigation Flow", () => {
     await waitFor(() => {
       expect(currentLocation).toBe("/curriculum/level-1/1.1/detail");
     });
+  });
+
+  it("displays track description (starting_position) alongside track title", async () => {
+    mockLearner.mockReturnValue({ id: "test-learner", selected_profile: "level-1" });
+
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/api/curriculum/level-1") return Promise.resolve(MOCK_SECTIONS);
+      if (path === "/api/curriculum/level-1/progress") return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Wait for content to load
+    await waitFor(() => {
+      expect(screen.getByText("Understanding Software Pilots")).toBeTruthy();
+    });
+
+    // Track description should be visible (starting_position from curriculum data)
+    expect(screen.getByTestId("track-description")).toBeTruthy();
+    expect(screen.getByTestId("track-description").textContent!.length).toBeGreaterThan(20);
   });
 });

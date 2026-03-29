@@ -239,7 +239,10 @@ export function SocraticSession() {
           ]);
         }
       } finally {
-        if (!cancelled.current) setSending(false);
+        if (!cancelled.current) {
+          setSending(false);
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }
       }
     },
     [profile, sectionId, saveConversation],
@@ -400,6 +403,7 @@ export function SocraticSession() {
       })
       .finally(() => {
         setSending(false);
+        requestAnimationFrame(() => inputRef.current?.focus());
       });
   };
 
@@ -836,17 +840,6 @@ export function SocraticSession() {
               />
             )}
           </div>
-
-          {/* Scroll-to-bottom */}
-          {showScrollButton && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-24 left-1/2 z-10 flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-lg text-muted-foreground shadow-md"
-              aria-label="Scroll to bottom"
-            >
-              &#8595;
-            </button>
-          )}
 
           {/* Input - floats over conversation */}
           {!sessionComplete && !sessionPaused && (

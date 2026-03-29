@@ -59,7 +59,7 @@ export function computeSectionCoverage(
   }
 
   const keys = Object.keys(parsed);
-  const covered = keys.length;
+  const covered = Math.min(keys.length, totalConcepts);
   const now = new Date();
   const dueForReview = keys.some((key) => {
     const assessment = parsed[key];

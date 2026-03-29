@@ -15,6 +15,9 @@ import { ProgressBadge } from "@/components/ProgressBadge";
 import { TrackSelector } from "@/components/TrackSelector";
 import { EducationalGuidance } from "@/components/EducationalGuidance";
 import { AIDisclaimer } from "@/components/AIDisclaimer";
+import {
+  getCurriculumProfiles,
+} from "@softwarepilots/shared";
 import type {
   CurriculumProfileSummary,
   LearnerProfile,
@@ -199,8 +202,7 @@ export function Dashboard() {
   async function handleTrackSelect(profile: string) {
     try {
       await apiClient.put("/api/auth/preferences", { selected_profile: profile });
-      setProfileOverride(profile);
-      setShowTrackPicker(false);
+      navigate(`/curriculum/${profile}`);
     } catch {
       setError("Failed to save track preference");
     }
@@ -252,22 +254,37 @@ export function Dashboard() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       {/* Track header */}
-      <div className="mb-6 flex items-center gap-3">
-        <h1
-          className="text-xl font-bold"
-          style={{ color: "var(--text-primary)" }}
-        >
-          {selectedProfile.replace("level-", "Level ")}
-        </h1>
-        <button
-          type="button"
-          onClick={() => setShowTrackPicker(!showTrackPicker)}
-          className="cursor-pointer text-sm underline"
-          style={{ color: "var(--pilot-blue)" }}
-          data-testid="change-track"
-        >
-          Change
-        </button>
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <h1
+            className="text-xl font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {selectedProfile.replace("level-", "Level ")}
+          </h1>
+          <button
+            type="button"
+            onClick={() => setShowTrackPicker(!showTrackPicker)}
+            className="cursor-pointer text-sm underline"
+            style={{ color: "var(--pilot-blue)" }}
+            data-testid="change-track"
+          >
+            Change
+          </button>
+        </div>
+        {(() => {
+          const profiles = getCurriculumProfiles();
+          const current = profiles.find((p) => p.profile === selectedProfile);
+          return current?.starting_position ? (
+            <p
+              className="mt-2 text-sm leading-relaxed"
+              style={{ color: "var(--text-muted)" }}
+              data-testid="track-description"
+            >
+              {current.starting_position}
+            </p>
+          ) : null;
+        })()}
       </div>
 
       {/* Inline track picker */}
