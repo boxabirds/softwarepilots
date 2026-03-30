@@ -1,0 +1,82 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BlogLayout from '../../layouts/BlogLayout.astro';
+import '../../styles/blog.css';
+
+type BlogEntry = CollectionEntry<'blog'>;
+
+const posts: BlogEntry[] = (await getCollection('blog'))
+  .filter((post: BlogEntry) => post.data.status === 'published')
+  .sort((a: BlogEntry, b: BlogEntry) =>
+    new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
+  );
+
+function wordCount(body: string): number {
+  return body.split(/\s+/).filter(Boolean).length;
+}
+
+const WORDS_PER_MINUTE = 200;
+
+function readingTime(words: number): string {
+  const minutes = Math.max(1, Math.ceil(words / WORDS_PER_MINUTE));
+  return `${minutes} min read`;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString + 'T00:00:00');
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<BlogLayout
+  title="Blog | Software Pilots"
+  description="Articles on software pilotry, AI-assisted engineering, and the disciplines that make it work."
+>
+  <div class="blog">
+    <header class="blog__header">
+      <h1 class="blog__title">Blog</h1>
+      <p class="blog__subtitle">
+        On software pilotry, AI-assisted engineering, and the disciplines that make it work.
+      </p>
+    </header>
+
+    {posts.length === 0 ? (
+      <p class="blog__empty">No posts yet. Check back soon!</p>
+    ) : (
+      <div class="blog__list">
+        {posts.map((post: BlogEntry) => {
+          const words = wordCount(post.body ?? '');
+          return (
+            <article class="blog-card">
+              <a href={`/blog/${post.id}`} class="blog-card__link">
+                <header class="blog-card__header">
+                  <h2 class="blog-card__title">{post.data.title}</h2>
+                  <div class="blog-card__meta">
+                    <time class="blog-card__date" datetime={post.data.date}>
+                      {formatDate(post.data.date)}
+                    </time>
+                    <span class="blog-card__reading-time">
+                      {readingTime(words)}
+                    </span>
+                  </div>
+                </header>
+                <p class="blog-card__excerpt">{post.data.excerpt}</p>
+                {post.data.tags.length > 0 && (
+                  <div class="blog-card__tags">
+                    {post.data.tags.map((tag: string) => (
+                      <span class="blog-card__tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    )}
+  </div>
+</BlogLayout>

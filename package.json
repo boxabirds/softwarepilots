@@ -6,9 +6,9 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "preinstall": "node -e \"var a=process.env.npm_config_user_agent||'';if(!a.startsWith('bun')){console.error('\\x1b[31mERROR: Use bun, not npm/yarn/pnpm.\\x1b[0m');process.exit(1)}\"",
-    "site:dev": "vite",
-    "site:build": "vite build",
-    "site:preview": "vite preview",
+    "site:dev": "astro dev",
+    "site:build": "astro check && astro build",
+    "site:preview": "astro preview",
     "site:deploy": "bun run site:build && wrangler pages deploy dist --project-name=softwarepilots --branch=main",
     "api:dev": "bun run --filter @softwarepilots/api dev",
     "evaluator:dev": "bun run --filter @softwarepilots/evaluator dev",
@@ -22,8 +22,8 @@
   "license": "ISC",
   "description": "Software Pilots — the manifesto and foundation course",
   "devDependencies": {
+    "astro": "^5.0.0",
     "typescript": "^5.8.3",
-    "vite": "^7.3.1",
     "wrangler": "^4.71.0"
   }
 }

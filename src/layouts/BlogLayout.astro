@@ -1,0 +1,47 @@
+---
+import '../styles/palette.css';
+import '../styles/main.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="article" />
+    <meta property="og:image" content="/logo-blue-circle.png" />
+    <link rel="icon" type="image/png" href="/logo-blue-circle.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="site">
+      <nav class="blog-nav">
+        <div class="container">
+          <a href="/" class="blog-nav__home">
+            <img src="/logo-blue-circle.png" alt="" width="28" height="28" />
+            Software Pilots
+          </a>
+          <a href="/blog" class="blog-nav__link">Blog</a>
+        </div>
+      </nav>
+      <main class="blog-main">
+        <div class="container">
+          <slot />
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
